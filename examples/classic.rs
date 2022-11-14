@@ -5,57 +5,6 @@ use std::io::Read;
 use lib_garble_rs::circuit::InterstellarCircuit;
 
 fn main() {
-    ////////////////////////////////////////////////////////////////////////////
-
-    if true {
-        let f = std::fs::File::open("examples/data/adder.skcd.pb.bin").unwrap();
-        let mut reader = BufReader::new(f);
-
-        let mut buffer = Vec::new();
-        // read the whole file
-        reader.read_to_end(&mut buffer).unwrap();
-
-        let circ = InterstellarCircuit::parse_skcd(&buffer).unwrap();
-
-        // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
-        // input  i_bit1;
-        // input  i_bit2;
-        // input  i_carry;
-        let all_inputs = vec![
-            [0, 0, 0],
-            [1, 0, 0],
-            [0, 1, 0],
-            [1, 1, 0],
-            [0, 0, 1],
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 1, 1],
-        ];
-
-        // output o_sum;
-        // output o_carry;
-        let all_expected_outputs = [
-            [0, 0],
-            [1, 0],
-            [1, 0],
-            [0, 1],
-            [1, 0],
-            [0, 1],
-            [0, 1],
-            [1, 1],
-        ];
-
-        assert!(circ.num_evaluator_inputs() == 3);
-        for (i, inputs) in all_inputs.iter().enumerate() {
-            let outputs = circ.eval_plain(&[], inputs).unwrap();
-            if outputs == all_expected_outputs[i] {
-                println!("adder OK");
-            } else {
-                println!("adder FAIL!");
-            }
-        }
-    }
-
     //////////////////////////////////
     // TODO refactor "adder" as a test; and then add version with "display" and then write .png
 

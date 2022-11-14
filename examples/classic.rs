@@ -1,9 +1,8 @@
-use fancy_garbling::classic::garble;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
 
-use lib_garble_rs::skcd_parser::parse_skcd;
+use lib_garble_rs::circuit::InterstellarCircuit;
 
 fn main() {
     ////////////////////////////////////////////////////////////////////////////
@@ -16,7 +15,7 @@ fn main() {
         // read the whole file
         reader.read_to_end(&mut buffer).unwrap();
 
-        let circ = parse_skcd(&buffer).unwrap();
+        let circ = InterstellarCircuit::parse_skcd(&buffer).unwrap();
 
         // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
         // input  i_bit1;
@@ -68,7 +67,7 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let circ = parse_skcd(&buffer).unwrap();
+    let circ = InterstellarCircuit::parse_skcd(&buffer).unwrap();
 
     let outputs = circ.eval_plain(&[], &[1; 24]).unwrap();
 

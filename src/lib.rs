@@ -1,4 +1,5 @@
-pub mod skcd_parser;
+pub mod circuit;
+mod skcd_parser;
 
 #[cfg(test)]
 mod tests {

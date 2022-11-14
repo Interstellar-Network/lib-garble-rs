@@ -1,0 +1,3 @@
+[submodule "deps/protos"]
+	path = deps/protos
+	url = git@github.com:Interstellar-Network/protos.git

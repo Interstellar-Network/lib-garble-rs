@@ -1,0 +1,20 @@
+[package]
+name = "lib-garble-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial" }
+
+# TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
+prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
+bytes = { version = "1", default-features = false }
+
+[dev-dependencies]
+png = "0.17.7"
+
+# TODO(interstellar)
+[build-dependencies]
+prost-build = "0.11"

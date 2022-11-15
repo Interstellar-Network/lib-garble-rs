@@ -15,6 +15,5 @@ bytes = { version = "1", default-features = false }
 [dev-dependencies]
 png = "0.17.7"
 
-# TODO(interstellar)
 [build-dependencies]
 prost-build = "0.11"

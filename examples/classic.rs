@@ -7,6 +7,7 @@ use lib_garble_rs::circuit::InterstellarCircuit;
 fn main() {
     //////////////////////////////////
     // TODO refactor "adder" as a test; and then add version with "display" and then write .png
+    // cf above ^^^^^^^^
 
     let f =
         std::fs::File::open("examples/data/display_message_120x52_2digits.skcd.pb.bin").unwrap();

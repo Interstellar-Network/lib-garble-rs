@@ -5,6 +5,7 @@ mod skcd_parser;
 #[cfg(test)]
 mod tests {
     use crate::circuit::InterstellarCircuit;
+    use std::path::Path;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
@@ -61,5 +62,61 @@ mod tests {
             let outputs = garb.eval(inputs, &[]).unwrap();
             assert_eq!(outputs, full_adder_2bits_all_expected_outputs[i]);
         }
+    }
+
+    /// cf https://docs.rs/png/latest/png/#using-the-decoder
+    fn read_png_to_bytes(buf: &[u8]) -> Vec<u8> {
+        // The decoder is a build for reader and can be used to set various decoding options
+        // via `Transformations`. The default output transformation is `Transformations::IDENTITY`.
+        let decoder = png::Decoder::new(buf);
+        let mut reader = decoder.read_info().unwrap();
+        // Allocate the output buffer.
+        let mut buf = vec![0; reader.output_buffer_size()];
+        // Read the next frame. An APNG might contain multiple frames.
+        let info = reader.next_frame(&mut buf).unwrap();
+        // Grab the bytes of the image.
+        let bytes = &buf[..info.buffer_size()];
+
+        bytes.to_vec()
+    }
+
+    #[test]
+    fn test_garble_display_message_120x52_2digits() {
+        use std::io::BufWriter;
+        use std::io::Cursor;
+
+        let circ = InterstellarCircuit::parse_skcd(include_bytes!(
+            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+        ))
+        .unwrap();
+
+        let outputs = circ.eval_plain(&[], &[1; 24]).unwrap();
+
+        // let path = "eval_outputs.png";
+        let buf = Vec::new();
+        let mut c = Cursor::new(buf);
+        let ref mut w = BufWriter::new(c);
+
+        // TODO(interstellar) get from Circuit's "config"
+        let mut encoder = png::Encoder::new(w, 120, 52);
+        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_depth(png::BitDepth::Eight);
+
+        let mut writer = encoder.write_header().unwrap();
+
+        let data: Vec<u8> = outputs
+            .iter()
+            .map(|v| {
+                let pixel_value: u8 = (*v).try_into().unwrap();
+                pixel_value * 255
+            })
+            .collect();
+
+        writer.write_image_data(&data).unwrap();
+
+        let expected_outputs = read_png_to_bytes(include_bytes!(
+            "../examples/data/eval_outputs_display_message_120x52_2digits.png"
+        ));
+        assert_eq!(data, expected_outputs);
     }
 }

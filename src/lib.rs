@@ -82,6 +82,7 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits() {
+        use crate::garble::InterstellarGarbledCircuit;
         use std::io::BufWriter;
         use std::io::Cursor;
 
@@ -90,7 +91,9 @@ mod tests {
         ))
         .unwrap();
 
-        let outputs = circ.eval_plain(&[], &[1; 24]).unwrap();
+        let garb = InterstellarGarbledCircuit::garble(circ);
+
+        let outputs = garb.eval(&[1; 24], &[]).unwrap();
 
         // let path = "eval_outputs.png";
         let buf = Vec::new();

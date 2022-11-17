@@ -5,13 +5,12 @@ mod skcd_parser;
 #[cfg(test)]
 mod tests {
     use crate::circuit::InterstellarCircuit;
-    use std::path::Path;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
     // input  i_bit2;
     // input  i_carry;
-    const full_adder_2bits_all_inputs: &'static [&'static [u16]] = &[
+    const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
         &[0, 0, 0],
         &[1, 0, 0],
         &[0, 1, 0],
@@ -24,7 +23,7 @@ mod tests {
 
     // output o_sum;
     // output o_carry;
-    const full_adder_2bits_all_expected_outputs: &'static [&'static [u16]] = &[
+    const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
         &[0, 0],
         &[1, 0],
         &[1, 0],
@@ -42,9 +41,9 @@ mod tests {
                 .unwrap();
 
         assert!(circ.num_evaluator_inputs() == 3);
-        for (i, inputs) in full_adder_2bits_all_inputs.iter().enumerate() {
+        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
             let outputs = circ.eval_plain(&[], inputs).unwrap();
-            assert_eq!(outputs, full_adder_2bits_all_expected_outputs[i]);
+            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
         }
     }
 
@@ -58,9 +57,9 @@ mod tests {
 
         let garb = InterstellarGarbledCircuit::garble(circ);
 
-        for (i, inputs) in full_adder_2bits_all_inputs.iter().enumerate() {
-            let outputs = garb.eval(inputs, &[]).unwrap();
-            assert_eq!(outputs, full_adder_2bits_all_expected_outputs[i]);
+        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
+            let outputs = garb.eval(&[], inputs).unwrap();
+            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
         }
     }
 
@@ -93,11 +92,11 @@ mod tests {
 
         let garb = InterstellarGarbledCircuit::garble(circ);
 
-        let outputs = garb.eval(&[1; 24], &[]).unwrap();
+        let outputs = garb.eval(&[], &[1; 24]).unwrap();
 
         // let path = "eval_outputs.png";
         let buf = Vec::new();
-        let mut c = Cursor::new(buf);
+        let c = Cursor::new(buf);
         let ref mut w = BufWriter::new(c);
 
         // TODO(interstellar) get from Circuit's "config"

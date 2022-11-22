@@ -55,7 +55,7 @@ mod tests {
             InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
                 .unwrap();
 
-        let garb = InterstellarGarbledCircuit::garble(circ);
+        let mut garb = InterstellarGarbledCircuit::garble(circ);
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
             let outputs = garb.eval(&[], inputs).unwrap();
@@ -90,7 +90,7 @@ mod tests {
         ))
         .unwrap();
 
-        let garb = InterstellarGarbledCircuit::garble(circ);
+        let mut garb = InterstellarGarbledCircuit::garble(circ);
 
         let outputs = garb.eval(&[], &[1; 24]).unwrap();
 

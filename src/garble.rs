@@ -25,7 +25,7 @@ impl InterstellarGarbledCircuit {
     }
 
     pub fn eval(
-        &self,
+        &mut self,
         garbler_inputs: &[u16],
         evaluator_inputs: &[u16],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {

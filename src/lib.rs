@@ -84,8 +84,9 @@ mod tests {
         bytes.to_vec()
     }
 
-    #[test]
-    fn test_garble_display_message_120x52_2digits() {
+    /// garble display_message_120x52_2digits.skcd.pb.bin
+    /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
+    fn garble_display_message_120x52_2digits(evaluator_inputs: &[u16]) -> Vec<u8> {
         use crate::garble::InterstellarGarbledCircuit;
         use std::io::BufWriter;
         use std::io::Cursor;
@@ -97,7 +98,7 @@ mod tests {
 
         let mut garb = InterstellarGarbledCircuit::garble(circ);
 
-        let outputs = garb.eval(&[], &[1; 24]).unwrap();
+        let outputs = garb.eval(&[], evaluator_inputs).unwrap();
 
         // let path = "eval_outputs.png";
         let buf = Vec::new();
@@ -121,8 +122,25 @@ mod tests {
 
         writer.write_image_data(&data).unwrap();
 
+        data
+    }
+
+    #[test]
+    fn test_garble_display_message_120x52_2digits_ones() {
+        let data = garble_display_message_120x52_2digits(&[1; 24]);
+
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits.png"
+        ));
+        assert_eq!(data, expected_outputs);
+    }
+
+    #[test]
+    fn test_garble_display_message_120x52_2digits_zeros() {
+        let data = garble_display_message_120x52_2digits(&[0; 24]);
+
+        let expected_outputs = read_png_to_bytes(include_bytes!(
+            "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
         ));
         assert_eq!(data, expected_outputs);
     }

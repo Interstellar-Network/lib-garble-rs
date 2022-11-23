@@ -19,7 +19,20 @@ fn main() {
 
     let circ = InterstellarCircuit::parse_skcd(&buffer).unwrap();
 
-    let outputs = circ.eval_plain(&[], &[1; 24]).unwrap();
+    // TODO(interstellar)!!! BROKEN CIRCUIT??? no way to properly display a given digit?
+    let evaluator_inputs = vec![
+        // // first digit: 7 segments
+        // 1, 1, 1, 1, 1, 1, 1, //
+        // // second digit: 7 segments
+        // 1, 1, 1, 1, 1, 1, 1, //
+        // first digit: 7 segments: 4
+        0, 1, 1, 1, 0, 1, 0, //
+        // second digit: 7 segments: 2
+        1, 0, 1, 1, 1, 0, 1, //
+        // "rnd": 10 inputs; value SHOULD not really matter for this test???
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //
+    ];
+    let outputs = circ.eval_plain(&[], &evaluator_inputs).unwrap();
 
     let path = "eval_outputs.png";
     let file = std::fs::File::create(path).unwrap();

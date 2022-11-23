@@ -59,7 +59,12 @@ mod tests {
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
             let outputs = garb.eval(&[], inputs).unwrap();
-            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
+            let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
+            println!(
+                "inputs = {:?}, outputs = {:?}, expected_outputs = {:?}",
+                inputs, outputs, expected_outputs
+            );
+            assert_eq!(outputs, expected_outputs);
         }
     }
 

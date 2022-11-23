@@ -29,11 +29,11 @@ impl InterstellarGarbledCircuit {
         garbler_inputs: &[u16],
         evaluator_inputs: &[u16],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
-        let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
-        let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
+        // let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
+        // let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
 
         self.garbled
-            .eval(garbler_inputs, evaluator_inputs)
+            .eval(&self.encoder, garbler_inputs, evaluator_inputs)
             .map_err(|e| InterstellarEvaluatorError::FancyError(e))
     }
 }

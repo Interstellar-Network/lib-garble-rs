@@ -3,6 +3,7 @@ use std::io::BufWriter;
 use std::io::Read;
 
 use lib_garble_rs::circuit::InterstellarCircuit;
+use lib_garble_rs::garble::InterstellarGarbledCircuit;
 
 fn main() {
     //////////////////////////////////
@@ -30,9 +31,12 @@ fn main() {
         // second digit: 7 segments: 2
         1, 0, 1, 1, 1, 0, 1, //
         // "rnd": 10 inputs; value SHOULD not really matter for this test???
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, //
     ];
-    let outputs = circ.eval_plain(&[], &evaluator_inputs).unwrap();
+
+    let mut garb = InterstellarGarbledCircuit::garble(circ);
+
+    let outputs = garb.eval(&[], &evaluator_inputs).unwrap();
 
     let path = "eval_outputs.png";
     let file = std::fs::File::create(path).unwrap();

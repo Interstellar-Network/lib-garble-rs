@@ -142,23 +142,10 @@ impl InterstellarCircuit {
 
         // TODO(interstellar) how should we use skcd's a/b/go?
         for g in 0..skcd.q as usize {
-            // TODO(interstellar) gate_offset?
             let skcd_input0 = *skcd.a.get(g).unwrap() as usize;
             let skcd_input1 = *skcd.b.get(g).unwrap() as usize;
-            // TODO(interstellar) graph: how to use skcd_output?
             let skcd_output = *skcd.go.get(g).unwrap() as usize;
             let skcd_gate_type = *skcd.gt.get(g).unwrap();
-            // println!("Processing gate: {}", g);
-
-            // TODO(interstellar) gate_offset?
-            // let default_xref = CircuitRef {
-            //     ix: skcd_input0,
-            //     modulus: q,
-            // };
-            // let default_yref = CircuitRef {
-            //     ix: skcd_input1,
-            //     modulus: q,
-            // };
 
             // TODO(interstellar) apparently "unwrap_or" needed for "display skcd"; why???
             let xref = map_skcd_gate_id_to_circuit_ref.get(&skcd_input0).unwrap();
@@ -169,33 +156,20 @@ impl InterstellarCircuit {
             // cf "pub trait Fancy"(fancy.rs) for how to build each type of Gate
             match skcd_gate_type.try_into() {
                 Ok(SkcdGateType::ZERO) => {
-                    // if current_gates.insert(circ_builder.constant(0, q).unwrap()) {
-                    //     gate_offset += 1;
-                    // }
-
                     // TODO(interstellar) apparently needed for "display skcd"; why???
                     map_skcd_gate_id_to_circuit_ref
                         .insert(skcd_output, circ_builder.constant(0, q).unwrap());
-
-                    // circ.gates.push(Gate::Constant { val: 0 })
                 }
                 Ok(SkcdGateType::ONE) => {
-                    // if current_gates.insert(circ_builder.constant(1, q).unwrap()) {
-                    //     gate_offset += 1;
-                    // }
-
                     map_skcd_gate_id_to_circuit_ref
                         .insert(skcd_output, circ_builder.constant(1, q).unwrap());
-
-                    // circ.gates.push(Gate::Constant { val: 0 })
                 }
                 // "Or uses Demorgan's Rule implemented with multiplication and negation."
                 Ok(SkcdGateType::OR) => {
-                    // let x = inputs.get(skcd_input0).unwrap();
-                    // let y = inputs.get(skcd_input1).unwrap();
+                    // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
+                    // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
                     let z = circ_builder.or(&xref, &yref).unwrap();
 
-                    // TODO(interstellar) output? circ_builder.output(&z);
                     map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
 
                     // fn or(&mut self, x: &Self::Item, y: &Self::Item):
@@ -211,41 +185,24 @@ impl InterstellarCircuit {
                     //     xref: notx,
                     //     yref: noty,
                     //     id: id,
-                    //     // TODO(interstellar)
                     //     // out: Some(out),
                     //     out: None,
                     // };
-
-                    // let zref = CircuitRef { ix: id, modulus: q };
-
-                    // id += 1;
-
-                    // fancy_negate(&mut circ, &zref, &oneref);
                 }
                 // "Xor is just addition, with the requirement that `x` and `y` are mod 2."
                 Ok(SkcdGateType::XOR) => {
-                    // let x = inputs.get(skcd_input0).unwrap();
-                    // let y = inputs.get(skcd_input1).unwrap();
+                    // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
+                    // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
                     let z = circ_builder.xor(&xref, &yref).unwrap();
 
-                    // TODO(interstellar) output? circ_builder.output(&z);
                     map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
-
-                    // circ.gates.push(Gate::Add {
-                    //     xref,
-                    //     yref,
-                    //     out: Some(skcd_output),
-                    // })
-
-                    // fancy_xor(&mut circ, &xref, &yref);
                 }
                 Ok(SkcdGateType::NAND) => {
-                    // let x = inputs.get(skcd_input0).unwrap();
-                    // let y = inputs.get(skcd_input1).unwrap();
                     let z = circ_builder.and(&xref, &yref).unwrap();
                     let z = circ_builder.negate(&z).unwrap();
 
-                    // TODO(interstellar) output? circ_builder.output(&z);
+                    // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
+                    // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
                     map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
 
                     // "And is just multiplication, with the requirement that `x` and `y` are mod 2."
@@ -253,22 +210,14 @@ impl InterstellarCircuit {
                     //     xref: xref,
                     //     yref: yref,
                     //     id: id,
-                    //     // TODO(interstellar)
                     //     // out: Some(out),
                     //     out: None,
                     // };
-
-                    // let zref = CircuitRef { ix: id, modulus: q };
-
-                    // id += 1;
-
-                    // fancy_negate(&mut circ, &zref, &oneref);
                 }
                 _ => todo!(),
             }
         }
 
-        // TODO(interstellar)? parser.rs "Process outputs."
         // IMPORTANT: we MUST use skcd.o to set the CORRECT outputs
         // eg for the 2 bits adder.skcd:
         // - skcd.m = 1
@@ -276,18 +225,9 @@ impl InterstellarCircuit {
         // -> the 2 CORRECT outputs to be set are: [8,11]
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
-        // TODO(interstellar) parser.rs proper wires?
         for o in skcd.o {
             let z = map_skcd_gate_id_to_circuit_ref.get(&(o as usize)).unwrap();
-            // TODO put that in "outputs_refs" vec? and use it below?
             circ_builder.output(&z).unwrap();
-
-            // circ.output_refs.push(CircuitRef {
-            //     // TODO(interstellar) parser.rs proper wires?
-            //     // ix: nwires - n3 + i,
-            //     ix: i as usize,
-            //     modulus: q,
-            // });
         }
 
         Ok(InterstellarCircuit {

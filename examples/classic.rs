@@ -16,7 +16,7 @@ fn main() {
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
     let f =
-        std::fs::File::open("examples/data/display_message_640x360_2digits.skcd.pb.bin").unwrap();
+        std::fs::File::open("examples/data/display_message_120x52_2digits.skcd.pb.bin").unwrap();
     let mut reader = BufReader::new(f);
 
     let mut buffer = Vec::new();
@@ -28,33 +28,48 @@ fn main() {
     let mut garb = InterstellarGarbledCircuit::garble(circ);
 
     // TODO(interstellar) get from Circuit's "config"
-    let width = 640;
-    let height = 360;
-    // let width = 120;
-    // let height = 52;
+    // let width = 640;
+    // let height = 360;
+    let width = 120;
+    let height = 52;
 
     let mut merged_outputs = vec![0u16; width * height];
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    for _ in 0..NB_EVALS {
-        // TODO(interstellar)!!! BROKEN CIRCUIT??? no way to properly display a given digit?
-        let mut evaluator_inputs = vec![
-            // cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels
-            // It MUST always be 0; else the segments will not be displayed properly
-            0, //
-            // first digit: 7 segments: 4
-            0, 1, 1, 1, 0, 1, 0, //
-            // second digit: 7 segments: 2
-            1, 0, 1, 1, 1, 0, 1, //
-            // "rnd": 10 inputs; value SHOULD not really matter for this test???
-            0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        ];
+    // TODO proper garbler inputs
+    // Those are splitted into:
+    // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
+    //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
+    // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
+    // - the watermark; one bit per pixel in the final display = width * height bits
+    let garbler_input_buf = vec![0u16];
+    let garbler_input_segments = vec![
+        // first digit: 7 segments: 4
+        0u16, 1, 1, 1, 0, 1, 0, //
+        // second digit: 7 segments: 2
+        1, 0, 1, 1, 1, 0, 1, //
+    ];
+    let garbler_input_watermark = vec![0u16; width * height];
 
-        // randomize the "rnd" part of the inputs
+    let placeholder_evaluator_inputs = vec![
+        // "rnd": 10 inputs; value SHOULD not really matter for this test???
+        0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
+    ];
+
+    for _ in 0..NB_EVALS {
+        let mut evaluator_inputs = [
+            garbler_input_buf.clone(),
+            garbler_input_segments.clone(),
+            garbler_input_watermark.clone(),
+            placeholder_evaluator_inputs.clone(),
+        ]
+        .concat();
+
+        // randomize the "rnd" part of the inputs; ie the last 10
         let size = evaluator_inputs.len();
         // cf "rndswitch.v" comment above; DO NOT touch the last!
-        for input in evaluator_inputs[14 + 1..size].iter_mut() {
+        for input in evaluator_inputs[size - 10 - 1..].iter_mut() {
             *input = rand_0_1.sample(&mut rng);
         }
 

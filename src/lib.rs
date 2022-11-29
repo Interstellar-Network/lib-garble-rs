@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_ones() {
-        let data = garble_display_message_120x52_2digits(&[1; 24]);
+        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52 + 10]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits.png"
@@ -137,11 +137,13 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_zeros() {
-        let data = garble_display_message_120x52_2digits(&[0; 24]);
+        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52 + 10]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
         ));
         assert_eq!(data, expected_outputs);
     }
+
+    // TODO test with eg "42"; NOTE: requires updating the .skcd for new inputs order
 }

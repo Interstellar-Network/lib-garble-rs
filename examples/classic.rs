@@ -48,32 +48,30 @@ fn main() {
         // first digit: 7 segments: 4
         0u16, 1, 1, 1, 0, 1, 0, //
         // second digit: 7 segments: 2
-        1, 0, 1, 1, 1, 0, 1, //
+        1u16, 0, 1, 1, 1, 0, 1, //
     ];
     let garbler_input_watermark = vec![0u16; width * height];
 
-    let placeholder_evaluator_inputs = vec![
+    let mut garbler_inputs = [
+        garbler_input_buf.clone(),
+        garbler_input_segments.clone(),
+        garbler_input_watermark.clone(),
+    ]
+    .concat();
+
+    let mut evaluator_inputs = vec![
         // "rnd": 10 inputs; value SHOULD not really matter for this test???
         0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
     ];
 
     for _ in 0..NB_EVALS {
-        let mut evaluator_inputs = [
-            garbler_input_buf.clone(),
-            garbler_input_segments.clone(),
-            garbler_input_watermark.clone(),
-            placeholder_evaluator_inputs.clone(),
-        ]
-        .concat();
-
-        // randomize the "rnd" part of the inputs; ie the last 10
-        let size = evaluator_inputs.len();
+        // randomize the "rnd" part of the inputs
         // cf "rndswitch.v" comment above; DO NOT touch the last!
-        for input in evaluator_inputs[size - 10 - 1..].iter_mut() {
+        for input in evaluator_inputs.iter_mut() {
             *input = rand_0_1.sample(&mut rng);
         }
 
-        let temp_outputs = garb.eval(&[], &evaluator_inputs).unwrap();
+        let temp_outputs = garb.eval(&garbler_inputs, &evaluator_inputs).unwrap();
         assert_eq!(
             temp_outputs.len(),
             merged_outputs.len(),

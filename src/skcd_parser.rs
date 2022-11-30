@@ -102,11 +102,12 @@ impl InterstellarCircuit {
         let mut buf = &*buf;
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(&mut buf).unwrap();
+        let nb_gates = skcd.a.len();
         assert!(
             skcd.a.len() == skcd.b.len()
                 && skcd.b.len() == skcd.go.len()
                 && skcd.go.len() == skcd.gt.len()
-                && skcd.gt.len() == skcd.q.try_into().unwrap(),
+                && nb_gates == skcd.gt.len(),
             "number of gates inputs/outputs/types DO NOT match!"
         );
         println!("skcd : a = {}", skcd.a.len());
@@ -120,18 +121,24 @@ impl InterstellarCircuit {
         // which means we must convert a .skcd GateID(integer) to its corresponding CircuitRef
         let mut map_skcd_gate_id_to_circuit_ref: HashMap<usize, CircuitRef> = HashMap::new();
 
-        // create a vec of [2,2,2..] containing skcd.n elements
-        // that is needed for "evaluator_inputs"
-        // let mods = vec![2u16; skcd.n.try_into().unwrap()];
+        // INPUTS
+        let skcd_config = skcd.config.unwrap();
+        let mut input_idx = 0;
 
-        // TODO(interstellar) should we use "garbler_inputs" instead?
-        // let inputs = circ_builder.evaluator_inputs(&mods);
-        for i in 0..skcd.n as usize {
-            // circ.gates.push(Gate::EvaluatorInput { id: i });
-            // circ.evaluator_input_refs
-            //     .push(CircuitRef { ix: i, modulus: q });
+        for skcd_evaluator_input in skcd_config.evaluator_inputs {
+            for i in 0..skcd_evaluator_input.length {
+                map_skcd_gate_id_to_circuit_ref.insert(input_idx, circ_builder.evaluator_input(q));
+                input_idx += 1;
+            }
+        }
 
-            map_skcd_gate_id_to_circuit_ref.insert(i, circ_builder.evaluator_input(q));
+        // garbler inputs; same as "evaluator_inputs" above but a bit more complicated b/c how we are about to use
+        // them depend on the type (eg 7 segments, i-ching, basic gate inputs for adder, etc)
+        for skcd_garbler_input in skcd_config.garbler_inputs {
+            for i in 0..skcd_garbler_input.length {
+                map_skcd_gate_id_to_circuit_ref.insert(input_idx, circ_builder.garbler_input(q));
+                input_idx += 1;
+            }
         }
 
         // We MUST rewrite certain Gate, which means some Gates in .skcd will be converted to several in CircuiBuilder
@@ -141,7 +148,7 @@ impl InterstellarCircuit {
         // let mut current_gates = HashSet::new();
 
         // TODO(interstellar) how should we use skcd's a/b/go?
-        for g in 0..skcd.q as usize {
+        for g in 0..nb_gates as usize {
             let skcd_input0 = *skcd.a.get(g).unwrap() as usize;
             let skcd_input1 = *skcd.b.get(g).unwrap() as usize;
             let skcd_output = *skcd.go.get(g).unwrap() as usize;

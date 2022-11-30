@@ -86,7 +86,10 @@ mod tests {
 
     /// garble display_message_120x52_2digits.skcd.pb.bin
     /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
-    fn garble_display_message_120x52_2digits(evaluator_inputs: &[u16]) -> Vec<u8> {
+    fn garble_display_message_120x52_2digits(
+        garbler_inputs: &[u16],
+        evaluator_inputs: &[u16],
+    ) -> Vec<u8> {
         use crate::garble::InterstellarGarbledCircuit;
         use std::io::BufWriter;
         use std::io::Cursor;
@@ -98,7 +101,7 @@ mod tests {
 
         let mut garb = InterstellarGarbledCircuit::garble(circ);
 
-        let outputs = garb.eval(&[], evaluator_inputs).unwrap();
+        let outputs = garb.eval(garbler_inputs, evaluator_inputs).unwrap();
 
         // let path = "eval_outputs.png";
         let buf = Vec::new();
@@ -127,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_ones() {
-        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52 + 10]);
+        let data = garble_display_message_120x52_2digits(&[1; 1 + 2 * 7 + 120 * 52], &[0; 9]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits.png"
@@ -137,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_zeros() {
-        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52 + 10]);
+        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52], &[0; 9]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
@@ -146,4 +149,5 @@ mod tests {
     }
 
     // TODO test with eg "42"; NOTE: requires updating the .skcd for new inputs order
+    // TODO!!!
 }

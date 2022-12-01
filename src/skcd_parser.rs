@@ -112,13 +112,6 @@ impl InterstellarCircuit {
 
         let mut skcd_gate_converter = SkcdGateConverter::new();
 
-        // INPUTS
-        // IMPORTANT: garbler vs evaluator ones first SHOULD match /lib_circuits/src/blif/blif_parser.cpp "Init the labels"
-        // else it makes comparing(debugging) the different (.blif, .skcd, etc) harder
-        //
-        // TODO!!! ???
-        // else the IDs in "map_skcd_gate_id_to_circuit_ref" will not match, and we get "'called `Option::unwrap()` on a `None` value'"
-        // in the gate loop just after
         let skcd_config = skcd.config.unwrap();
         let mut input_idx = 0;
 
@@ -179,6 +172,7 @@ impl InterstellarCircuit {
                     circ_builder.negate(&z).unwrap()
                 }
                 Ok(SkcdGateType::INV) => circ_builder.negate(xref?).unwrap(),
+                Ok(SkcdGateType::BUF) => circ_builder.cmul(xref?, 1).unwrap(),
                 _ => todo!(),
             };
 

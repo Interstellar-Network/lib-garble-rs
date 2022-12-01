@@ -50,14 +50,12 @@ fn main() {
         // second digit: 7 segments: 2
         1u16, 0, 1, 1, 1, 0, 1, //
     ];
-    // TODO!!!
-    // let garbler_input_watermark = vec![0u16; width * height];
+    let garbler_input_watermark = vec![0u16; width * height];
 
     let mut garbler_inputs = [
         garbler_input_buf.clone(),
         garbler_input_segments.clone(),
-        // TODO!!!
-        // garbler_input_watermark.clone(),
+        garbler_input_watermark.clone(),
     ]
     .concat();
 

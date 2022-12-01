@@ -83,6 +83,8 @@ pub enum CircuitParserError {
     ParseLineError(String),
     /// An error occurred parsing a gate type.
     ParseGateError(String),
+    /// InvalidGateIdError: the given GateID from the .skcd DOES NOT match CircuitBuilder's
+    InvalidGateIdError(String),
 }
 
 impl InterstellarCircuit {
@@ -102,127 +104,85 @@ impl InterstellarCircuit {
         let mut buf = &*buf;
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(&mut buf).unwrap();
-        let nb_gates = skcd.a.len();
-        assert!(
-            skcd.a.len() == skcd.b.len()
-                && skcd.b.len() == skcd.go.len()
-                && skcd.go.len() == skcd.gt.len()
-                && nb_gates == skcd.gt.len(),
-            "number of gates inputs/outputs/types DO NOT match!"
-        );
-        println!("skcd : a = {}", skcd.a.len());
 
         let mut circ_builder = CircuitBuilder::new();
 
         // TODO(interstellar) modulus: what should we use??
         let q = 2;
 
-        // We need to use a CircuitRef for Fancy gates(fn xor/fn and/etc)
-        // which means we must convert a .skcd GateID(integer) to its corresponding CircuitRef
-        let mut map_skcd_gate_id_to_circuit_ref: HashMap<usize, CircuitRef> = HashMap::new();
+        let mut skcd_gate_converter = SkcdGateConverter::new();
 
         // INPUTS
+        // IMPORTANT: garbler vs evaluator ones first SHOULD match /lib_circuits/src/blif/blif_parser.cpp "Init the labels"
+        // else it makes comparing(debugging) the different (.blif, .skcd, etc) harder
+        //
+        // TODO!!! ???
+        // else the IDs in "map_skcd_gate_id_to_circuit_ref" will not match, and we get "'called `Option::unwrap()` on a `None` value'"
+        // in the gate loop just after
         let skcd_config = skcd.config.unwrap();
         let mut input_idx = 0;
 
-        for skcd_evaluator_input in skcd_config.evaluator_inputs {
-            for i in 0..skcd_evaluator_input.length {
-                map_skcd_gate_id_to_circuit_ref.insert(input_idx, circ_builder.evaluator_input(q));
-                input_idx += 1;
-            }
-        }
-
         // garbler inputs; same as "evaluator_inputs" above but a bit more complicated b/c how we are about to use
         // them depend on the type (eg 7 segments, i-ching, basic gate inputs for adder, etc)
+        let mut skcd_inputs_is_garbled = Vec::<bool>::new();
         for skcd_garbler_input in skcd_config.garbler_inputs {
-            for i in 0..skcd_garbler_input.length {
-                map_skcd_gate_id_to_circuit_ref.insert(input_idx, circ_builder.garbler_input(q));
+            for _i in 0..skcd_garbler_input.length {
+                skcd_inputs_is_garbled.push(true);
                 input_idx += 1;
             }
         }
 
-        // We MUST rewrite certain Gate, which means some Gates in .skcd will be converted to several in CircuiBuilder
-        // eg OR -> NOT+AND+AND+NOT
-        // This means we MUST "correct" the GateID in .skcd by a given offset
-        // let mut gate_offset = 0;
-        // let mut current_gates = HashSet::new();
+        for skcd_evaluator_input in skcd_config.evaluator_inputs {
+            for _i in 0..skcd_evaluator_input.length {
+                skcd_inputs_is_garbled.push(false);
+                input_idx += 1;
+            }
+        }
+
+        assert_eq!(
+            input_idx,
+            skcd.inputs.len(),
+            "inputs and SkcdConfig fields DO NOT match!"
+        );
+
+        for (idx, skcd_input) in skcd.inputs.iter().enumerate() {
+            let new_gate = if skcd_inputs_is_garbled[idx] {
+                circ_builder.garbler_input(q)
+            } else {
+                circ_builder.evaluator_input(q)
+            };
+            skcd_gate_converter.insert(skcd_input, new_gate);
+        }
 
         // TODO(interstellar) how should we use skcd's a/b/go?
-        for g in 0..nb_gates as usize {
-            let skcd_input0 = *skcd.a.get(g).unwrap() as usize;
-            let skcd_input1 = *skcd.b.get(g).unwrap() as usize;
-            let skcd_output = *skcd.go.get(g).unwrap() as usize;
-            let skcd_gate_type = *skcd.gt.get(g).unwrap();
+        for skcd_gate in skcd.gates {
+            let xref = skcd_gate_converter.get(&skcd_gate.a);
+            let yref = skcd_gate_converter.get(&skcd_gate.b);
 
-            // TODO(interstellar) apparently "unwrap_or" needed for "display skcd"; why???
-            let xref = map_skcd_gate_id_to_circuit_ref.get(&skcd_input0).unwrap();
-            // .unwrap_or(&default_xref);
-            let yref = map_skcd_gate_id_to_circuit_ref.get(&skcd_input1).unwrap();
-            // .unwrap_or(&default_yref);
-
-            // cf "pub trait Fancy"(fancy.rs) for how to build each type of Gate
-            match skcd_gate_type.try_into() {
-                Ok(SkcdGateType::ZERO) => {
-                    // TODO(interstellar) apparently needed for "display skcd"; why???
-                    map_skcd_gate_id_to_circuit_ref
-                        .insert(skcd_output, circ_builder.constant(0, q).unwrap());
-                }
-                Ok(SkcdGateType::ONE) => {
-                    map_skcd_gate_id_to_circuit_ref
-                        .insert(skcd_output, circ_builder.constant(1, q).unwrap());
-                }
-                // "Or uses Demorgan's Rule implemented with multiplication and negation."
+            let new_gate = match skcd_gate.r#type.try_into() {
+                Ok(SkcdGateType::ZERO) => circ_builder.constant(0, q).unwrap(),
+                Ok(SkcdGateType::ONE) => circ_builder.constant(1, q).unwrap(),
                 Ok(SkcdGateType::OR) => {
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    let z = circ_builder.or(&xref, &yref).unwrap();
-
-                    map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
-
-                    // fn or(&mut self, x: &Self::Item, y: &Self::Item):
-                    // let notx = self.negate(x)?;
-                    // let noty = self.negate(y)?;
-                    // let z = self.and(&notx, &noty)?;
-                    // self.negate(&z)
-                    //
-                    // let notx = fancy_negate(&mut circ, &xref, &oneref);
-                    // let noty = fancy_negate(&mut circ, &yref, &oneref);
-                    // // "And is just multiplication, with the requirement that `x` and `y` are mod 2."
-                    // let z = Gate::Mul {
-                    //     xref: notx,
-                    //     yref: noty,
-                    //     id: id,
-                    //     // out: Some(out),
-                    //     out: None,
-                    // };
+                    circ_builder.or(xref?, yref?).unwrap()
                 }
-                // "Xor is just addition, with the requirement that `x` and `y` are mod 2."
                 Ok(SkcdGateType::XOR) => {
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    let z = circ_builder.xor(&xref, &yref).unwrap();
-
-                    map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
+                    circ_builder.xor(xref?, yref?).unwrap()
                 }
                 Ok(SkcdGateType::NAND) => {
-                    let z = circ_builder.and(&xref, &yref).unwrap();
-                    let z = circ_builder.negate(&z).unwrap();
-
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    map_skcd_gate_id_to_circuit_ref.insert(skcd_output, z);
-
-                    // "And is just multiplication, with the requirement that `x` and `y` are mod 2."
-                    // let z = Gate::Mul {
-                    //     xref: xref,
-                    //     yref: yref,
-                    //     id: id,
-                    //     // out: Some(out),
-                    //     out: None,
-                    // };
+                    let z = circ_builder.and(xref?, yref?).unwrap();
+                    circ_builder.negate(&z).unwrap()
                 }
+                Ok(SkcdGateType::INV) => circ_builder.negate(xref?).unwrap(),
                 _ => todo!(),
-            }
+            };
+
+            skcd_gate_converter.insert(&skcd_gate.o, new_gate);
         }
 
         // IMPORTANT: we MUST use skcd.o to set the CORRECT outputs
@@ -232,13 +192,46 @@ impl InterstellarCircuit {
         // -> the 2 CORRECT outputs to be set are: [8,11]
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
-        for o in skcd.o {
-            let z = map_skcd_gate_id_to_circuit_ref.get(&(o as usize)).unwrap();
+        for o in skcd.outputs {
+            let z = skcd_gate_converter.get(&o).unwrap();
             circ_builder.output(&z).unwrap();
         }
 
         Ok(InterstellarCircuit {
             circuit: circ_builder.finish(),
         })
+    }
+}
+
+/// We need to convert soemthing like
+/// ".gate XOR  a=rnd[2] b=rnd[0] O=n7016" in the .skcd(which is basically a .blif)
+/// into something that CircuitBuilder can accept.
+/// Essentially we need to convert a String ID -> CircuitRef(= a usize)
+///
+/// IMPORTANT
+/// For this to work, the INPUTS MUST also go through the same convertion, else
+/// when using CircuitBuilder.or/and/etc the CircuitRef WOULD NOT match anything.
+/// NOTE that in this case the Circuit still would build fine, but it would fail
+/// when eval/garbling.
+struct SkcdGateConverter {
+    map_skcd_gate_id_to_circuit_ref: HashMap<String, CircuitRef>,
+}
+
+impl SkcdGateConverter {
+    pub fn new() -> Self {
+        Self {
+            map_skcd_gate_id_to_circuit_ref: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, skcd_gate_id: &str) -> Result<&CircuitRef, CircuitParserError> {
+        self.map_skcd_gate_id_to_circuit_ref
+            .get(skcd_gate_id)
+            .ok_or_else(|| CircuitParserError::InvalidGateIdError(skcd_gate_id.to_string()))
+    }
+
+    pub fn insert(&mut self, skcd_gate_id: &str, circuit_ref: CircuitRef) {
+        self.map_skcd_gate_id_to_circuit_ref
+            .insert(skcd_gate_id.to_string(), circuit_ref);
     }
 }

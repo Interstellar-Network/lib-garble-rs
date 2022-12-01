@@ -130,7 +130,8 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_ones() {
-        let data = garble_display_message_120x52_2digits(&[1; 1 + 2 * 7 + 120 * 52], &[0; 9]);
+        // TODO!!! + 120 * 52
+        let data = garble_display_message_120x52_2digits(&[1; 1 + 2 * 7], &[0; 9]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits.png"
@@ -140,7 +141,8 @@ mod tests {
 
     #[test]
     fn test_garble_display_message_120x52_2digits_zeros() {
-        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52], &[0; 9]);
+        // TODO!!! + 120 * 52
+        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7], &[0; 9]);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"

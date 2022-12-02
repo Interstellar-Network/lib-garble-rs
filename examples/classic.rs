@@ -16,7 +16,7 @@ fn main() {
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
     let f =
-        std::fs::File::open("examples/data/display_message_120x52_2digits.skcd.pb.bin").unwrap();
+        std::fs::File::open("examples/data/display_message_640x360_2digits.skcd.pb.bin").unwrap();
     let mut reader = BufReader::new(f);
 
     let mut buffer = Vec::new();
@@ -27,11 +27,9 @@ fn main() {
 
     let mut garb = InterstellarGarbledCircuit::garble(circ);
 
-    // TODO(interstellar) get from Circuit's "config"
-    // let width = 640;
-    // let height = 360;
-    let width = 120;
-    let height = 52;
+    let display_config = garb.config.display_config.unwrap().clone();
+    let width = display_config.width as usize;
+    let height = display_config.height as usize;
 
     let mut merged_outputs = vec![0u16; width * height];
     let mut rng = thread_rng();
@@ -52,7 +50,7 @@ fn main() {
     ];
     let garbler_input_watermark = vec![0u16; width * height];
 
-    let mut garbler_inputs = [
+    let garbler_inputs = [
         garbler_input_buf.clone(),
         garbler_input_segments.clone(),
         garbler_input_watermark.clone(),

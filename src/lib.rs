@@ -84,9 +84,10 @@ mod tests {
         bytes.to_vec()
     }
 
-    /// garble display_message_120x52_2digits.skcd.pb.bin
+    /// garble then eval a test .skcd
     /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
-    fn garble_display_message_120x52_2digits(
+    fn garble_display_message_2digits(
+        skcd_bytes: &[u8],
         garbler_inputs: &[u16],
         evaluator_inputs: &[u16],
     ) -> Vec<u8> {
@@ -94,10 +95,11 @@ mod tests {
         use std::io::BufWriter;
         use std::io::Cursor;
 
-        let circ = InterstellarCircuit::parse_skcd(include_bytes!(
-            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
-        ))
-        .unwrap();
+        let circ = InterstellarCircuit::parse_skcd(skcd_bytes).unwrap();
+
+        let display_config = circ.config.display_config.unwrap().clone();
+        let width = display_config.width as usize;
+        let height = display_config.height as usize;
 
         let mut garb = InterstellarGarbledCircuit::garble(circ);
 
@@ -109,7 +111,8 @@ mod tests {
         let ref mut w = BufWriter::new(c);
 
         // TODO(interstellar) get from Circuit's "config"
-        let mut encoder = png::Encoder::new(w, 120, 52);
+        let mut encoder =
+            png::Encoder::new(w, width.try_into().unwrap(), height.try_into().unwrap());
         encoder.set_color(png::ColorType::Grayscale);
         encoder.set_depth(png::BitDepth::Eight);
 
@@ -128,19 +131,50 @@ mod tests {
         data
     }
 
+    // TODO!!! MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
     #[test]
     fn test_garble_display_message_120x52_2digits_ones() {
-        let data = garble_display_message_120x52_2digits(&[1; 1 + 2 * 7 + 120 * 52], &[0; 9]);
+        // TODO proper garbler inputs
+        // Those are splitted into:
+        // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
+        //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
+        // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
+        // - the watermark; one bit per pixel in the final display = width * height bits
+        let garbler_input_buf = vec![0u16];
+        let garbler_input_segments = vec![
+            // first digit: 7 segments: 4
+            0u16, 1, 1, 1, 0, 1, 0, //
+            // second digit: 7 segments: 2
+            1u16, 0, 1, 1, 1, 0, 1, //
+        ];
+        let garbler_input_watermark = vec![0u16; 120 * 52];
+
+        let garbler_inputs = [
+            garbler_input_buf.clone(),
+            garbler_input_segments.clone(),
+            garbler_input_watermark.clone(),
+        ]
+        .concat();
+
+        let data = garble_display_message_2digits(
+            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
+            &garbler_inputs,
+            &[0u16, 1, 0, 1, 0, 1, 0, 1, 0],
+        );
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
-            "../examples/data/eval_outputs_display_message_120x52_2digits.png"
+            "../examples/data/eval_outputs_display_message_120x52_2digits_42.png"
         ));
         assert_eq!(data, expected_outputs);
     }
 
     #[test]
     fn test_garble_display_message_120x52_2digits_zeros() {
-        let data = garble_display_message_120x52_2digits(&[0; 1 + 2 * 7 + 120 * 52], &[0; 9]);
+        let data = garble_display_message_2digits(
+            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
+            &[0; 1 + 2 * 7 + 120 * 52],
+            &[0; 9],
+        );
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
@@ -148,6 +182,40 @@ mod tests {
         assert_eq!(data, expected_outputs);
     }
 
-    // TODO test with eg "42"; NOTE: requires updating the .skcd for new inputs order
-    // TODO!!!
+    // TODO!!! but it is quite slow? maybe just add a "mark"
+    // #[test]
+    fn test_garble_display_message_640x360_2digits_42() {
+        // TODO proper garbler inputs
+        // Those are splitted into:
+        // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
+        //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
+        // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
+        // - the watermark; one bit per pixel in the final display = width * height bits
+        let garbler_input_buf = vec![0u16];
+        let garbler_input_segments = vec![
+            // first digit: 7 segments: 4
+            0u16, 1, 1, 1, 0, 1, 0, //
+            // second digit: 7 segments: 2
+            1u16, 0, 1, 1, 1, 0, 1, //
+        ];
+        let garbler_input_watermark = vec![0u16; 640 * 360];
+
+        let garbler_inputs = [
+            garbler_input_buf.clone(),
+            garbler_input_segments.clone(),
+            garbler_input_watermark.clone(),
+        ]
+        .concat();
+
+        let data = garble_display_message_2digits(
+            include_bytes!("../examples/data/display_message_640x360_2digits.skcd.pb.bin"),
+            &garbler_inputs,
+            &[0; 9],
+        );
+
+        let expected_outputs = read_png_to_bytes(include_bytes!(
+            "../examples/data/eval_outputs_display_message_640x360_2digits_42.png"
+        ));
+        assert_eq!(data, expected_outputs);
+    }
 }

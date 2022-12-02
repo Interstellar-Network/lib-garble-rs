@@ -1,4 +1,6 @@
+use crate::circuit::DisplayConfig;
 use crate::circuit::InterstellarCircuit;
+use crate::circuit::SkcdConfig;
 use fancy_garbling::circuit::CircuitBuilder;
 use fancy_garbling::circuit::CircuitRef;
 use fancy_garbling::Fancy;
@@ -115,6 +117,10 @@ impl InterstellarCircuit {
         let skcd_config = skcd.config.unwrap();
         let mut input_idx = 0;
 
+        let mut config = SkcdConfig {
+            display_config: None,
+        };
+
         // garbler inputs; same as "evaluator_inputs" above but a bit more complicated b/c how we are about to use
         // them depend on the type (eg 7 segments, i-ching, basic gate inputs for adder, etc)
         let mut skcd_inputs_is_garbled = Vec::<bool>::new();
@@ -191,8 +197,18 @@ impl InterstellarCircuit {
             circ_builder.output(&z).unwrap();
         }
 
+        // config
+        // NOTE: "display_config" is OPTIONAL
+        if let Some(skcd_display_config) = skcd_config.display_config {
+            config.display_config = Some(DisplayConfig {
+                width: skcd_display_config.width,
+                height: skcd_display_config.height,
+            })
+        }
+
         Ok(InterstellarCircuit {
             circuit: circ_builder.finish(),
+            config: config,
         })
     }
 }

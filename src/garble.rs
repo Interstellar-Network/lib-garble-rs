@@ -1,4 +1,5 @@
 use crate::circuit::InterstellarCircuit;
+use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
 use fancy_garbling::errors::EvaluatorError;
 
@@ -8,6 +9,7 @@ use fancy_garbling::errors::EvaluatorError;
 pub struct InterstellarGarbledCircuit {
     garbled: GarbledCircuit,
     encoder: Encoder,
+    pub config: SkcdConfig,
 }
 
 #[derive(Debug)]
@@ -21,6 +23,7 @@ impl InterstellarGarbledCircuit {
         InterstellarGarbledCircuit {
             garbled: garbled,
             encoder: encoder,
+            config: circuit.config,
         }
     }
 

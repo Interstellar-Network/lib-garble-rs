@@ -192,6 +192,9 @@ mod tests {
     #[test]
     #[ignore]
     fn bench_garble_display_message_640x360_2digits_42() {
+        use rand::distributions::Uniform;
+        use rand::prelude::Distribution;
+        use rand::thread_rng;
         use std::time::Instant;
 
         // How many eval() we will combine
@@ -225,27 +228,44 @@ mod tests {
         // To try and make sure eval is run and NOT optimized-out
         let mut eval_datas = Vec::with_capacity(NB_EVALS);
 
-        let (garb, _width, _height) = garble_display_message_2digits(include_bytes!(
+        let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
             "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
         ));
 
         let garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
 
+        let mut rng = thread_rng();
+        let rand_0_1 = Uniform::from(0..=1);
+
+        let mut evaluator_inputs = vec![
+            // "rnd": 9 inputs
+            0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
+        ];
+
+        let mut data = vec![Some(0u16); width * height];
+        garb.init_cache();
+
         for _ in 0..NB_EVALS {
             let start = Instant::now();
+
+            // randomize the "rnd" part of the inputs
+            // cf "rndswitch.v" comment above; DO NOT touch the last!
+            for input in evaluator_inputs.iter_mut() {
+                *input = rand_0_1.sample(&mut rng);
+            }
+
             // NOT using the "standard API" b/c that re-encodes teh garbler_inputs every eval
             // That costs around ~5ms...
             // let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
             let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(&[0; 9]);
-            let data = garb
-                .garbled
-                .eval(&garbler_inputs, &evaluator_inputs)
+            garb.garbled
+                .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, &mut data)
                 .unwrap();
 
             let duration = start.elapsed();
 
             eval_times.push(duration.as_millis());
-            eval_datas.push(data);
+            eval_datas.push(data.iter().filter(|&o| *o != Some(0u16)).count());
         }
 
         println!("eval_times : {:?}", eval_times);

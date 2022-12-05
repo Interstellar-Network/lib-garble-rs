@@ -39,4 +39,24 @@ impl InterstellarGarbledCircuit {
             .eval(&garbler_inputs, &evaluator_inputs)
             .map_err(|e| InterstellarEvaluatorError::FancyError(e))
     }
+
+    pub fn eval_with_prealloc(
+        &mut self,
+        garbler_inputs: &[u16],
+        evaluator_inputs: &[u16],
+        outputs: &mut Vec<Option<u16>>,
+    ) -> Result<(), InterstellarEvaluatorError> {
+        let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
+        let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
+
+        self.garbled
+            .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, outputs)
+            .map_err(|e| InterstellarEvaluatorError::FancyError(e))?;
+
+        Ok(())
+    }
+
+    pub fn init_cache(&mut self) {
+        self.garbled.init_cache()
+    }
 }

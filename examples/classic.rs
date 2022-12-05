@@ -58,7 +58,7 @@ fn main() {
     .concat();
 
     let mut evaluator_inputs = vec![
-        // "rnd": 10 inputs; value SHOULD not really matter for this test???
+        // "rnd": 9 inputs
         0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
     ];
 

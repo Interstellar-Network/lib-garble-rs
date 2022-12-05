@@ -187,9 +187,18 @@ mod tests {
         assert_eq!(eval_outputs, expected_outputs);
     }
 
-    // TODO!!! but it is quite slow? maybe just add a "mark"
-    // #[test]
-    fn test_garble_display_message_640x360_2digits_42() {
+    /// Run with: cargo test --release -- --ignored --show-output
+    // NOTE it is quite slow!, so ignored by default
+    #[test]
+    #[ignore]
+    fn bench_garble_display_message_640x360_2digits_42() {
+        use std::time::Instant;
+
+        // How many eval() we will combine
+        // Reminder: each segment have a 50% chance to be displayed at each eval()
+        // So typically using 10 evals means almost all of the segments will be displayed
+        const NB_EVALS: usize = 10;
+
         // TODO proper garbler inputs
         // Those are splitted into:
         // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
@@ -212,15 +221,42 @@ mod tests {
         ]
         .concat();
 
-        let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+        let mut eval_times = Vec::with_capacity(NB_EVALS);
+        // To try and make sure eval is run and NOT optimized-out
+        let mut eval_datas = Vec::with_capacity(NB_EVALS);
+
+        let (garb, _width, _height) = garble_display_message_2digits(include_bytes!(
             "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
         ));
-        let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
-        let eval_outputs = write_png(width, height, data);
 
-        let expected_outputs = read_png_to_bytes(include_bytes!(
-            "../examples/data/eval_outputs_display_message_640x360_2digits_42.png"
-        ));
-        assert_eq!(eval_outputs, expected_outputs);
+        let garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
+
+        for _ in 0..NB_EVALS {
+            let start = Instant::now();
+            // NOT using the "standard API" b/c that re-encodes teh garbler_inputs every eval
+            // That costs around ~5ms...
+            // let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
+            let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(&[0; 9]);
+            let data = garb
+                .garbled
+                .eval(&garbler_inputs, &evaluator_inputs)
+                .unwrap();
+
+            let duration = start.elapsed();
+
+            eval_times.push(duration.as_millis());
+            eval_datas.push(data);
+        }
+
+        println!("eval_times : {:?}", eval_times);
+        println!("eval_datas : {:?}", eval_datas.len());
+
+        // let eval_outputs = write_png(width, height, data);
+
+        // TODO!!! assert? or keep it as a bench?
+        // let expected_outputs = read_png_to_bytes(include_bytes!(
+        //     "../examples/data/eval_outputs_display_message_640x360_2digits_42.png"
+        // ));
+        // assert_eq!(eval_outputs, expected_outputs);
     }
 }

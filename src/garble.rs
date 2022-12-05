@@ -7,8 +7,8 @@ use fancy_garbling::errors::EvaluatorError;
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
 // and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
 pub struct InterstellarGarbledCircuit {
-    garbled: GarbledCircuit,
-    encoder: Encoder,
+    pub(crate) garbled: GarbledCircuit,
+    pub(crate) encoder: Encoder,
     pub config: SkcdConfig,
 }
 

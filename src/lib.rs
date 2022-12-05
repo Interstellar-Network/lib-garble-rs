@@ -5,6 +5,7 @@ mod skcd_parser;
 #[cfg(test)]
 mod tests {
     use crate::circuit::InterstellarCircuit;
+    use crate::garble::InterstellarGarbledCircuit;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
@@ -88,22 +89,24 @@ mod tests {
     /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
     fn garble_display_message_2digits(
         skcd_bytes: &[u8],
-        garbler_inputs: &[u16],
-        evaluator_inputs: &[u16],
-    ) -> Vec<u8> {
-        use crate::garble::InterstellarGarbledCircuit;
-        use std::io::BufWriter;
-        use std::io::Cursor;
-
+    ) -> (InterstellarGarbledCircuit, usize, usize) {
         let circ = InterstellarCircuit::parse_skcd(skcd_bytes).unwrap();
 
         let display_config = circ.config.display_config.unwrap().clone();
         let width = display_config.width as usize;
         let height = display_config.height as usize;
 
-        let mut garb = InterstellarGarbledCircuit::garble(circ);
+        let garb = InterstellarGarbledCircuit::garble(circ);
 
-        let outputs = garb.eval(garbler_inputs, evaluator_inputs).unwrap();
+        (garb, width, height)
+    }
+
+    /// param outputs: result of garb.eval()
+    /// return: the raw bytes of .png corresponding to the GarbledCircuit's eval outputs
+    /// Typically the is "output[i] = eval[i] * 255"
+    fn write_png(width: usize, height: usize, outputs: Vec<u16>) -> Vec<u8> {
+        use std::io::BufWriter;
+        use std::io::Cursor;
 
         // let path = "eval_outputs.png";
         let buf = Vec::new();
@@ -156,30 +159,32 @@ mod tests {
         ]
         .concat();
 
-        let data = garble_display_message_2digits(
-            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
-            &garbler_inputs,
-            &[0u16, 1, 0, 1, 0, 1, 0, 1, 0],
-        );
+        let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+        ));
+        let data = garb
+            .eval(&garbler_inputs, &[0u16, 1, 0, 1, 0, 1, 0, 1, 0])
+            .unwrap();
+        let eval_outputs = write_png(width, height, data);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_42.png"
         ));
-        assert_eq!(data, expected_outputs);
+        assert_eq!(eval_outputs, expected_outputs);
     }
 
     #[test]
     fn test_garble_display_message_120x52_2digits_zeros() {
-        let data = garble_display_message_2digits(
-            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
-            &[0; 1 + 2 * 7 + 120 * 52],
-            &[0; 9],
-        );
+        let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+        ));
+        let data = garb.eval(&[0; 1 + 2 * 7 + 120 * 52], &[0; 9]).unwrap();
+        let eval_outputs = write_png(width, height, data);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
         ));
-        assert_eq!(data, expected_outputs);
+        assert_eq!(eval_outputs, expected_outputs);
     }
 
     // TODO!!! but it is quite slow? maybe just add a "mark"
@@ -207,15 +212,15 @@ mod tests {
         ]
         .concat();
 
-        let data = garble_display_message_2digits(
-            include_bytes!("../examples/data/display_message_640x360_2digits.skcd.pb.bin"),
-            &garbler_inputs,
-            &[0; 9],
-        );
+        let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+            "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
+        ));
+        let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
+        let eval_outputs = write_png(width, height, data);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_640x360_2digits_42.png"
         ));
-        assert_eq!(data, expected_outputs);
+        assert_eq!(eval_outputs, expected_outputs);
     }
 }

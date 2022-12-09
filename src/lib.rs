@@ -6,6 +6,7 @@ mod skcd_parser;
 mod tests {
     use crate::circuit::InterstellarCircuit;
     use crate::garble::InterstellarGarbledCircuit;
+    use fancy_garbling::Wire;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
@@ -187,6 +188,25 @@ mod tests {
         assert_eq!(eval_outputs, expected_outputs);
     }
 
+    /// Client use-case, or as close as possible.
+    /// NOT using the "standard API" b/c that re-encodes teh garbler_inputs every eval
+    /// That costs around ~5ms...
+    /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
+    // #[profiling::function]
+    fn eval_client(
+        garb: &mut InterstellarGarbledCircuit,
+        garbler_inputs: &Vec<Wire>,
+        evaluator_inputs: &[u16],
+        data: &mut Vec<Option<u16>>,
+    ) {
+        // coz::scope!("eval_client");
+
+        let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(evaluator_inputs);
+        garb.garbled
+            .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, data)
+            .unwrap();
+    }
+
     /// Run with: cargo test --release -- --ignored --show-output
     // NOTE it is quite slow!, so ignored by default
     #[test]
@@ -196,6 +216,24 @@ mod tests {
         use rand::prelude::Distribution;
         use rand::thread_rng;
         use std::time::Instant;
+
+        ////////////////////////////////////////////////////////////////////////
+        // use tracing_subscriber::layer::SubscriberExt;
+
+        // #[cfg(feature = "profile-with-tracy")]
+        // let _client = tracy_client::Client::start();
+
+        // tracing::subscriber::set_global_default(
+        //     tracing_subscriber::registry().with(tracing_tracy::TracyLayer::new()),
+        // )
+        // .expect("set up the subscriber");
+
+        // profiling::register_thread!("Main Thread");
+        ////////////////////////////////////////////////////////////////////////
+
+        // coz::thread_init();
+
+        //////////////////////////////////////////////////////////////////////
 
         // How many eval() we will combine
         // Reminder: each segment have a 50% chance to be displayed at each eval()
@@ -246,6 +284,9 @@ mod tests {
         garb.init_cache();
 
         for _ in 0..NB_EVALS {
+            // profiling::scope!("Looped eval");
+            // coz::progress!();
+
             let start = Instant::now();
 
             // randomize the "rnd" part of the inputs
@@ -254,13 +295,7 @@ mod tests {
                 *input = rand_0_1.sample(&mut rng);
             }
 
-            // NOT using the "standard API" b/c that re-encodes teh garbler_inputs every eval
-            // That costs around ~5ms...
-            // let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
-            let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(&[0; 9]);
-            garb.garbled
-                .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, &mut data)
-                .unwrap();
+            eval_client(&mut garb, &garbler_inputs, &evaluator_inputs, &mut data);
 
             let duration = start.elapsed();
 

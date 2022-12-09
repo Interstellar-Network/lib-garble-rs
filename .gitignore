@@ -2,3 +2,7 @@
 /Cargo.lock
 
 /*.png
+
+# profiling
+/callgrind.out.*
+/profile.coz*

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial" }
+fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-feature = false }
 
 # TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
 prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
@@ -17,7 +17,7 @@ bytes = { version = "1", default-features = false }
 
 [dev-dependencies]
 png = "0.17.7"
-rand = "0.8.5"
+rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 
 # # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
 # # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!
@@ -37,6 +37,11 @@ prost-build = "0.11"
 # profile-with-superluminal = ["profiling/profile-with-superluminal"]
 # profile-with-tracing = ["profiling/profile-with-tracing"]
 # profile-with-tracy = ["profiling/profile-with-tracy"]
+
+[features]
+default = ["std"]
+sgx = ["fancy-garbling/sgx"]
+std = ["fancy-garbling/std"]
 
 # TODO(interstellar) remove patch; DO NOT use patch in CI/PROD
 [patch."https://github.com/Interstellar-Network/swanky.git"]

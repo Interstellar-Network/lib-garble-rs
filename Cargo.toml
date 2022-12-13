@@ -7,6 +7,11 @@ edition = "2021"
 
 [dependencies]
 fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false }
+# TODO(interstellar) no_std not supported on crate.io; need a fork/patch
+imageproc = { version = "0.23.0", default-features = false }
+# FAIL: no_std OK without any features, but if can not draw text there is not point...
+image = { version = "0.24.5", default-features = false }
+rusttype = { version = "0.9.3", default-features = false }
 
 # TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
 prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
@@ -42,12 +47,16 @@ rand = { version = "0.8.5", default-features = false, features = ["std", "std_rn
 
 [features]
 default = ["std"]
-sgx = ["fancy-garbling/sgx", "sgx_tstd"]
-std = ["fancy-garbling/std"]
+sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx"]
+std = ["fancy-garbling/std", "imageproc/std"]
 
 # TODO(interstellar) remove patch; DO NOT use patch in CI/PROD
 [patch."https://github.com/Interstellar-Network/swanky.git"]
 fancy-garbling = { path = "../swanky/fancy-garbling/" }
+
+[patch.crates-io]
+image = { path = "../image" }
+imageproc = { path = "../imageproc" }
 
 [profile.bench]
 inherits = "release"

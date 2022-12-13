@@ -4,6 +4,8 @@
 pub mod circuit;
 pub mod garble;
 mod skcd_parser;
+// TODO(interstellar) put behind a feature; the client DOES NOT need it
+mod watermark;
 
 #[cfg(test)]
 mod tests {

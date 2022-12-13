@@ -3,6 +3,9 @@ use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
 use fancy_garbling::errors::EvaluatorError;
 
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+use sgx_tstd::vec::Vec;
+
 // TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
 // and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]

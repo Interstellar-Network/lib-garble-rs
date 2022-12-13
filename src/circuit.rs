@@ -1,6 +1,9 @@
 use fancy_garbling::circuit::Circuit;
 use fancy_garbling::errors::DummyError;
 
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+use sgx_tstd::vec::Vec;
+
 // TODO!!! add the rest of skcd.proto
 #[derive(Debug, Clone, Copy)]
 pub struct DisplayConfig {

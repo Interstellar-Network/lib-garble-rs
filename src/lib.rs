@@ -1,3 +1,6 @@
+// #![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub mod circuit;
 pub mod garble;
 mod skcd_parser;
@@ -238,7 +241,7 @@ mod tests {
         // How many eval() we will combine
         // Reminder: each segment have a 50% chance to be displayed at each eval()
         // So typically using 10 evals means almost all of the segments will be displayed
-        const NB_EVALS: usize = 10;
+        const NB_EVALS: usize = 50;
 
         // TODO proper garbler inputs
         // Those are splitted into:

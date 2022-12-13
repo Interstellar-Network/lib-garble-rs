@@ -6,11 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-feature = false }
+fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false }
 
 # TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
 prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
 bytes = { version = "1", default-features = false }
+
+sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true }
 
 # # TODO(interstellar) remove profiling? This is probably not hurting at all without the corresponding enabled feature
 # profiling = "1.0"
@@ -27,7 +29,7 @@ rand = { version = "0.8.5", default-features = false, features = ["std", "std_rn
 # coz = "0.1"
 
 [build-dependencies]
-prost-build = "0.11"
+# prost-build = "0.11"
 
 # [features]
 # default = ["profile-with-tracy"]
@@ -40,7 +42,7 @@ prost-build = "0.11"
 
 [features]
 default = ["std"]
-sgx = ["fancy-garbling/sgx"]
+sgx = ["fancy-garbling/sgx", "sgx_tstd"]
 std = ["fancy-garbling/std"]
 
 # TODO(interstellar) remove patch; DO NOT use patch in CI/PROD

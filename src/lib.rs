@@ -5,11 +5,12 @@ pub mod circuit;
 pub mod garble;
 mod skcd_parser;
 // TODO(interstellar) put behind a feature; the client DOES NOT need it
-mod watermark;
+pub mod watermark;
 
 #[cfg(test)]
 mod tests {
     use crate::circuit::InterstellarCircuit;
+    use crate::garble::EvaluatorInput;
     use crate::garble::InterstellarGarbledCircuit;
     use fancy_garbling::Wire;
 
@@ -201,7 +202,7 @@ mod tests {
     fn eval_client(
         garb: &mut InterstellarGarbledCircuit,
         garbler_inputs: &Vec<Wire>,
-        evaluator_inputs: &[u16],
+        evaluator_inputs: &[EvaluatorInput],
         data: &mut Vec<Option<u16>>,
     ) {
         // coz::scope!("eval_client");

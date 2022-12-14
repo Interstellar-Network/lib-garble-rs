@@ -6,6 +6,8 @@ use fancy_garbling::errors::EvaluatorError;
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
 
+pub type EvaluatorInput = u16;
+
 // TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
 // and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
@@ -32,8 +34,8 @@ impl InterstellarGarbledCircuit {
 
     pub fn eval(
         &mut self,
-        garbler_inputs: &[u16],
-        evaluator_inputs: &[u16],
+        garbler_inputs: &[EvaluatorInput],
+        evaluator_inputs: &[EvaluatorInput],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
         let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
         let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
@@ -45,8 +47,8 @@ impl InterstellarGarbledCircuit {
 
     pub fn eval_with_prealloc(
         &mut self,
-        garbler_inputs: &[u16],
-        evaluator_inputs: &[u16],
+        garbler_inputs: &[EvaluatorInput],
+        evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
     ) -> Result<(), InterstellarEvaluatorError> {
         let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);

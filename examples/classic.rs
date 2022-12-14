@@ -7,6 +7,7 @@ use std::io::Read;
 
 use lib_garble_rs::circuit::InterstellarCircuit;
 use lib_garble_rs::garble::InterstellarGarbledCircuit;
+use lib_garble_rs::watermark;
 
 fn main() {
     // How many eval() we will combine
@@ -35,6 +36,14 @@ fn main() {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
+    let watermark_font = watermark::new_font();
+    let watermark = watermark::draw_text(
+        width.try_into().unwrap(),
+        height.try_into().unwrap(),
+        &watermark_font,
+        "Hello, world!",
+    );
+
     // TODO proper garbler inputs
     // Those are splitted into:
     // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
@@ -48,7 +57,7 @@ fn main() {
         // second digit: 7 segments: 2
         1u16, 0, 1, 1, 1, 0, 1, //
     ];
-    let garbler_input_watermark = vec![0u16; width * height];
+    let garbler_input_watermark = watermark::convert_image_to_garbler_inputs(watermark);
 
     let garbler_inputs = [
         garbler_input_buf.clone(),

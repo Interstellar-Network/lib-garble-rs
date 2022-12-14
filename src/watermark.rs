@@ -1,30 +1,69 @@
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
 
-use image::ImageBuffer;
-use image::{Rgb, RgbImage};
-use imageproc::drawing::{draw_text_mut, text_size};
+use crate::garble::EvaluatorInput;
+use image::{GrayImage, Luma};
+use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
+
+const FONT_BYTES: &[u8] = include_bytes!("../examples/data/BF_Modernista-Regular.ttf");
+const WATERMARK_COLOR: [u8; 1] = [255u8];
+
+/// Init a Font using the hardcoded .ttf from "data/"
+pub fn new_font<'a>() -> Font<'a> {
+    Font::try_from_bytes(FONT_BYTES).unwrap()
+}
 
 /// Draw a basic text onto an image
 /// cf https://github.com/Interstellar-Network/imageproc/blob/master/examples/font.rs
-pub fn draw_text(img_width: u32, img_height: u32) -> ImageBuffer<image::Rgb<u8>, Vec<u8>> {
-    let mut image = RgbImage::new(img_width, img_height);
+///
+/// Return: a GRAYSCALE image; len = img_height * img_width
+pub fn draw_text(img_width: u32, img_height: u32, font: &Font, text: &str) -> GrayImage {
+    let mut image = GrayImage::new(img_width, img_height);
 
-    let font = Vec::from(include_bytes!("../examples/data/BF_Modernista-Regular.ttf") as &[u8]);
-    let font = Font::try_from_vec(font).unwrap();
-
-    let height = 12.4;
+    let height = 40.4;
     let scale = Scale {
         x: height * 2.0,
         y: height,
     };
 
-    let text = "Hello, world!";
-    draw_text_mut(&mut image, Rgb([0u8, 0u8, 255u8]), 0, 0, scale, &font, text);
+    draw_text_mut(
+        &mut image,
+        Luma(WATERMARK_COLOR),
+        (img_width / 4).try_into().unwrap(),
+        (img_height / 2).try_into().unwrap(),
+        scale,
+        &font,
+        text,
+    );
     // TODO(interstellar)???
     // let (w, h) = text_size(scale, &font, text);
     // println!("Text size: {}x{}", w, h);
 
+    assert_eq!(
+        image.len(),
+        img_width as usize * img_height as usize,
+        "watermark: wrong size!"
+    );
     image
+}
+
+/// "Convert" GrayImage(ie result of draw_text etc) to the correct input type for
+/// garb.eval()
+/// NOTE: "GrayImage" has pixels whose values is [0-255], but garb.eval() expects only [0-1]
+/// so we convert them.
+///
+/// ie Vec<u8> -> Vec<u16>
+/// This is NOT doing anything funny to the bits, no shuffling etc
+/// It is just raw conversion result[i] = input[i]
+pub fn convert_image_to_garbler_inputs<'a>(image: GrayImage) -> Vec<EvaluatorInput> {
+    image
+        .into_vec()
+        .into_iter()
+        .map(|pixel| {
+            // IMPORTANT: we NEED a threshold here b/c "draw_text_mut" has apparently some AA
+            let pixel = if pixel > 0 { 1 } else { 0 };
+            pixel.try_into().unwrap()
+        })
+        .collect()
 }

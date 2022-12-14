@@ -1,3 +1,6 @@
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+use sgx_tstd::vec::Vec;
+
 use image::ImageBuffer;
 use image::{Rgb, RgbImage};
 use imageproc::drawing::{draw_text_mut, text_size};

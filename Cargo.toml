@@ -57,6 +57,7 @@ fancy-garbling = { path = "../swanky/fancy-garbling/" }
 [patch.crates-io]
 image = { path = "../image" }
 imageproc = { path = "../imageproc" }
+color_quant = { path = "../color_quant" }
 
 [profile.bench]
 inherits = "release"

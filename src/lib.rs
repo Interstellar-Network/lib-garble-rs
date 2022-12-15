@@ -10,7 +10,7 @@ pub mod circuit;
 pub mod garble;
 mod skcd_parser;
 // TODO(interstellar) put behind a feature; the client DOES NOT need it
-mod ipfs;
+pub mod ipfs;
 pub mod watermark;
 
 #[cfg(test)]
@@ -219,11 +219,9 @@ mod tests {
             .unwrap();
     }
 
-    /// Run with: cargo test --release -- --ignored --show-output
-    // NOTE it is quite slow!, so ignored by default
+    // NOTE it is quite slow in Debug! Make sure to enable optimizations
     #[test]
-    #[ignore]
-    fn bench_garble_display_message_640x360_2digits_42() {
+    fn bench_eval_display_message_640x360_2digits_42() {
         use rand::distributions::Uniform;
         use rand::prelude::Distribution;
         use rand::thread_rng;

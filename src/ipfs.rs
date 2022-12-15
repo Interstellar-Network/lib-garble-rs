@@ -20,6 +20,7 @@ use std::io::copy;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
+use std::string::ToString;
 use std::time::Instant;
 
 /// cf https://github.com/ferristseng/rust-ipfs-api/blob/master/ipfs-api-prelude/src/from_uri.rs#L17
@@ -99,24 +100,42 @@ pub fn ipfs_add(root_uri: &str, body: &[u8]) -> Result<Vec<u8>, IpfsError> {
     // --===============0688100289==--
     // "#;
 
-    let body_bytes = r#"--===============0688100289==
+    //     let body_bytes = r#"--===============0688100289==
 
---boundary
-Content-Disposition: form-data; path="field1"
+    // --boundary
+    // Content-Disposition: form-data; path="field1"
 
-value1
---boundary
-Content-Disposition: form-data; name="field2"; filename="example.txt"
+    // value1
+    // --boundary
+    // Content-Disposition: form-data; name="field2"; filename="example.txt"
 
-value2
---boundary--
-"#;
+    // value2
+    // --boundary--
+    // "#;
+
+    // https://github.com/mikedilger/formdata/blob/master/src/lib.rs
+    let body_bytes = b"--boundary\r\n\
+                      Content-Disposition: form-data; name=\"field1\"\r\n\
+                      \r\n\
+                      data1\r\n\
+                      --boundary\r\n\
+                      Content-Disposition: form-data; name=\"field2\"; filename=\"image.gif\"\r\n\
+                      Content-Type: image/gif\r\n\
+                      \r\n\
+                      This is a file\r\n\
+                      with two lines\r\n\
+                      --boundary\r\n\
+                      Content-Disposition: form-data; name=\"field3\"; filename=\"file.txt\"\r\n\
+                      \r\n\
+                      This is a file\r\n\
+                      --boundary--";
 
     // TODO(interstellar)???
     // let body_bytes = body_bytes.replace("\n", "\r\n");
 
     //Add header `Connection: Close`
     let mut request: RequestBuilder = RequestBuilder::new(&addr);
+    request.timeout(Some(Duration::from_millis(1000)));
     // .header("Connection", "Close")
     // .header(
     //     "Content-Disposition",
@@ -129,11 +148,11 @@ value2
     //     "Content-Type",
     //     "multipart/form-data; boundary================0688100289",
     // )
-    // .header("Content-Length", &352.to_string())
-    // .header("Content-Length", &body_bytes.len().to_string())
+    // request.header("Content-Length", &999.to_string());
+    request.header("Content-Length", &body_bytes.len().to_string());
     request.method(Method::POST);
     // TODO(interstellar)
-    request.body(body_bytes.as_bytes());
+    request.body(body_bytes);
     // .write_msg(&mut stream, body_bytes)
     let result = request.send(&mut stream, &mut writer);
 

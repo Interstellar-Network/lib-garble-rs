@@ -1,10 +1,16 @@
 // #![no_std]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+extern crate sgx_tstd as std;
+
+extern crate alloc;
+
 pub mod circuit;
 pub mod garble;
 mod skcd_parser;
 // TODO(interstellar) put behind a feature; the client DOES NOT need it
+mod ipfs;
 pub mod watermark;
 
 #[cfg(test)]

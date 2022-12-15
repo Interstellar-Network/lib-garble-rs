@@ -12,6 +12,9 @@ imageproc = { version = "0.23.0", default-features = false }
 # FAIL: no_std OK without any features, but if can not draw text there is not point...
 image = { version = "0.24.5", default-features = false }
 rusttype = { version = "0.9.3", default-features = false }
+snafu = { version = "0.7", default-features = false }
+http_req_sgx = { package = "http_req", git = "https://github.com/mesalock-linux/http_req-sgx", optional = true }
+http_req_std = { package = "http_req", version = "0.9", optional = true }
 
 # TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
 prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
@@ -47,8 +50,8 @@ rand = { version = "0.8.5", default-features = false, features = ["std", "std_rn
 
 [features]
 default = ["std"]
-sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx"]
-std = ["fancy-garbling/std", "imageproc/std"]
+sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx", "http_req_sgx"]
+std = ["fancy-garbling/std", "imageproc/std", "http_req_std"]
 
 # TODO(interstellar) remove patch; DO NOT use patch in CI/PROD
 [patch."https://github.com/Interstellar-Network/swanky.git"]

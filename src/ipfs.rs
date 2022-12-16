@@ -34,6 +34,8 @@ pub enum IpfsError {
     DeserializationError { err: serde_json::Error },
     #[snafu(display("utf8 error: {}", err))]
     Utf8Error { err: std::string::FromUtf8Error },
+    #[snafu(display("stream io error: {}", err))]
+    IoStreamError { err: std::io::Error },
 }
 
 type Result<T, E = IpfsError> = std::result::Result<T, E>;
@@ -72,6 +74,8 @@ pub const MULTIPART_CONTENT_TYPE: &[u8] = b"Content-Type: application/octet-stre
 pub struct IpfsClient {
     // This is NOT a Uri b/c it would require keep a ref to the underlying &str; ie Uri<'a>
     root_uri: String,
+    // TODO(interstellar) thread safety: or something else?
+    // stream: Arc<RwLock<TcpStream>>,
     stream: TcpStream,
 }
 
@@ -119,7 +123,7 @@ impl IpfsClient {
 
         Ok(IpfsClient {
             root_uri: api_uri,
-            stream,
+            stream: stream,
         })
     }
 
@@ -128,7 +132,7 @@ impl IpfsClient {
     /// and https://github.com/ferristseng/rust-ipfs-api/blob/master/ipfs-api-prelude/src/request/add.rs
     ///
     /// param root_uri: eg "http://localhost:5001"
-    pub fn ipfs_add(&mut self, body: &[u8]) -> Result<IpfsAddResponse, IpfsError> {
+    pub fn ipfs_add(&self, body: &[u8]) -> Result<IpfsAddResponse, IpfsError> {
         // TODO(interstellar) avoid copying
         let multipart_start = [
             MULTIPART_BOUNDARY,
@@ -160,13 +164,17 @@ impl IpfsClient {
         request.body(&body_bytes);
 
         let mut writer = Vec::new();
-        send_request(&mut self.stream, &mut writer, request)
+        let mut stream = self
+            .stream
+            .try_clone()
+            .map_err(|err| IpfsError::IoStreamError { err: err })?;
+        send_request(stream, &mut writer, request)
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
     ///
     /// NOTE: "This endpoint returns a `text/plain` response body."
-    pub fn ipfs_cat(&mut self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
+    pub fn ipfs_cat(&self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
         // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
         let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
         let full_uri = parse_uri(&full_uri_str)?;
@@ -174,17 +182,21 @@ impl IpfsClient {
 
         // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
         let mut writer = Vec::new();
-        send_request_raw_response(&mut self.stream, &mut writer, request)
+        let mut stream = self
+            .stream
+            .try_clone()
+            .map_err(|err| IpfsError::IoStreamError { err: err })?;
+        send_request_raw_response(stream, &mut writer, request)
     }
 }
 
 /// response is a JSON struct
 fn send_request<'a, ResponseType: Deserialize<'a>>(
-    stream: &mut TcpStream,
+    mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
     request: RequestBuilder,
 ) -> Result<ResponseType, IpfsError> {
-    let result = request.send(stream, writer);
+    let result = request.send(&mut stream, writer);
 
     match result {
         Ok(response) => {
@@ -209,11 +221,11 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
 /// response is raw data
 // TODO(interstellar) can we combine send_request and send_request_raw_response
 fn send_request_raw_response<'a>(
-    stream: &mut TcpStream,
+    mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
     request: RequestBuilder,
 ) -> Result<Vec<u8>, IpfsError> {
-    let result = request.send(stream, writer);
+    let result = request.send(&mut stream, writer);
 
     match result {
         Ok(response) => {

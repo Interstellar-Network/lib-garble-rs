@@ -9,15 +9,15 @@ fn setup_ipfs() -> (IpfsClient, ipfs_api_backend_hyper::IpfsClient, ForeignNode)
     let (foreign_node, ipfs_reference_client) = common::foreign_ipfs::run_ipfs_in_background();
     // let ipfs_server_multiaddr = format!("/ip4/127.0.0.1/tcp/{}", foreign_node.api_port);
     let ipfs_server_multiaddr = format!("http://localhost:{}", foreign_node.api_port);
-    let mut ipfs_internal_client = IpfsClient::new(&ipfs_server_multiaddr).unwrap();
+    let ipfs_internal_client = IpfsClient::new(&ipfs_server_multiaddr).unwrap();
 
     (ipfs_internal_client, ipfs_reference_client, foreign_node)
 }
 
-fn test_ipfs_add_aux(
-    ipfs_internal_client: &mut IpfsClient,
-    ipfs_reference_client: &ipfs_api_backend_hyper::IpfsClient,
-) {
+fn test_ipfs_add_aux<'a>(
+    ipfs_internal_client: &'a IpfsClient,
+    ipfs_reference_client: &'a ipfs_api_backend_hyper::IpfsClient,
+) -> (&'a IpfsClient, &'a ipfs_api_backend_hyper::IpfsClient) {
     // AZaz
     let content = &[65u8, 90, 97, 122];
 
@@ -35,17 +35,19 @@ fn test_ipfs_add_aux(
     .unwrap();
     let res_str = String::from_utf8(skcd_buf).unwrap();
     assert_eq!(res_str, "AZaz");
+
+    (ipfs_internal_client, ipfs_reference_client)
 }
 
 #[test]
 fn test_ipfs_add() {
-    let (mut ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
-    test_ipfs_add_aux(&mut ipfs_internal_client, &ipfs_reference_client);
+    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
 }
 
 #[test]
 fn test_ipfs_cat() {
-    let (mut ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
 
     // AZaz
     let content = &[65u8, 90, 97, 122];
@@ -63,8 +65,35 @@ fn test_ipfs_cat() {
 // TODO(interstellar) Test with multiple requests to make sure write/stream are reusable
 #[test]
 fn test_ipfs_multiple_adds() {
-    let (mut ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
-    test_ipfs_add_aux(&mut ipfs_internal_client, &ipfs_reference_client);
-    test_ipfs_add_aux(&mut ipfs_internal_client, &ipfs_reference_client);
-    test_ipfs_add_aux(&mut ipfs_internal_client, &ipfs_reference_client);
+    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
+    test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
+    test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
 }
+
+/// https://rust-lang.github.io/api-guidelines/interoperability.html#types-are-send-and-sync-where-possible-c-send-sync
+#[test]
+fn require_send_sync() {
+    fn assert_send<T: Send>() {}
+    assert_send::<IpfsClient>();
+
+    fn assert_sync<T: Sync>() {}
+    assert_sync::<IpfsClient>();
+}
+
+// #[test]
+// fn test_ipfs_thread_safe_adds() {
+//     let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+
+//     // let ipfs_internal_client_ref = &ipfs_internal_client;
+//     // let ipfs_reference_client_ref = &ipfs_reference_client;
+
+//     for i in 1..10 {
+//         let ipfs_internal_client_ref = &ipfs_internal_client;
+//         let ipfs_reference_client_ref = &ipfs_reference_client;
+//         std::thread::spawn(|| {
+//             let (ipfs_internal_client_ref2, ipfs_reference_client_ref2) =
+//                 test_ipfs_add_aux(ipfs_internal_client_ref, ipfs_reference_client_ref);
+//         });
+//     }
+// }

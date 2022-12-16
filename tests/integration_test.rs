@@ -14,12 +14,16 @@ fn test_ipfs_add() {
 
     assert!(res.is_ok());
 
-    let res_bytes = res.unwrap();
-    let res_str = String::from_utf8(res_bytes).unwrap();
+    let add_response = res.unwrap();
+
+    // Compare using the official client; API call = IPFS cat
     let skcd_buf = tokio_test::block_on({
         ipfs_client
-            .cat(&res_str)
+            .cat(&add_response.hash)
             .map_ok(|chunk| chunk.to_vec())
             .try_concat()
-    });
+    })
+    .unwrap();
+    let skcd_buf_std = String::from_utf8(skcd_buf).unwrap();
+    assert_eq!(skcd_buf_std, "aa");
 }

@@ -1,5 +1,6 @@
 // #![no_std]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(elided_lifetimes_in_paths)]
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;

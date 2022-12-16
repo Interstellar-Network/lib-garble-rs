@@ -1,5 +1,6 @@
 mod common;
 use crate::common::foreign_ipfs::ForeignNode;
+use crossbeam_utils::thread;
 use ipfs_api_backend_hyper::IpfsApi;
 use lib_garble_rs::ipfs::IpfsClient;
 use libp2p::futures::TryStreamExt;
@@ -17,7 +18,7 @@ fn setup_ipfs() -> (IpfsClient, ipfs_api_backend_hyper::IpfsClient, ForeignNode)
 fn test_ipfs_add_aux<'a>(
     ipfs_internal_client: &'a IpfsClient,
     ipfs_reference_client: &'a ipfs_api_backend_hyper::IpfsClient,
-) -> (&'a IpfsClient, &'a ipfs_api_backend_hyper::IpfsClient) {
+) {
     // AZaz
     let content = &[65u8, 90, 97, 122];
 
@@ -36,7 +37,10 @@ fn test_ipfs_add_aux<'a>(
     let res_str = String::from_utf8(skcd_buf).unwrap();
     assert_eq!(res_str, "AZaz");
 
-    (ipfs_internal_client, ipfs_reference_client)
+    // let ipfs_internal_client: &'b IpfsClient = ipfs_internal_client;
+    // let ipfs_reference_client: &'b ipfs_api_backend_hyper::IpfsClient = ipfs_reference_client;
+
+    // (ipfs_internal_client, ipfs_reference_client)
 }
 
 #[test]
@@ -81,19 +85,21 @@ fn require_send_sync() {
     assert_sync::<IpfsClient>();
 }
 
-// #[test]
-// fn test_ipfs_thread_safe_adds() {
-//     let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+#[test]
+#[ignore = "FAIL"]
+fn test_ipfs_thread_safe_adds() {
+    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
 
-//     // let ipfs_internal_client_ref = &ipfs_internal_client;
-//     // let ipfs_reference_client_ref = &ipfs_reference_client;
-
-//     for i in 1..10 {
-//         let ipfs_internal_client_ref = &ipfs_internal_client;
-//         let ipfs_reference_client_ref = &ipfs_reference_client;
-//         std::thread::spawn(|| {
-//             let (ipfs_internal_client_ref2, ipfs_reference_client_ref2) =
-//                 test_ipfs_add_aux(ipfs_internal_client_ref, ipfs_reference_client_ref);
-//         });
-//     }
-// }
+    // IMPORTANT: MUST use https://docs.rs/crossbeam-utils/latest/crossbeam_utils/thread/index.html b/c
+    // std::thread CAN NOT borrow from the stack
+    thread::scope(|s| {
+        for i in 1..10 {
+            let ipfs_internal_client_ref = &ipfs_internal_client;
+            let ipfs_reference_client_ref = &ipfs_reference_client;
+            s.spawn(move |_| {
+                test_ipfs_add_aux(ipfs_internal_client_ref, ipfs_reference_client_ref);
+            });
+        }
+    })
+    .unwrap();
+}

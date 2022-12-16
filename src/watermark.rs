@@ -18,7 +18,7 @@ pub fn new_font<'a>() -> Font<'a> {
 /// cf https://github.com/Interstellar-Network/imageproc/blob/master/examples/font.rs
 ///
 /// Return: a GRAYSCALE image; len = img_height * img_width
-pub fn draw_text(img_width: u32, img_height: u32, font: &Font, text: &str) -> GrayImage {
+pub fn draw_text(img_width: u32, img_height: u32, font: &Font<'_>, text: &str) -> GrayImage {
     let mut image = GrayImage::new(img_width, img_height);
 
     let height = 40.4;

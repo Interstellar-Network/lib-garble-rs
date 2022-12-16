@@ -79,21 +79,22 @@ pub struct IpfsClient {
     stream: TcpStream,
 }
 
+// In sgx env: Uri has no lifetime so we simply ignore it
 #[cfg(feature = "std")]
-fn parse_uri<'a>(uri_str: &'a str) -> Result<Uri<'a>, IpfsError> {
+type UriType<'a> = Uri<'a>;
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+type UriType<'a> = Uri;
+
+fn parse_uri<'a>(uri_str: &'a str) -> Result<UriType<'a>, IpfsError> {
     // Parse uri and assign it to variable `addr`
     // TODO(interstellar) why do we get "the trait `FromStr` is not implemented for `Uri<'_>`" in either SGX or STD???
-    let addr: Uri = Uri::try_from(uri_str).map_err(|err| IpfsError::UriError {
+    #[cfg(feature = "std")]
+    let addr: UriType<'a> = Uri::try_from(uri_str).map_err(|err| IpfsError::UriError {
         msg: format!("invalid uri ({}) : {} ", uri_str, err),
     })?;
-
-    Ok(addr)
-}
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-fn parse_uri(uri_str: &str) -> Result<Uri, IpfsError> {
-    let addr: Uri = uri_str.parse().map_err(|err| IpfsError::UriError {
-        msg: format!("invalid uri: {}", uri_str),
+    #[cfg(all(not(feature = "std"), feature = "sgx"))]
+    let addr: UriType<'a> = uri_str.parse().map_err(|err| IpfsError::UriError {
+        msg: format!("invalid uri ({}) : {} ", uri_str, err),
     })?;
 
     Ok(addr)
@@ -194,7 +195,7 @@ impl IpfsClient {
 fn send_request<'a, ResponseType: Deserialize<'a>>(
     mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
-    request: RequestBuilder,
+    request: RequestBuilder<'_>,
 ) -> Result<ResponseType, IpfsError> {
     let result = request.send(&mut stream, writer);
 
@@ -223,7 +224,7 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
 fn send_request_raw_response<'a>(
     mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
-    request: RequestBuilder,
+    request: RequestBuilder<'a>,
 ) -> Result<Vec<u8>, IpfsError> {
     let result = request.send(&mut stream, writer);
 
@@ -245,9 +246,9 @@ fn send_request_raw_response<'a>(
     }
 }
 
-fn new_request<'a>(full_uri: &'a Uri) -> Result<RequestBuilder<'a>> {
+fn new_request<'a>(full_uri: &'a UriType<'a>) -> Result<RequestBuilder<'a>> {
     // TODO(interstellar) keep-alive? is it needed? or Close?
-    let mut request: RequestBuilder = RequestBuilder::new(full_uri);
+    let mut request: RequestBuilder<'a> = RequestBuilder::new(full_uri);
     // TODO(interstellar) timeout from new()
     request.timeout(Some(Duration::from_millis(1000)));
     request.method(Method::POST);

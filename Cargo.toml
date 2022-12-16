@@ -52,6 +52,7 @@ anyhow = "1.0"
 # ipfs-api-backend-hyper = "0.3"
 ipfs-api-backend-hyper = { version = "0.5", features = [ "with-send-sync" , "with-builder" ] }
 tokio-test = "*"
+crossbeam-utils = "0.8.14"
 
 [build-dependencies]
 # prost-build = "0.11"

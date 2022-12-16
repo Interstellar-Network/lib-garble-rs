@@ -71,15 +71,22 @@ pub struct IpfsClient {
     writer: Vec<u8>,
 }
 
+#[cfg(feature = "std")]
 fn parse_uri<'a>(uri_str: &'a str) -> Result<Uri<'a>, IpfsError> {
     // Parse uri and assign it to variable `addr`
     // TODO(interstellar) why do we get "the trait `FromStr` is not implemented for `Uri<'_>`" in either SGX or STD???
-    #[cfg(feature = "std")]
     let addr: Uri = Uri::try_from(uri_str).map_err(|err| IpfsError::UriError {
         msg: format!("invalid uri: {}", uri_str),
     })?;
-    #[cfg(all(not(feature = "std"), feature = "sgx"))]
-    let addr: Uri = uri_str.parse()?;
+
+    Ok(addr)
+}
+
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+fn parse_uri(uri_str: &str) -> Result<Uri, IpfsError> {
+    let addr: Uri = uri_str.parse().map_err(|err| IpfsError::UriError {
+        msg: format!("invalid uri: {}", uri_str),
+    })?;
 
     Ok(addr)
 }
@@ -141,7 +148,7 @@ impl IpfsClient {
         ]
         .concat();
 
-        let full_uri_str = format!("{}{}", self.root_uri, "/add");
+        let full_uri_str = format!("{}/add", self.root_uri);
         let full_uri = parse_uri(&full_uri_str)?;
         let mut request = new_request(&full_uri)?;
         request.header("Content-Type", "multipart/form-data;boundary=\"boundary\"");
@@ -153,9 +160,19 @@ impl IpfsClient {
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
-    pub fn ipfs_cat() {}
+    ///
+    /// NOTE: "This endpoint returns a `text/plain` response body."
+    pub fn ipfs_cat(&mut self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
+        // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
+        let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
+        let full_uri = parse_uri(&full_uri_str)?;
+        let mut request = new_request(&full_uri)?;
+
+        send_request_raw_response(&mut self.stream, &mut self.writer, request)
+    }
 }
 
+/// response is a JSON struct
 fn send_request<'a, ResponseType: Deserialize<'a>>(
     stream: &mut TcpStream,
     writer: &'a mut Vec<u8>,
@@ -169,6 +186,32 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
             if status_code.is_success() {
                 let add_response: ResponseType = serde_json::from_slice(writer).unwrap();
                 Ok(add_response)
+            } else {
+                Err(IpfsError::HttpError {
+                    // TODO(interstellar) remove clone
+                    msg: String::from_utf8(writer.clone()).unwrap(),
+                    code: u16::from(response.status_code()),
+                })
+            }
+        }
+        Err(err) => Err(IpfsError::ResponseError { err: err }),
+    }
+}
+
+/// response is raw data
+// TODO(interstellar) can we combine send_request and send_request_raw_response
+fn send_request_raw_response<'a>(
+    stream: &mut TcpStream,
+    writer: &'a mut Vec<u8>,
+    request: RequestBuilder,
+) -> Result<Vec<u8>, IpfsError> {
+    let result = request.send(stream, writer);
+
+    match result {
+        Ok(response) => {
+            let status_code = response.status_code();
+            if status_code.is_success() {
+                Ok(writer.clone())
             } else {
                 Err(IpfsError::HttpError {
                     // TODO(interstellar) remove clone

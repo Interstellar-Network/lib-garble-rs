@@ -73,9 +73,6 @@ pub struct IpfsClient {
     // This is NOT a Uri b/c it would require keep a ref to the underlying &str; ie Uri<'a>
     root_uri: String,
     stream: TcpStream,
-    // Container for response's body
-    // TODO(interstellar) move under send_request or new_request[ie make it Send/Sync]
-    writer: Vec<u8>,
 }
 
 #[cfg(feature = "std")]
@@ -123,7 +120,6 @@ impl IpfsClient {
         Ok(IpfsClient {
             root_uri: api_uri,
             stream,
-            writer: Vec::new(),
         })
     }
 
@@ -163,7 +159,8 @@ impl IpfsClient {
         // TODO(interstellar)
         request.body(&body_bytes);
 
-        send_request(&mut self.stream, &mut self.writer, request)
+        let mut writer = Vec::new();
+        send_request(&mut self.stream, &mut writer, request)
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
@@ -176,7 +173,8 @@ impl IpfsClient {
         let request = new_request(&full_uri)?;
 
         // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
-        send_request_raw_response(&mut self.stream, &mut self.writer, request)
+        let mut writer = Vec::new();
+        send_request_raw_response(&mut self.stream, &mut writer, request)
     }
 }
 

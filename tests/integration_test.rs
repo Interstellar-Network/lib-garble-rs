@@ -9,7 +9,8 @@ fn test_ipfs_add() {
     // let ipfs_server_multiaddr = format!("/ip4/127.0.0.1/tcp/{}", foreign_node.api_port);
     let ipfs_server_multiaddr = format!("http://localhost:{}", foreign_node.api_port);
 
-    let content = &[0u8, 42, 1];
+    // AZaz
+    let content = &[65u8, 90, 97, 122];
     let res = ipfs_add(&ipfs_server_multiaddr, content);
 
     assert!(res.is_ok());
@@ -25,5 +26,5 @@ fn test_ipfs_add() {
     })
     .unwrap();
     let skcd_buf_std = String::from_utf8(skcd_buf).unwrap();
-    assert_eq!(skcd_buf_std, "aa");
+    assert_eq!(skcd_buf_std, "AZaz");
 }

@@ -47,9 +47,9 @@ fn test_ipfs_cat() {
 
     assert!(res.is_ok());
 
-    let res_data = res.unwrap();
+    let res = res.unwrap();
 
-    let res_str = String::from_utf8(res_data).unwrap();
+    let res_str = String::from_utf8(res).unwrap();
     assert_eq!(res_str, "AZaz");
 }
 

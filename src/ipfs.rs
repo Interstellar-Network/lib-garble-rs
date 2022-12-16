@@ -10,7 +10,6 @@ use http_req::error as http_req_error;
 use http_req::request::{Method, RequestBuilder};
 use http_req::uri::Uri;
 use serde::Deserialize;
-use serde_json::from_str;
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 use snafu::prelude::*;
@@ -31,6 +30,10 @@ pub enum IpfsError {
     UriError { msg: String },
     #[snafu(display("tcp stream error: {}", msg))]
     TcpStreamError { msg: String },
+    #[snafu(display("serde error: {}", err))]
+    DeserializationError { err: serde_json::Error },
+    #[snafu(display("utf8 error: {}", err))]
+    Utf8Error { err: std::string::FromUtf8Error },
 }
 
 type Result<T, E = IpfsError> = std::result::Result<T, E>;
@@ -46,6 +49,10 @@ pub struct IpfsAddResponse {
     #[serde_as(as = "DisplayFromStr")]
     pub size: usize,
 }
+
+#[derive(Deserialize, Debug)]
+// #[serde(transparent)]
+pub struct IpfsCatResponse(Vec<u8>);
 
 // https://github.com/mikedilger/formdata/blob/master/src/lib.rs
 // WARNING: DO NOT use "\n" as end of line: it MUST be escaped(hence '\' in this example)
@@ -76,7 +83,7 @@ fn parse_uri<'a>(uri_str: &'a str) -> Result<Uri<'a>, IpfsError> {
     // Parse uri and assign it to variable `addr`
     // TODO(interstellar) why do we get "the trait `FromStr` is not implemented for `Uri<'_>`" in either SGX or STD???
     let addr: Uri = Uri::try_from(uri_str).map_err(|err| IpfsError::UriError {
-        msg: format!("invalid uri: {}", uri_str),
+        msg: format!("invalid uri ({}) : {} ", uri_str, err),
     })?;
 
     Ok(addr)
@@ -166,8 +173,9 @@ impl IpfsClient {
         // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
         let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
         let full_uri = parse_uri(&full_uri_str)?;
-        let mut request = new_request(&full_uri)?;
+        let request = new_request(&full_uri)?;
 
+        // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
         send_request_raw_response(&mut self.stream, &mut self.writer, request)
     }
 }
@@ -184,12 +192,14 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
         Ok(response) => {
             let status_code = response.status_code();
             if status_code.is_success() {
-                let add_response: ResponseType = serde_json::from_slice(writer).unwrap();
+                let add_response: ResponseType = serde_json::from_slice(writer)
+                    .map_err(|err| IpfsError::DeserializationError { err })?;
                 Ok(add_response)
             } else {
                 Err(IpfsError::HttpError {
                     // TODO(interstellar) remove clone
-                    msg: String::from_utf8(writer.clone()).unwrap(),
+                    msg: String::from_utf8(writer.clone())
+                        .map_err(|err| IpfsError::Utf8Error { err })?,
                     code: u16::from(response.status_code()),
                 })
             }
@@ -215,7 +225,8 @@ fn send_request_raw_response<'a>(
             } else {
                 Err(IpfsError::HttpError {
                     // TODO(interstellar) remove clone
-                    msg: String::from_utf8(writer.clone()).unwrap(),
+                    msg: String::from_utf8(writer.clone())
+                        .map_err(|err| IpfsError::Utf8Error { err })?,
                     code: u16::from(response.status_code()),
                 })
             }

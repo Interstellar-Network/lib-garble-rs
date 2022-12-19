@@ -8,9 +8,9 @@ edition = "2021"
 [dependencies]
 fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false }
 # TODO(interstellar) no_std not supported on crate.io; need a fork/patch
-imageproc = { version = "0.23.0", default-features = false }
+imageproc = { version = "0.23.0", default-features = false, git = "https://github.com/Interstellar-Network/imageproc.git", branch = "sgx-nostd-compat" }
 # FAIL: no_std OK without any features, but if can not draw text there is not point...
-image = { version = "0.24.5", default-features = false }
+image = { version = "0.24.5", default-features = false, git = "https://github.com/Interstellar-Network/image.git", branch = "sgx-nostd-compat" }
 rusttype = { version = "0.9.3", default-features = false }
 snafu = { version = "0.7", default-features = false }
 http_req_sgx = { package = "http_req", git = "https://github.com/mesalock-linux/http_req-sgx", optional = true }
@@ -21,8 +21,9 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 #  TODO(interstellar) serde_with: features = ["alloc"]
 serde_with = { version = "2.1.0", default-features = false, features = ["alloc", "macros"] }
-# TODO(interstellar) https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
-prost = { version = "0.11", default-features = false, features = ["prost-derive"] }
+# https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
+# TODO(interstellar) we need a7aac766e362d87d for no_std compat
+prost = { version = "0.11", default-features = false, features = ["prost-derive"], git = "https://github.com/tokio-rs/prost.git", rev = "a7aac766e362d87de5180774c124829e198f2b4c" }
 
 sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", features = ["net"], optional = true }
 
@@ -74,11 +75,6 @@ std = ["fancy-garbling/std", "imageproc/std", "http_req_std"]
 # TODO(interstellar) remove patch; DO NOT use patch in CI/PROD
 [patch."https://github.com/Interstellar-Network/swanky.git"]
 fancy-garbling = { path = "../swanky/fancy-garbling/" }
-
-[patch.crates-io]
-image = { path = "../image" }
-imageproc = { path = "../imageproc" }
-color_quant = { path = "../color_quant" }
 
 [profile.bench]
 inherits = "release"

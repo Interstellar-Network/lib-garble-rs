@@ -5,8 +5,7 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
 
-use lib_garble_rs::circuit::InterstellarCircuit;
-use lib_garble_rs::garble::InterstellarGarbledCircuit;
+use lib_garble_rs::garble_skcd;
 use lib_garble_rs::watermark;
 
 fn main() {
@@ -24,9 +23,7 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let circ = InterstellarCircuit::parse_skcd(&buffer).unwrap();
-
-    let mut garb = InterstellarGarbledCircuit::garble(circ);
+    let mut garb = garble_skcd(&buffer);
 
     let display_config = garb.config.display_config.unwrap().clone();
     let width = display_config.width as usize;

@@ -23,7 +23,7 @@ pub enum InterstellarEvaluatorError {
 }
 
 impl InterstellarGarbledCircuit {
-    pub fn garble(circuit: InterstellarCircuit) -> Self {
+    pub(crate) fn garble(circuit: InterstellarCircuit) -> Self {
         let (encoder, garbled) = garble(circuit.circuit).unwrap();
         InterstellarGarbledCircuit {
             garbled: garbled,

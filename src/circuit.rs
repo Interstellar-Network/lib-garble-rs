@@ -21,7 +21,7 @@ pub struct SkcdConfig {
 /// Represents the raw(ie UNgarbled) circuit; usually created from a .skcd file
 ///
 /// Exists mostly to mask swanky/fancy-garbling Circuit to the public.
-pub struct InterstellarCircuit {
+pub(crate) struct InterstellarCircuit {
     pub(crate) circuit: Circuit,
     pub(crate) config: SkcdConfig,
 }

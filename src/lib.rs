@@ -7,15 +7,31 @@ extern crate sgx_tstd as std;
 
 extern crate alloc;
 
-pub mod circuit;
-pub mod garble;
+mod circuit;
+mod garble;
 mod skcd_parser;
 // TODO(interstellar) put behind a feature; the client DOES NOT need it
 pub mod ipfs;
 pub mod watermark;
 
+/// This is the main entry point of this function; meant to be called by the "pallet-ocw-garble"
+///
+/// It:
+/// - parses a .skcd; usually coming from IPFS
+/// - garbles it
+/// - encode the "garbler inputs" ie the message/watermark/OTP(pinpad or message)
+// TODO it SHOULD return a serialized GC, with "encoded inputs"
+pub fn garble_skcd(skcd_buf: &[u8]) -> garble::InterstellarGarbledCircuit {
+    let circ = circuit::InterstellarCircuit::parse_skcd(skcd_buf).unwrap();
+
+    let mut garb = garble::InterstellarGarbledCircuit::garble(circ);
+
+    garb
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+    use super::garble_skcd;
     use crate::circuit::InterstellarCircuit;
     use crate::garble::EvaluatorInput;
     use crate::garble::InterstellarGarbledCircuit;
@@ -25,7 +41,7 @@ mod tests {
     // input  i_bit1;
     // input  i_bit2;
     // input  i_carry;
-    const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
+    pub(crate) const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
         &[0, 0, 0],
         &[1, 0, 0],
         &[0, 1, 0],
@@ -38,7 +54,7 @@ mod tests {
 
     // output o_sum;
     // output o_carry;
-    const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
+    pub(crate) const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
         &[0, 0],
         &[1, 0],
         &[1, 0],
@@ -50,27 +66,8 @@ mod tests {
     ];
 
     #[test]
-    fn test_eval_plain_full_adder_2bits() {
-        let circ =
-            InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
-                .unwrap();
-
-        assert!(circ.num_evaluator_inputs() == 3);
-        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = circ.eval_plain(&[], inputs).unwrap();
-            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
-        }
-    }
-
-    #[test]
     fn test_garble_full_adder_2bits() {
-        use crate::garble::InterstellarGarbledCircuit;
-
-        let circ =
-            InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
-                .unwrap();
-
-        let mut garb = InterstellarGarbledCircuit::garble(circ);
+        let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
             let outputs = garb.eval(&[], inputs).unwrap();
@@ -104,13 +101,11 @@ mod tests {
     fn garble_display_message_2digits(
         skcd_bytes: &[u8],
     ) -> (InterstellarGarbledCircuit, usize, usize) {
-        let circ = InterstellarCircuit::parse_skcd(skcd_bytes).unwrap();
+        let garb = garble_skcd(skcd_bytes);
 
-        let display_config = circ.config.display_config.unwrap().clone();
+        let display_config = garb.config.display_config.unwrap().clone();
         let width = display_config.width as usize;
         let height = display_config.height as usize;
-
-        let garb = InterstellarGarbledCircuit::garble(circ);
 
         (garb, width, height)
     }

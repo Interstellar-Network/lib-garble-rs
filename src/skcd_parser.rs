@@ -116,7 +116,7 @@ impl InterstellarCircuit {
     /// - the list of inputs (gate ids)
     /// - the list of ouputs (gate ids)
     /// [inputs/outputs are needed to walk the graph, and optimize/rewrite if desired]
-    pub fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
+    pub(crate) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
         let mut buf = &*buf;
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(&mut buf).unwrap();
@@ -257,5 +257,24 @@ impl SkcdGateConverter {
     pub fn insert(&mut self, skcd_gate_id: &str, circuit_ref: CircuitRef) {
         self.map_skcd_gate_id_to_circuit_ref
             .insert(skcd_gate_id.to_string(), circuit_ref);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::circuit::InterstellarCircuit;
+    use crate::tests::{FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS, FULL_ADDER_2BITS_ALL_INPUTS};
+
+    #[test]
+    fn test_eval_plain_full_adder_2bits() {
+        let circ =
+            InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
+                .unwrap();
+
+        assert!(circ.num_evaluator_inputs() == 3);
+        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
+            let outputs = circ.eval_plain(&[], inputs).unwrap();
+            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
+        }
     }
 }

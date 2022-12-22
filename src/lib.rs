@@ -36,6 +36,11 @@ pub(crate) mod tests {
     use crate::garble::EvaluatorInput;
     use crate::garble::InterstellarGarbledCircuit;
     use fancy_garbling::Wire;
+    use rand::distributions::Uniform;
+    use rand::prelude::Distribution;
+    use rand::rngs::ThreadRng;
+    use rand::thread_rng;
+    use std::time::Instant;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
@@ -145,7 +150,11 @@ pub(crate) mod tests {
 
     // TODO!!! MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
     #[test]
-    fn test_garble_display_message_120x52_2digits_ones() {
+    fn test_garble_display_message_120x52_2digits_42() {
+        // The more we combine, the less this test will be flaky
+        // TODO should we instead map "specific inputs" -> "expected outputs"; and assume everything is OK is eg 10 random inputs are OK?
+        const NB_EVALS: usize = 50;
+
         // TODO proper garbler inputs
         // Those are splitted into:
         // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
@@ -171,10 +180,42 @@ pub(crate) mod tests {
         let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ));
-        let data = garb
-            .eval(&garbler_inputs, &[0u16, 1, 0, 1, 0, 1, 0, 1, 0])
-            .unwrap();
-        let eval_outputs = write_png(width, height, data);
+
+        let mut merged_outputs = vec![0u16; width * height];
+        let mut rng = thread_rng();
+        let rand_0_1 = Uniform::from(0..=1);
+
+        let mut temp_outputs = vec![Some(0u16); width * height];
+
+        let mut evaluator_inputs = vec![
+            // "rnd": 9 inputs
+            0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
+        ];
+        let garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
+
+        garb.init_cache();
+
+        for _ in 0..NB_EVALS {
+            eval_client(
+                &mut garb,
+                &garbler_inputs,
+                &mut evaluator_inputs,
+                &mut temp_outputs,
+                &mut rng,
+                &rand_0_1,
+            );
+
+            for (merged_output, &cur_output) in merged_outputs.iter_mut().zip(temp_outputs.iter()) {
+                // what we want is a OR:
+                // 0 + 0 = 0
+                // 1 + 0 = 1
+                // 0 + 1 = 1
+                // 1 + 1 = 1
+                *merged_output =
+                    std::cmp::min(*merged_output + cur_output.unwrap_or_default(), 1u16)
+            }
+        }
+        let eval_outputs = write_png(width, height, merged_outputs);
 
         let expected_outputs = read_png_to_bytes(include_bytes!(
             "../examples/data/eval_outputs_display_message_120x52_2digits_42.png"
@@ -197,6 +238,8 @@ pub(crate) mod tests {
     }
 
     /// Client use-case, or as close as possible.
+    /// Randomize "evaluator_inputs" every call.
+    ///
     /// NOT using the "standard API" b/c that re-encodes teh garbler_inputs every eval
     /// That costs around ~5ms...
     /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
@@ -204,9 +247,17 @@ pub(crate) mod tests {
     fn eval_client(
         garb: &mut InterstellarGarbledCircuit,
         garbler_inputs: &Vec<Wire>,
-        evaluator_inputs: &[EvaluatorInput],
+        evaluator_inputs: &mut [EvaluatorInput],
         data: &mut Vec<Option<u16>>,
+        rng: &mut ThreadRng,
+        rand_0_1: &Uniform<u16>,
     ) {
+        // randomize the "rnd" part of the inputs
+        // cf "rndswitch.v" comment above; DO NOT touch the last!
+        for input in evaluator_inputs.iter_mut() {
+            *input = rand_0_1.sample(rng);
+        }
+
         // coz::scope!("eval_client");
 
         let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(evaluator_inputs);
@@ -218,11 +269,6 @@ pub(crate) mod tests {
     // NOTE it is quite slow in Debug! Make sure to enable optimizations
     #[test]
     fn bench_eval_display_message_640x360_2digits_42() {
-        use rand::distributions::Uniform;
-        use rand::prelude::Distribution;
-        use rand::thread_rng;
-        use std::time::Instant;
-
         ////////////////////////////////////////////////////////////////////////
         // use tracing_subscriber::layer::SubscriberExt;
 
@@ -295,13 +341,14 @@ pub(crate) mod tests {
 
             let start = Instant::now();
 
-            // randomize the "rnd" part of the inputs
-            // cf "rndswitch.v" comment above; DO NOT touch the last!
-            for input in evaluator_inputs.iter_mut() {
-                *input = rand_0_1.sample(&mut rng);
-            }
-
-            eval_client(&mut garb, &garbler_inputs, &evaluator_inputs, &mut data);
+            eval_client(
+                &mut garb,
+                &garbler_inputs,
+                &mut evaluator_inputs,
+                &mut data,
+                &mut rng,
+                &rand_0_1,
+            );
 
             let duration = start.elapsed();
 

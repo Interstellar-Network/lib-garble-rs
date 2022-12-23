@@ -60,12 +60,18 @@ jobs:
 
       ##########################################################################
 
+      - uses: Interstellar-Network/gh-actions/install-go-ipfs@v2
+
+      ##########################################################################
+
       - uses: Interstellar-Network/gh-actions/rust-build-and-test@v2
         with:
           # For now we the benches just output to stdout and we do nothing with it
           # TODO performance regression testing
           check_args: --profile=bench
           test_args: --profile=bench
+
+      # TODO compile for android
 
       # TODO move into separate action? ideally into a JS action "post" that setup ccache?
       # NOTE: remove if using "rust-build-and-test"

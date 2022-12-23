@@ -72,10 +72,6 @@ default = ["std"]
 sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx", "http_req_sgx"]
 std = ["fancy-garbling/std", "imageproc/std", "http_req_std"]
 
-# TODO(interstellar) remove patch; DO NOT use patch in CI/PROD
-[patch."https://github.com/Interstellar-Network/swanky.git"]
-fancy-garbling = { path = "../swanky/fancy-garbling/" }
-
 [profile.bench]
 inherits = "release"
 debug = 1

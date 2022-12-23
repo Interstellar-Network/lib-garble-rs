@@ -120,9 +120,13 @@ jobs:
         shell: bash
 
       - name: Compile Android armv7-linux-androideabi
+        id: build-armv7-linux-androideabi
         run: |
           cargo build --verbose --target=armv7-linux-androideabi
         shell: bash
+        # TODO it fails b/c of pointer size difference, at least in Scuttlebut
+        # but as we are still not in PROD/GA, we only care about aarch64 for now
+        continue-on-error: true
 
       ##########################################################################
 

@@ -1,4 +1,4 @@
-name: Build and Test Android App
+name: Build and Test
 
 on:
   push:
@@ -56,6 +56,7 @@ jobs:
         run: sdkmanager --uninstall "ndk;23.2.8568313"
       - name: Install NDK v25
         # version required else: "Warning: Failed to find package 'ndk'"
+        # MUST match version used at NDK_ROOT below! Careful when updating!
         run: sdkmanager "ndk;25.1.8937393"
 
       ##########################################################################
@@ -71,7 +72,26 @@ jobs:
           check_args: --profile=bench
           test_args: --profile=bench
 
-      # TODO compile for android
+      ##########################################################################
+      # compile for android
+      # NOTE: we only care about compilation for this; not running the test
+
+      - name: echo NDK_ROOT
+        run: |
+          echo ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
+          ls -al $ANDROID_SDK_ROOT
+          echo ANDROID_SDK_ROOT/ndk=$ANDROID_SDK_ROOT/ndk
+          ls -al $ANDROID_SDK_ROOT/ndk
+          echo NDK_ROOT=$NDK_ROOT
+          ls -al $NDK_ROOT
+        env:
+          # MUST match version installed above
+          # cf https://github.com/android-actions/setup-android/blob/main/src/main.ts#L184
+          # to see what env var are available
+          NDK_ROOT: $ANDROID_SDK_ROOT/ndk/
+        shell: bash
+
+      ##########################################################################
 
       # TODO move into separate action? ideally into a JS action "post" that setup ccache?
       # NOTE: remove if using "rust-build-and-test"

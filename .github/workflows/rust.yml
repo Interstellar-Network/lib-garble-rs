@@ -75,20 +75,30 @@ jobs:
       ##########################################################################
       # compile for android
       # NOTE: we only care about compilation for this; not running the test
+      # cf https://github.com/Interstellar-Network/wallet-app/blob/master/shared/build.gradle.kts
+      # For how/which variables are used
 
-      - name: echo NDK_ROOT
+      # NOTE: AR is NOT is the same as CC/CXX
+      - name: setup env vars for Rust Android build aarch64-linux-android
+        # NDK_ROOT MUST match version installed above
+        # cf https://github.com/android-actions/setup-android/blob/main/src/main.ts#L184
+        # to see what env var are available
         run: |
-          echo ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
-          ls -al $ANDROID_SDK_ROOT
-          echo ANDROID_SDK_ROOT/ndk=$ANDROID_SDK_ROOT/ndk
-          ls -al $ANDROID_SDK_ROOT/ndk
+          export NDK_ROOT=$ANDROID_SDK_ROOT/ndk/25.1.8937393
           echo NDK_ROOT=$NDK_ROOT
-          ls -al $NDK_ROOT
-        env:
-          # MUST match version installed above
-          # cf https://github.com/android-actions/setup-android/blob/main/src/main.ts#L184
-          # to see what env var are available
-          NDK_ROOT: $ANDROID_SDK_ROOT/ndk/
+          ls -al $NDK_ROOT/..
+          export CC_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
+          export CXX_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang++
+          export AR_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+          export CMAKE_TOOLCHAIN_FILE=$NDK_ROOT/build/cmake/android.toolchain.cmake
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$CC_aarch64_linux_android
+          export ANDROID_ABI=arm64-v8a
+          export ANDROID_PLATFORM=21
+        shell: bash
+
+      - name: Compile Android aarch64-linux-android
+        run: |
+          cargo build --verbose --target=aarch64-linux-android
         shell: bash
 
       ##########################################################################

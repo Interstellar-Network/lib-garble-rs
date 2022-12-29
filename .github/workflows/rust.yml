@@ -25,6 +25,8 @@ jobs:
       # TODO? "x86_64-unknown-linux-gnu"
       - run: rustup target add armv7-linux-androideabi aarch64-linux-android
 
+      - uses: Interstellar-Network/gh-actions/rust-lint@v2
+
       ##########################################################################
       # NOTE "protoc-VERSION-HOST.zip"(contains protoc itself)
       # and "protobuf-cpp-VERSION.tar.gz" contains the source code for eg "src/google/protobuf/port_def.inc"

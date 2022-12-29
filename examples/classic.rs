@@ -38,7 +38,7 @@ fn main() {
         width.try_into().unwrap(),
         height.try_into().unwrap(),
         &watermark_font,
-        "Hello, world!",
+        "Hello,\nworld!",
     );
 
     // TODO proper garbler inputs

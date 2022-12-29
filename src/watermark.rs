@@ -14,6 +14,30 @@ pub fn new_font<'a>() -> Font<'a> {
     Font::try_from_bytes(FONT_BYTES).unwrap()
 }
 
+/// cf https://docs.rs/imageproc/latest/imageproc/drawing/fn.draw_text_mut.html
+/// "this function does not support newlines, you must do this manually"
+fn draw_text_mut_with_newline(
+    image: &mut GrayImage,
+    color: Luma<u8>,
+    x: i32,
+    y: i32,
+    scale: Scale,
+    font: &Font<'_>,
+    text: &str,
+) {
+    for (line_no, line_str) in text.lines().enumerate() {
+        draw_text_mut(
+            image,
+            color,
+            x,
+            y + (scale.y as i32 * line_no as i32),
+            scale,
+            font,
+            line_str,
+        )
+    }
+}
+
 /// Draw a basic text onto an image
 /// cf https://github.com/Interstellar-Network/imageproc/blob/master/examples/font.rs
 ///
@@ -27,7 +51,7 @@ pub fn draw_text(img_width: u32, img_height: u32, font: &Font<'_>, text: &str) -
         y: height,
     };
 
-    draw_text_mut(
+    draw_text_mut_with_newline(
         &mut image,
         Luma(WATERMARK_COLOR),
         (img_width / 4).try_into().unwrap(),

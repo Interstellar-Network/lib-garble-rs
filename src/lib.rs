@@ -190,7 +190,7 @@ pub(crate) mod tests {
         ];
         let garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
 
-        garb.init_cache();
+        let mut eval_cache = garb.init_cache();
 
         for _ in 0..NB_EVALS {
             eval_client(
@@ -200,6 +200,7 @@ pub(crate) mod tests {
                 &mut temp_outputs,
                 &mut rng,
                 &rand_0_1,
+                &mut eval_cache,
             );
 
             for (merged_output, &cur_output) in merged_outputs.iter_mut().zip(temp_outputs.iter()) {
@@ -248,6 +249,7 @@ pub(crate) mod tests {
         data: &mut Vec<Option<u16>>,
         rng: &mut ThreadRng,
         rand_0_1: &Uniform<u16>,
+        eval_cache: &mut crate::garble::EvalCache,
     ) {
         // randomize the "rnd" part of the inputs
         // cf "rndswitch.v" comment above; DO NOT touch the last!
@@ -257,9 +259,9 @@ pub(crate) mod tests {
 
         // coz::scope!("eval_client");
 
-        let evaluator_inputs = &garb.encoder.encode_evaluator_inputs(evaluator_inputs);
+        let evaluator_inputs = garb.encoder.encode_evaluator_inputs(evaluator_inputs);
         garb.garbled
-            .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, data)
+            .eval_with_prealloc(eval_cache, garbler_inputs, &evaluator_inputs, data)
             .unwrap();
     }
 
@@ -330,7 +332,7 @@ pub(crate) mod tests {
         ];
 
         let mut data = vec![Some(0u16); width * height];
-        garb.init_cache();
+        let mut eval_cache = garb.init_cache();
 
         for _ in 0..NB_EVALS {
             // profiling::scope!("Looped eval");
@@ -345,6 +347,7 @@ pub(crate) mod tests {
                 &mut data,
                 &mut rng,
                 &rand_0_1,
+                &mut eval_cache,
             );
 
             let duration = start.elapsed();

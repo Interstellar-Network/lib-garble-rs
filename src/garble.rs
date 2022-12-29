@@ -3,6 +3,8 @@ use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
 use fancy_garbling::errors::EvaluatorError;
 
+pub use fancy_garbling::classic::EvalCache;
+
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
 
@@ -50,18 +52,19 @@ impl InterstellarGarbledCircuit {
         garbler_inputs: &[EvaluatorInput],
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
+        eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
         let garbler_inputs = self.encoder.encode_garbler_inputs(garbler_inputs);
 
         self.garbled
-            .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, outputs)
+            .eval_with_prealloc(eval_cache, &garbler_inputs, &evaluator_inputs, outputs)
             .map_err(InterstellarEvaluatorError::FancyError)?;
 
         Ok(())
     }
 
-    pub fn init_cache(&mut self) {
+    pub fn init_cache(&mut self) -> EvalCache {
         self.garbled.init_cache()
     }
 }

@@ -26,8 +26,8 @@ impl InterstellarGarbledCircuit {
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Self {
         let (encoder, garbled) = garble(circuit.circuit).unwrap();
         InterstellarGarbledCircuit {
-            garbled: garbled,
-            encoder: encoder,
+            garbled,
+            encoder,
             config: circuit.config,
         }
     }
@@ -37,12 +37,12 @@ impl InterstellarGarbledCircuit {
         garbler_inputs: &[EvaluatorInput],
         evaluator_inputs: &[EvaluatorInput],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
-        let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
-        let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
+        let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
+        let garbler_inputs = self.encoder.encode_garbler_inputs(garbler_inputs);
 
         self.garbled
             .eval(&garbler_inputs, &evaluator_inputs)
-            .map_err(|e| InterstellarEvaluatorError::FancyError(e))
+            .map_err(InterstellarEvaluatorError::FancyError)
     }
 
     pub fn eval_with_prealloc(
@@ -51,12 +51,12 @@ impl InterstellarGarbledCircuit {
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
     ) -> Result<(), InterstellarEvaluatorError> {
-        let evaluator_inputs = &self.encoder.encode_evaluator_inputs(&evaluator_inputs);
-        let garbler_inputs = &self.encoder.encode_garbler_inputs(&garbler_inputs);
+        let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
+        let garbler_inputs = self.encoder.encode_garbler_inputs(garbler_inputs);
 
         self.garbled
             .eval_with_prealloc(&garbler_inputs, &evaluator_inputs, outputs)
-            .map_err(|e| InterstellarEvaluatorError::FancyError(e))?;
+            .map_err(InterstellarEvaluatorError::FancyError)?;
 
         Ok(())
     }

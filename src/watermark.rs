@@ -33,7 +33,7 @@ pub fn draw_text(img_width: u32, img_height: u32, font: &Font<'_>, text: &str) -
         (img_width / 4).try_into().unwrap(),
         (img_height / 2).try_into().unwrap(),
         scale,
-        &font,
+        font,
         text,
     );
     // TODO(interstellar)???
@@ -56,13 +56,13 @@ pub fn draw_text(img_width: u32, img_height: u32, font: &Font<'_>, text: &str) -
 /// ie Vec<u8> -> Vec<u16>
 /// This is NOT doing anything funny to the bits, no shuffling etc
 /// It is just raw conversion result[i] = input[i]
-pub fn convert_image_to_garbler_inputs<'a>(image: GrayImage) -> Vec<EvaluatorInput> {
+pub fn convert_image_to_garbler_inputs(image: GrayImage) -> Vec<EvaluatorInput> {
     image
         .into_vec()
         .into_iter()
         .map(|pixel| {
             // IMPORTANT: we NEED a threshold here b/c "draw_text_mut" has apparently some AA
-            let pixel = if pixel > 0 { 1 } else { 0 };
+            let pixel = i32::from(pixel > 0);
             pixel.try_into().unwrap()
         })
         .collect()

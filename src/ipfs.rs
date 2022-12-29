@@ -124,7 +124,7 @@ impl IpfsClient {
 
         Ok(IpfsClient {
             root_uri: api_uri,
-            stream: stream,
+            stream,
         })
     }
 
@@ -168,7 +168,7 @@ impl IpfsClient {
         let stream = self
             .stream
             .try_clone()
-            .map_err(|err| IpfsError::IoStreamError { err: err })?;
+            .map_err(|err| IpfsError::IoStreamError { err })?;
         send_request(stream, &mut writer, request)
     }
 
@@ -186,7 +186,7 @@ impl IpfsClient {
         let stream = self
             .stream
             .try_clone()
-            .map_err(|err| IpfsError::IoStreamError { err: err })?;
+            .map_err(|err| IpfsError::IoStreamError { err })?;
         send_request_raw_response(stream, &mut writer, request)
     }
 }
@@ -215,7 +215,7 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
                 })
             }
         }
-        Err(err) => Err(IpfsError::ResponseError { err: err }),
+        Err(err) => Err(IpfsError::ResponseError { err }),
     }
 }
 
@@ -242,7 +242,7 @@ fn send_request_raw_response<'a>(
                 })
             }
         }
-        Err(err) => Err(IpfsError::ResponseError { err: err }),
+        Err(err) => Err(IpfsError::ResponseError { err }),
     }
 }
 

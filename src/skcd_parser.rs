@@ -36,6 +36,7 @@ mod interstellarpbskcd {
 /// - "enum SkcdGateType" from skcd.proto
 /// - lib_circuits/src/blif/gate_types.h
 /// - lib_garble/src/justgarble/gate_types.h
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 enum SkcdGateType {
     ZERO = 0,
@@ -109,9 +110,8 @@ impl InterstellarCircuit {
     /// - the list of ouputs (gate ids)
     /// [inputs/outputs are needed to walk the graph, and optimize/rewrite if desired]
     pub(crate) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
-        let mut buf = &*buf;
         // TODO(interstellar) decode_length_delimited ?
-        let skcd: interstellarpbskcd::Skcd = prost::Message::decode(&mut buf).unwrap();
+        let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf).unwrap();
 
         let mut circ_builder = CircuitBuilder::new();
 
@@ -200,7 +200,7 @@ impl InterstellarCircuit {
         // eg L161 etc b/c the cache is not properly set
         for o in skcd.outputs {
             let z = skcd_gate_converter.get(&o).unwrap();
-            circ_builder.output(&z).unwrap();
+            circ_builder.output(z).unwrap();
         }
 
         // config
@@ -214,7 +214,7 @@ impl InterstellarCircuit {
 
         Ok(InterstellarCircuit {
             circuit: circ_builder.finish(),
-            config: config,
+            config,
         })
     }
 }

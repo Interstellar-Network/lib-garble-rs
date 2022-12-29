@@ -2,6 +2,7 @@ use crate::circuit::InterstellarCircuit;
 use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
 use fancy_garbling::errors::EvaluatorError;
+use fancy_garbling::Wire;
 
 pub use fancy_garbling::classic::EvalCache;
 
@@ -9,6 +10,7 @@ pub use fancy_garbling::classic::EvalCache;
 use sgx_tstd::vec::Vec;
 
 pub type EvaluatorInput = u16;
+type GarblerInput = u16;
 
 // TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
@@ -19,12 +21,18 @@ pub struct InterstellarGarbledCircuit {
     pub config: SkcdConfig,
 }
 
+/// Obtained by calling Inter::
+pub struct EncodedGarblerInputs {
+    pub(crate) wires: Vec<Wire>,
+}
+
 #[derive(Debug)]
 pub enum InterstellarEvaluatorError {
     FancyError(EvaluatorError),
 }
 
 impl InterstellarGarbledCircuit {
+    /// NOTE: it is NOT pub b/c we want to only expose the full parse_skcd+garble, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Self {
         let (encoder, garbled) = garble(circuit.circuit).unwrap();
         InterstellarGarbledCircuit {
@@ -34,9 +42,16 @@ impl InterstellarGarbledCircuit {
         }
     }
 
+    // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
+    pub fn encode_garbler_inputs(&self, garbler_inputs: &[GarblerInput]) -> EncodedGarblerInputs {
+        EncodedGarblerInputs {
+            wires: self.encoder.encode_garbler_inputs(garbler_inputs),
+        }
+    }
+
     pub fn eval(
         &mut self,
-        garbler_inputs: &[EvaluatorInput],
+        garbler_inputs: &[GarblerInput],
         evaluator_inputs: &[EvaluatorInput],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
         let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
@@ -49,16 +64,20 @@ impl InterstellarGarbledCircuit {
 
     pub fn eval_with_prealloc(
         &mut self,
-        garbler_inputs: &[EvaluatorInput],
+        encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
         eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
-        let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
-        let garbler_inputs = self.encoder.encode_garbler_inputs(garbler_inputs);
+        let encoded_evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
 
         self.garbled
-            .eval_with_prealloc(eval_cache, &garbler_inputs, &evaluator_inputs, outputs)
+            .eval_with_prealloc(
+                eval_cache,
+                &encoded_garbler_inputs.wires,
+                &encoded_evaluator_inputs,
+                outputs,
+            )
             .map_err(InterstellarEvaluatorError::FancyError)?;
 
         Ok(())

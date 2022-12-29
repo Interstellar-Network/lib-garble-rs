@@ -199,10 +199,6 @@ pub mod common {
         pub id: String,
         pub public_key: String,
         pub addresses: Vec<Multiaddr>,
-        #[serde(skip)]
-        agent_version: String,
-        #[serde(skip)]
-        protocol_version: String,
     }
 }
 

@@ -165,7 +165,7 @@ impl IpfsClient {
         request.body(&body_bytes);
 
         let mut writer = Vec::new();
-        let mut stream = self
+        let stream = self
             .stream
             .try_clone()
             .map_err(|err| IpfsError::IoStreamError { err: err })?;
@@ -183,7 +183,7 @@ impl IpfsClient {
 
         // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
         let mut writer = Vec::new();
-        let mut stream = self
+        let stream = self
             .stream
             .try_clone()
             .map_err(|err| IpfsError::IoStreamError { err: err })?;

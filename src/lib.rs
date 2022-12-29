@@ -24,7 +24,7 @@ pub mod watermark;
 pub fn garble_skcd(skcd_buf: &[u8]) -> garble::InterstellarGarbledCircuit {
     let circ = circuit::InterstellarCircuit::parse_skcd(skcd_buf).unwrap();
 
-    let mut garb = garble::InterstellarGarbledCircuit::garble(circ);
+    let garb = garble::InterstellarGarbledCircuit::garble(circ);
 
     garb
 }
@@ -32,7 +32,6 @@ pub fn garble_skcd(skcd_buf: &[u8]) -> garble::InterstellarGarbledCircuit {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::garble_skcd;
-    use crate::circuit::InterstellarCircuit;
     use crate::garble::EvaluatorInput;
     use crate::garble::InterstellarGarbledCircuit;
     use fancy_garbling::Wire;

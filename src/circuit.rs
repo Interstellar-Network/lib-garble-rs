@@ -1,5 +1,4 @@
 use fancy_garbling::circuit::Circuit;
-use fancy_garbling::errors::DummyError;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
@@ -24,19 +23,4 @@ pub struct SkcdConfig {
 pub(crate) struct InterstellarCircuit {
     pub(crate) circuit: Circuit,
     pub(crate) config: SkcdConfig,
-}
-
-/// Forward to the corresponding swanky/fancy-garbling functions
-impl InterstellarCircuit {
-    pub fn eval_plain(
-        &self,
-        garbler_inputs: &[u16],
-        evaluator_inputs: &[u16],
-    ) -> Result<Vec<u16>, DummyError> {
-        self.circuit.eval_plain(garbler_inputs, evaluator_inputs)
-    }
-
-    pub fn num_evaluator_inputs(&self) -> usize {
-        self.circuit.num_evaluator_inputs()
-    }
 }

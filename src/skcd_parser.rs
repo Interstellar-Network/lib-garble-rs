@@ -91,14 +91,6 @@ impl TryFrom<i32> for SkcdGateType {
 /// Errors emitted by the circuit parser.
 #[derive(Debug)]
 pub enum CircuitParserError {
-    /// An I/O error occurred.
-    IoError(std::io::Error),
-    /// An error occurred parsing an integer.
-    ParseIntError,
-    /// An error occurred parsing a line.
-    ParseLineError(String),
-    /// An error occurred parsing a gate type.
-    ParseGateError(String),
     /// InvalidGateIdError: the given GateID from the .skcd DOES NOT match CircuitBuilder's
     InvalidGateIdError(String),
 }
@@ -227,13 +219,13 @@ impl InterstellarCircuit {
     }
 }
 
-/// We need to convert soemthing like
+/// We need to convert something like
 /// ".gate XOR  a=rnd[2] b=rnd[0] O=n7016" in the .skcd(which is basically a .blif)
 /// into something that CircuitBuilder can accept.
 /// Essentially we need to convert a String ID -> CircuitRef(= a usize)
 ///
 /// IMPORTANT
-/// For this to work, the INPUTS MUST also go through the same convertion, else
+/// For this to work, the INPUTS MUST also go through the same conversion, else
 /// when using CircuitBuilder.or/and/etc the CircuitRef WOULD NOT match anything.
 /// NOTE that in this case the Circuit still would build fine, but it would fail
 /// when eval/garbling.
@@ -271,9 +263,9 @@ mod tests {
             InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
                 .unwrap();
 
-        assert!(circ.num_evaluator_inputs() == 3);
+        assert!(circ.circuit.num_evaluator_inputs() == 3);
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = circ.eval_plain(&[], inputs).unwrap();
+            let outputs = circ.circuit.eval_plain(&[], inputs).unwrap();
             assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
         }
     }

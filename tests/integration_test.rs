@@ -45,13 +45,13 @@ fn test_ipfs_add_aux<'a>(
 
 #[test]
 fn test_ipfs_add() {
-    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    let (ipfs_internal_client, ipfs_reference_client, _foreign_node) = setup_ipfs();
     test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
 }
 
 #[test]
 fn test_ipfs_cat() {
-    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    let (ipfs_internal_client, ipfs_reference_client, _foreign_node) = setup_ipfs();
 
     // AZaz
     let content = &[65u8, 90, 97, 122];
@@ -69,7 +69,7 @@ fn test_ipfs_cat() {
 // TODO(interstellar) Test with multiple requests to make sure write/stream are reusable
 #[test]
 fn test_ipfs_multiple_adds() {
-    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    let (ipfs_internal_client, ipfs_reference_client, _foreign_node) = setup_ipfs();
     test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
     test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
     test_ipfs_add_aux(&ipfs_internal_client, &ipfs_reference_client);
@@ -88,12 +88,12 @@ fn require_send_sync() {
 #[test]
 #[ignore = "FAIL"]
 fn test_ipfs_thread_safe_adds() {
-    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
+    let (ipfs_internal_client, ipfs_reference_client, _foreign_node) = setup_ipfs();
 
     // IMPORTANT: MUST use https://docs.rs/crossbeam-utils/latest/crossbeam_utils/thread/index.html b/c
     // std::thread CAN NOT borrow from the stack
     thread::scope(|s| {
-        for i in 1..10 {
+        for _ in 1..10 {
             let ipfs_internal_client_ref = &ipfs_internal_client;
             let ipfs_reference_client_ref = &ipfs_reference_client;
             s.spawn(move |_| {

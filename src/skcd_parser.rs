@@ -20,9 +20,7 @@ use sgx_tstd::vec::Vec;
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::string::ToString;
 
-// deps/protos/generated/ DOES NOT work b/c it only contains "APIs" and we want circuits/skcd.proto etc
-//
-// https://github.com/neoeinstein/protoc-gen-prost/issues/26
+// derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
 #[allow(clippy::derive_partial_eq_without_eq)]
 mod interstellarpbskcd {
     // TODO(interstellar) can we use prost-build(and prost-derive) in SGX env?

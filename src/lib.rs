@@ -9,6 +9,7 @@ extern crate alloc;
 
 mod circuit;
 mod garble;
+mod serialize_deserialize;
 mod skcd_parser;
 // TODO(interstellar) put behind a feature; the client DOES NOT need it
 pub mod ipfs;

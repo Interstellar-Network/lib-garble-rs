@@ -1,10 +1,11 @@
 use fancy_garbling::circuit::Circuit;
+use serde::{Deserialize, Serialize};
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
 
 // TODO!!! add the rest of skcd.proto
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct DisplayConfig {
     pub width: u32,
     pub height: u32,
@@ -12,7 +13,7 @@ pub struct DisplayConfig {
     // TODO!!! NOT PUB segments_type: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SkcdConfig {
     pub display_config: Option<DisplayConfig>,
 }

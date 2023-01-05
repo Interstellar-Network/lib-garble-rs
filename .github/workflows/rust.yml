@@ -22,8 +22,6 @@ jobs:
         with:
           toolchain_toolchain: stable
 
-      - uses: Interstellar-Network/gh-actions/rust-lint@v2
-
       ##########################################################################
       # NOTE "protoc-VERSION-HOST.zip"(contains protoc itself)
       # and "protobuf-cpp-VERSION.tar.gz" contains the source code for eg "src/google/protobuf/port_def.inc"
@@ -130,6 +128,10 @@ jobs:
         # TODO it fails b/c of pointer size difference, at least in Scuttlebut
         # but as we are still not in PROD/GA, we only care about aarch64 for now
         continue-on-error: true
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/rust-lint@v2
 
       ##########################################################################
 

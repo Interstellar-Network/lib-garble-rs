@@ -3,6 +3,7 @@ use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
 use fancy_garbling::errors::EvaluatorError;
 use fancy_garbling::Wire;
+use serde::{Deserialize, Serialize};
 
 pub use fancy_garbling::classic::EvalCache;
 
@@ -15,6 +16,7 @@ type GarblerInput = u16;
 // TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
 // and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct InterstellarGarbledCircuit {
     pub(crate) garbled: GarbledCircuit,
     pub(crate) encoder: Encoder,

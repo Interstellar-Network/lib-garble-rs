@@ -1,48 +1,37 @@
 use crate::InterstellarGarbledCircuit;
-use alloc::collections::BTreeMap;
-use prost::Message;
-
-// derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
-#[allow(clippy::derive_partial_eq_without_eq)]
-mod interstellarpbgarbled {
-    // TODO(interstellar) can we use prost-build(and prost-derive) in SGX env?
-    // include!(concat!(env!("OUT_DIR"), "/interstellarpbgarbled.rs"));
-    include!("../deps/protos/generated/rust/interstellarpbgarbled.rs");
-}
+use rmp_serde::Deserializer;
+use serde::{Deserialize, Serialize};
 
 impl InterstellarGarbledCircuit {
-    // TODO finalize(ie use the real data from "self") AND add tests!
-    pub fn serialize(&self) -> Vec<u8> {
-        // if there is no "display_config"(ie == None) the whole "config" field should be None
-        // It means it is a "generic circuit" not a "display circuit"
-        let config: Option<interstellarpbgarbled::EvaluatorConfig> =
-            if let Some(display_config) = self.config.display_config {
-                Some(interstellarpbgarbled::EvaluatorConfig {
-                    width: display_config.width,
-                    height: display_config.height,
-                })
-            } else {
-                None
-            };
+    /// Serialize to msgpack format using RMP(Rust MSGPACK)
+    pub fn serialize_msgpack(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.serialize(&mut rmp_serde::Serializer::new(&mut buf))
+            .unwrap();
 
-        let msg = interstellarpbgarbled::InterstellarGarbledCircuit {
-            garbled_circuit: Some(interstellarpbgarbled::FancyGarblingClassicGarbledCircuit {}),
-            encoder: Some(interstellarpbgarbled::FancyGarblingClassicEncoder {
-                evaluator_inputs: vec![interstellarpbgarbled::FancyGarblingWire {
-                    block: Some(interstellarpbgarbled::fancy_garbling_wire::Block::Wire(
-                        interstellarpbgarbled::FancyGarblingWireMod2 {
-                            block: Some(interstellarpbgarbled::ScuttlebuttBlock {
-                                high: 0,
-                                low: 0,
-                            }),
-                        },
-                    )),
-                }],
-                deltas: BTreeMap::default(),
-            }),
-            config: config,
-        };
+        buf
+    }
 
-        msg.encode_to_vec()
+    pub fn deserialize_msgpack(buf: &[u8]) -> Self {
+        let mut de = Deserializer::new(buf);
+        let actual: Self = Deserialize::deserialize(&mut de).unwrap();
+
+        actual
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::garble_skcd;
+
+    #[test]
+    fn test_serialize_deserialize_full_adder_2bits() {
+        let ref_garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
+
+        let buf = ref_garb.serialize_msgpack();
+        let new_garb = InterstellarGarbledCircuit::deserialize_msgpack(&buf);
+
+        assert_eq!(ref_garb, new_garb);
     }
 }

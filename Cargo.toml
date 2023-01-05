@@ -22,7 +22,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 #  TODO(interstellar) serde_with: features = ["alloc"]
 serde_with = { version = "2.1.0", default-features = false, features = ["alloc", "macros"] }
-rmp-serde = { version = "^1.1", default-features = false }
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 # https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
 # TODO(interstellar) we need a7aac766e362d87d for no_std compat
 prost = { version = "0.11", default-features = false, features = ["prost-derive"], git = "https://github.com/tokio-rs/prost.git", rev = "a7aac766e362d87de5180774c124829e198f2b4c" }

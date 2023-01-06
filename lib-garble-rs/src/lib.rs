@@ -5,6 +5,9 @@
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
 
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+use sgx_tstd::vec;
+
 extern crate alloc;
 
 mod circuit;
@@ -18,6 +21,7 @@ pub use garble::EncodedGarblerInputs;
 pub use garble::EvalCache;
 pub use garble::EvaluatorInput;
 pub use garble::InterstellarGarbledCircuit;
+pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
 /// This is the main entry point of this function; meant to be called by the "pallet-ocw-garble"
 ///

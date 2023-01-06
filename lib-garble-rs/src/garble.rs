@@ -23,7 +23,19 @@ pub struct InterstellarGarbledCircuit {
     pub config: SkcdConfig,
 }
 
-/// Obtained by calling Inter::
+#[cfg(test)]
+impl Clone for InterstellarGarbledCircuit {
+    fn clone(&self) -> InterstellarGarbledCircuit {
+        InterstellarGarbledCircuit {
+            garbled: self.garbled.clone(),
+            encoder: self.encoder.clone(),
+            config: self.config.clone(),
+        }
+    }
+}
+
+/// EncodedGarblerInputs: sent to the client as part of "EvaluableGarbledCircuit"
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EncodedGarblerInputs {
     pub(crate) wires: Vec<Wire>,
 }

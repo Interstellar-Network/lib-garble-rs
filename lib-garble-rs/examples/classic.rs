@@ -15,8 +15,10 @@ fn main() {
     const NB_EVALS: i32 = 10;
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
-    let f =
-        std::fs::File::open("examples/data/display_message_640x360_2digits.skcd.pb.bin").unwrap();
+    let f = std::fs::File::open(
+        "lib-garble-rs/examples/data/display_message_640x360_2digits.skcd.pb.bin",
+    )
+    .unwrap();
     let mut reader = BufReader::new(f);
 
     let mut buffer = Vec::new();

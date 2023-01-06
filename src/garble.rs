@@ -51,16 +51,16 @@ impl InterstellarGarbledCircuit {
         }
     }
 
+    // TODO(interstellar) #[cfg(test)]
     pub fn eval(
         &mut self,
-        garbler_inputs: &[GarblerInput],
+        encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
     ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
         let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
-        let garbler_inputs = self.encoder.encode_garbler_inputs(garbler_inputs);
 
         self.garbled
-            .eval(&garbler_inputs, &evaluator_inputs)
+            .eval(&encoded_garbler_inputs.wires, &evaluator_inputs)
             .map_err(InterstellarEvaluatorError::FancyError)
     }
 

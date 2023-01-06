@@ -6,6 +6,7 @@ mod common;
 use crate::common::garble_and_eval_utils::{
     eval_client, garble_display_message_2digits, read_png_to_bytes, write_png,
 };
+use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
 
 // TODO!!! MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
 #[test]
@@ -13,28 +14,6 @@ fn test_garble_display_message_120x52_2digits_42() {
     // The more we combine, the less this test will be flaky
     // TODO should we instead map "specific inputs" -> "expected outputs"; and assume everything is OK is eg 10 random inputs are OK?
     const NB_EVALS: usize = 50;
-
-    // TODO proper garbler inputs
-    // Those are splitted into:
-    // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
-    //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
-    // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
-    // - the watermark; one bit per pixel in the final display = width * height bits
-    let garbler_input_buf = vec![0u16];
-    let garbler_input_segments = vec![
-        // first digit: 7 segments: 4
-        0u16, 1, 1, 1, 0, 1, 0, //
-        // second digit: 7 segments: 2
-        1u16, 0, 1, 1, 1, 0, 1, //
-    ];
-    let garbler_input_watermark = vec![0u16; 120 * 52];
-
-    let garbler_inputs = [
-        garbler_input_buf.clone(),
-        garbler_input_segments.clone(),
-        garbler_input_watermark.clone(),
-    ]
-    .concat();
 
     let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
@@ -50,7 +29,7 @@ fn test_garble_display_message_120x52_2digits_42() {
         // "rnd": 9 inputs
         0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
     ];
-    let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
+    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
 
     let mut eval_cache = garb.init_cache();
 
@@ -88,7 +67,8 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
-    let data = garb.eval(&[0; 1 + 2 * 7 + 120 * 52], &[0; 9]).unwrap();
+    let encoded_garbler_inputs = garb.encode_garbler_inputs(&[0; 1 + 2 * 7 + 120 * 52]);
+    let data = garb.eval(&encoded_garbler_inputs, &[0; 9]).unwrap();
     let eval_outputs = write_png(width, height, data);
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
@@ -123,28 +103,6 @@ fn bench_eval_display_message_640x360_2digits_42() {
     // So typically using 10 evals means almost all of the segments will be displayed
     const NB_EVALS: usize = 50;
 
-    // TODO proper garbler inputs
-    // Those are splitted into:
-    // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
-    //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
-    // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
-    // - the watermark; one bit per pixel in the final display = width * height bits
-    let garbler_input_buf = vec![0u16];
-    let garbler_input_segments = vec![
-        // first digit: 7 segments: 4
-        0u16, 1, 1, 1, 0, 1, 0, //
-        // second digit: 7 segments: 2
-        1u16, 0, 1, 1, 1, 0, 1, //
-    ];
-    let garbler_input_watermark = vec![0u16; 640 * 360];
-
-    let garbler_inputs = [
-        garbler_input_buf.clone(),
-        garbler_input_segments.clone(),
-        garbler_input_watermark.clone(),
-    ]
-    .concat();
-
     let mut eval_times = Vec::with_capacity(NB_EVALS);
     // To try and make sure eval is run and NOT optimized-out
     let mut eval_datas = Vec::with_capacity(NB_EVALS);
@@ -153,7 +111,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
     ));
 
-    let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
+    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
 
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);

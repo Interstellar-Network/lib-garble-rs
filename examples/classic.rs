@@ -6,7 +6,7 @@ use std::io::BufWriter;
 use std::io::Read;
 
 use lib_garble_rs::garble_skcd;
-use lib_garble_rs::watermark;
+use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
 
 fn main() {
     // How many eval() we will combine
@@ -33,35 +33,7 @@ fn main() {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let watermark_font = watermark::new_font();
-    let watermark = watermark::draw_text(
-        width.try_into().unwrap(),
-        height.try_into().unwrap(),
-        &watermark_font,
-        "Hello,\nworld!",
-    );
-
-    // TODO proper garbler inputs
-    // Those are splitted into:
-    // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
-    //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
-    // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
-    // - the watermark; one bit per pixel in the final display = width * height bits
-    let garbler_input_buf = vec![0u16];
-    let garbler_input_segments = vec![
-        // first digit: 7 segments: 4
-        0u16, 1, 1, 1, 0, 1, 0, //
-        // second digit: 7 segments: 2
-        1u16, 0, 1, 1, 1, 0, 1, //
-    ];
-    let garbler_input_watermark = watermark::convert_image_to_garbler_inputs(watermark);
-
-    let garbler_inputs = [
-        garbler_input_buf.clone(),
-        garbler_input_segments.clone(),
-        garbler_input_watermark.clone(),
-    ]
-    .concat();
+    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
 
     let mut evaluator_inputs = vec![
         // "rnd": 9 inputs
@@ -75,7 +47,9 @@ fn main() {
             *input = rand_0_1.sample(&mut rng);
         }
 
-        let temp_outputs = garb.eval(&garbler_inputs, &evaluator_inputs).unwrap();
+        let temp_outputs = garb
+            .eval(&encoded_garbler_inputs, &evaluator_inputs)
+            .unwrap();
         assert_eq!(
             temp_outputs.len(),
             merged_outputs.len(),

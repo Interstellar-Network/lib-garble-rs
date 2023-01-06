@@ -13,44 +13,18 @@ mod common;
 use crate::common::garble_and_eval_utils::{
     eval_client, garble_display_message_2digits, read_png_to_bytes, write_png,
 };
+use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {
     let (mut garb, encoded_garbler_inputs) = {
         // [server 1]
-        let (mut garb, _width, _height) = garble_display_message_2digits(include_bytes!(
+        let (garb, _width, _height) = garble_display_message_2digits(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ));
 
-        // TODO this should expose via a "pub fn" somewhere
-        let garbler_inputs = {
-            // TODO proper garbler inputs
-            // Those are splitted into:
-            // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
-            //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
-            // - the segments to display: 7 segments * "nb of digits in the message" = 7 * N bits
-            // - the watermark; one bit per pixel in the final display = width * height bits
-            let garbler_input_buf = vec![0u16];
-            let garbler_input_segments = vec![
-                // first digit: 7 segments: 4
-                0u16, 1, 1, 1, 0, 1, 0, //
-                // second digit: 7 segments: 2
-                1u16, 0, 1, 1, 1, 0, 1, //
-            ];
-            let garbler_input_watermark = vec![0u16; 120 * 52];
-
-            let garbler_inputs = [
-                garbler_input_buf.clone(),
-                garbler_input_segments.clone(),
-                garbler_input_watermark.clone(),
-            ]
-            .concat();
-
-            garbler_inputs
-        };
-
         // [server 2]
-        let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
+        let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
 
         // TODO [server 3]
         (garb, encoded_garbler_inputs)

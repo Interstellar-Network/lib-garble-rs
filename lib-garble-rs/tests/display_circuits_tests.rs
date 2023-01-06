@@ -68,8 +68,21 @@ fn test_garble_display_message_120x52_2digits_zeros() {
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
     let encoded_garbler_inputs = garb.encode_garbler_inputs(&[0; 1 + 2 * 7 + 120 * 52]);
-    let data = garb.eval(&encoded_garbler_inputs, &[0; 9]).unwrap();
-    let eval_outputs = write_png(width, height, data);
+    let evaluator_inputs = vec![0u16; 9];
+    let width = garb.config.display_config.unwrap().width as usize;
+    let height = garb.config.display_config.unwrap().height as usize;
+    let mut outputs = vec![Some(0u16); width * height];
+    let mut eval_cache = garb.init_cache();
+    garb.eval_with_prealloc(
+        &encoded_garbler_inputs,
+        &evaluator_inputs,
+        &mut outputs,
+        &mut eval_cache,
+    )
+    .unwrap();
+    // convert Vec<std::option::Option<u16>> -> Vec<u16>
+    let outputs = outputs.into_iter().map(|i| i.unwrap()).collect();
+    let eval_outputs = write_png(width, height, outputs);
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"

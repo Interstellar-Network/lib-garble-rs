@@ -51,19 +51,6 @@ impl InterstellarGarbledCircuit {
         }
     }
 
-    // TODO(interstellar) #[cfg(test)]
-    pub fn eval(
-        &mut self,
-        encoded_garbler_inputs: &EncodedGarblerInputs,
-        evaluator_inputs: &[EvaluatorInput],
-    ) -> Result<Vec<u16>, InterstellarEvaluatorError> {
-        let evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
-
-        self.garbled
-            .eval(&encoded_garbler_inputs.wires, &evaluator_inputs)
-            .map_err(InterstellarEvaluatorError::FancyError)
-    }
-
     pub fn eval_with_prealloc(
         &mut self,
         encoded_garbler_inputs: &EncodedGarblerInputs,
@@ -87,5 +74,51 @@ impl InterstellarGarbledCircuit {
 
     pub fn init_cache(&mut self) -> EvalCache {
         self.garbled.init_cache()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::garble_skcd;
+    use crate::tests::{FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS, FULL_ADDER_2BITS_ALL_INPUTS};
+
+    /// test comparing "eval" and "eval_with_prealloc"(both to reference and b/w themselves)
+    /// We only need to expose "eval_with_prealloc" publicly, but as it is a quite heavily
+    /// modified version of "eval" from our own fork, it is useful to CHECK it here
+    #[test]
+    fn test_compare_evals_full_adder_2bits() {
+        let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
+        let garbler_inputs = vec![];
+        let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
+
+        let mut outputs_prealloc = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
+
+        let mut eval_cache = garb.init_cache();
+
+        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
+            garb.eval_with_prealloc(
+                &encoded_garbler_inputs,
+                &inputs,
+                &mut outputs_prealloc,
+                &mut eval_cache,
+            )
+            .unwrap();
+
+            let encoded_garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
+            let encoded_evaluator_inputs = garb.encoder.encode_evaluator_inputs(inputs);
+            let outputs_direct = garb
+                .garbled
+                .eval(&encoded_garbler_inputs, &encoded_evaluator_inputs)
+                .unwrap();
+
+            // convert Vec<std::option::Option<u16>> -> Vec<u16>
+            let outputs_prealloc: Vec<u16> = outputs_prealloc.iter().map(|i| i.unwrap()).collect();
+
+            let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
+
+            assert_eq!(outputs_prealloc, expected_outputs);
+            assert_eq!(outputs_direct, expected_outputs);
+        }
     }
 }

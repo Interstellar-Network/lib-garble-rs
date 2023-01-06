@@ -30,6 +30,7 @@ fn main() {
     let height = display_config.height as usize;
 
     let mut merged_outputs = vec![0u16; width * height];
+    let mut temp_outputs = vec![Some(0u16); width * height];
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
@@ -40,6 +41,8 @@ fn main() {
         0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
     ];
 
+    let mut eval_cache = garb.init_cache();
+
     for _ in 0..NB_EVALS {
         // randomize the "rnd" part of the inputs
         // cf "rndswitch.v" comment above; DO NOT touch the last!
@@ -47,9 +50,13 @@ fn main() {
             *input = rand_0_1.sample(&mut rng);
         }
 
-        let temp_outputs = garb
-            .eval(&encoded_garbler_inputs, &evaluator_inputs)
-            .unwrap();
+        garb.eval_with_prealloc(
+            &encoded_garbler_inputs,
+            &evaluator_inputs,
+            &mut temp_outputs,
+            &mut eval_cache,
+        )
+        .unwrap();
         assert_eq!(
             temp_outputs.len(),
             merged_outputs.len(),
@@ -62,7 +69,7 @@ fn main() {
             // 1 + 0 = 1
             // 0 + 1 = 1
             // 1 + 1 = 1
-            *merged_output = std::cmp::min(*merged_output + cur_output, 1u16)
+            *merged_output = std::cmp::min(*merged_output + cur_output.unwrap(), 1u16)
         }
     }
 

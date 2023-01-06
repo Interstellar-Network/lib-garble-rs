@@ -118,8 +118,22 @@ pub(crate) mod tests {
         let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
         let encoded_garbler_inputs = garb.encode_garbler_inputs(&[]);
 
+        let mut outputs = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
+
+        let mut eval_cache = garb.init_cache();
+
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = garb.eval(&encoded_garbler_inputs, inputs).unwrap();
+            garb.eval_with_prealloc(
+                &encoded_garbler_inputs,
+                &inputs,
+                &mut outputs,
+                &mut eval_cache,
+            )
+            .unwrap();
+
+            // convert Vec<std::option::Option<u16>> -> Vec<u16>
+            let outputs: Vec<u16> = outputs.iter().map(|i| i.unwrap()).collect();
+
             let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
             println!(
                 "inputs = {:?}, outputs = {:?}, expected_outputs = {:?}",

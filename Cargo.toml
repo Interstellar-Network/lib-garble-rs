@@ -1,79 +1,15 @@
-[package]
-name = "lib-garble-rs"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "lib-garble-rs",
+    "ipfs-client-http-req",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false, features = ["serde1"] }
-# TODO(interstellar) no_std not supported on crate.io; need a fork/patch
-imageproc = { version = "0.23.0", default-features = false, git = "https://github.com/Interstellar-Network/imageproc.git", branch = "sgx-nostd-compat" }
-# FAIL: no_std OK without any features, but if can not draw text there is not point...
-image = { version = "0.24.5", default-features = false, git = "https://github.com/Interstellar-Network/image.git", branch = "sgx-nostd-compat" }
-rusttype = { version = "0.9.3", default-features = false }
-snafu = { version = "0.7", default-features = false }
-http_req_sgx = { package = "http_req", git = "https://github.com/mesalock-linux/http_req-sgx", optional = true }
-# default is "native-tls", but that needs to (cross-)compile openssl-sys which COULD be a pain on Android; In ancy case, rustls works fine
-http_req_std = { package = "http_req", version = "0.9", optional = true, default-features = false, features = ["rust-tls"] }
-bytes = { version = "1", default-features = false }
-# TODO(interstellar) serde: "alloc"?
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-#  TODO(interstellar) serde_with: features = ["alloc"]
-serde_with = { version = "2.1.0", default-features = false, features = ["alloc", "macros"] }
-postcard = { version = "1", default-features = false, features = ["alloc"] }
-# https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
-# TODO(interstellar) we need a7aac766e362d87d for no_std compat
-prost = { version = "0.11", default-features = false, features = ["prost-derive"], git = "https://github.com/tokio-rs/prost.git", rev = "a7aac766e362d87de5180774c124829e198f2b4c" }
-
-sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", features = ["net"], optional = true }
-
-# # TODO(interstellar) remove profiling? This is probably not hurting at all without the corresponding enabled feature
-# profiling = "1.0"
-
-[dev-dependencies]
-png = "0.17.7"
-rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
-
-# # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
-# # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!
-# tracy-client = { version = "0.14.1" }
-# tracing-tracy = { version = "0.10.1" }
-
-# coz = "0.1"
-
-# cf https://github.com/rs-ipfs/rust-ipfs/blob/master/Cargo.toml
-# Needed for tests/foreign_ipfs.rs
-libp2p = { default-features = false, features = ["floodsub", "identify", "kad", "tcp-tokio", "mplex", "noise", "ping", "yamux", "dns-tokio"], version = "0.48" }
-base64 = { default-features = false, features = ["alloc"], version = "0.13" }
-anyhow = "1.0"
-
-# A recent version is required for the Send trait else
-# "the trait `Send` is not implemented for `dyn Future<Output = Result<AddResponse, ipfs_api_backend_hyper::Error>>`"
-# https://github.com/ferristseng/rust-ipfs-api/issues/90
-# ipfs-api-backend-hyper = "0.3"
-ipfs-api-backend-hyper = { version = "0.5", features = [ "with-send-sync" , "with-builder" ] }
-tokio-test = "*"
-crossbeam-utils = "0.8.14"
-
-[build-dependencies]
-# prost-build = "0.11"
-
-# [features]
-# default = ["profile-with-tracy"]
-
-# profile-with-puffin = ["profiling/profile-with-puffin"]
-# profile-with-optick = ["profiling/profile-with-optick"]
-# profile-with-superluminal = ["profiling/profile-with-superluminal"]
-# profile-with-tracing = ["profiling/profile-with-tracing"]
-# profile-with-tracy = ["profiling/profile-with-tracy"]
-
-[features]
-default = ["std"]
-sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx", "http_req_sgx"]
-std = ["fancy-garbling/std", "imageproc/std", "http_req_std"]
-
+# lib-garble-rs is REALLY slow in debug
 [profile.bench]
 inherits = "release"
 debug = 1
+
+################################################################################
+# [patch."https://github.com/Interstellar-Network/swanky.git"]
+# fancy-garbling = { path = "../swanky/fancy-garbling/" }
+################################################################################

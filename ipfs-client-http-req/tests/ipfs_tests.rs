@@ -2,7 +2,7 @@ mod common;
 use crate::common::foreign_ipfs::ForeignNode;
 use crossbeam_utils::thread;
 use ipfs_api_backend_hyper::IpfsApi;
-use lib_garble_rs::ipfs::IpfsClient;
+use ipfs_client_http_req::IpfsClient;
 use libp2p::futures::TryStreamExt;
 use std::io::Cursor;
 

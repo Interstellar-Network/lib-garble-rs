@@ -12,8 +12,6 @@ mod garble;
 mod serialize_deserialize;
 mod skcd_parser;
 mod watermark;
-// TODO(interstellar) put behind a feature; the client DOES NOT need it
-pub mod ipfs;
 
 // re-export
 pub use garble::EncodedGarblerInputs;

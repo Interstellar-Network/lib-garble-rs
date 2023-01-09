@@ -26,8 +26,9 @@ sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sd
 # profiling = "1.0"
 
 [dev-dependencies]
-png = "0.17.7"
+png = "0.17"
 rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
+tests-utils = { path = "tests_utils" }
 
 # # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
 # # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!

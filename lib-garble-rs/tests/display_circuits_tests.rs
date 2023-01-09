@@ -3,10 +3,9 @@ use rand::thread_rng;
 use std::time::Instant;
 
 mod common;
-use crate::common::garble_and_eval_utils::{
-    eval_client, garble_display_message_2digits, read_png_to_bytes, write_png,
-};
+use crate::common::garble_and_eval_utils::{eval_client, garble_display_message_2digits};
 use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
 // TODO!!! MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
 #[test]
@@ -54,17 +53,17 @@ fn test_garble_display_message_120x52_2digits_42() {
             *merged_output = std::cmp::min(*merged_output + cur_output.unwrap_or_default(), 1u16)
         }
     }
-    let eval_outputs = write_png(width, height, merged_outputs);
 
+    let merged_outputs = convert_vec_u16_to_u8(&merged_outputs);
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_42.png"
     ));
-    assert_eq!(eval_outputs, expected_outputs);
+    assert_eq!(merged_outputs, expected_outputs);
 }
 
 #[test]
 fn test_garble_display_message_120x52_2digits_zeros() {
-    let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+    let (mut garb, _width, _height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
     let encoded_garbler_inputs = garb.encode_garbler_inputs(&[0; 1 + 2 * 7 + 120 * 52]);
@@ -81,13 +80,14 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     )
     .unwrap();
     // convert Vec<std::option::Option<u16>> -> Vec<u16>
-    let outputs = outputs.into_iter().map(|i| i.unwrap()).collect();
-    let eval_outputs = write_png(width, height, outputs);
+    let outputs: Vec<u16> = outputs.into_iter().map(|i| i.unwrap()).collect();
+    // convert Vec<u16> -> Vec<u8>
+    let outputs = convert_vec_u16_to_u8(&outputs);
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
     ));
-    assert_eq!(eval_outputs, expected_outputs);
+    assert_eq!(outputs, expected_outputs);
 }
 
 // NOTE it is quite slow in Debug! Make sure to enable optimizations

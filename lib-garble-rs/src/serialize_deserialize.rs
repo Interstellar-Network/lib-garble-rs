@@ -79,7 +79,7 @@ mod tests {
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
-        let (new_garb, new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
+        let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
 
         assert_eq!(ref_garb, new_garb);
     }
@@ -95,7 +95,7 @@ mod tests {
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
-        let (new_garb, new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
+        let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
 
         assert_eq!(ref_garb.garbled, new_garb.garbled);
         assert_eq!(
@@ -114,7 +114,7 @@ mod tests {
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
-        let (new_garb, new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
+        let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
 
         assert_eq!(new_garb.encoder.num_garbler_inputs(), 0);
     }

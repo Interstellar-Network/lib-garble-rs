@@ -7,13 +7,11 @@
 /// - [client 3] client eval the garbled circuit
 use rand::distributions::Uniform;
 use rand::thread_rng;
-use std::time::Instant;
 
 mod common;
-use crate::common::garble_and_eval_utils::{
-    eval_client, garble_display_message_2digits, read_png_to_bytes, write_png,
-};
+use crate::common::garble_and_eval_utils::{eval_client, garble_display_message_2digits};
 use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {
@@ -61,9 +59,11 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         );
 
         // convert Vec<std::option::Option<u16>> -> Vec<u16>
-        let outputs = outputs.into_iter().map(|i| i.unwrap()).collect();
+        let outputs: Vec<u16> = outputs.into_iter().map(|i| i.unwrap()).collect();
+        // convert Vec<u16> -> Vec<u8>
+        let outputs = convert_vec_u16_to_u8(&outputs);
 
-        write_png(width, height, outputs)
+        outputs
     };
 
     let expected_outputs = read_png_to_bytes(include_bytes!(

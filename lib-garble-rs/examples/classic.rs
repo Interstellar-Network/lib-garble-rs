@@ -2,11 +2,11 @@ use rand::distributions::Uniform;
 use rand::prelude::Distribution;
 use rand::thread_rng;
 use std::io::BufReader;
-use std::io::BufWriter;
 use std::io::Read;
 
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use tests_utils::png_utils::write_png;
 
 fn main() {
     // How many eval() we will combine
@@ -75,26 +75,5 @@ fn main() {
         }
     }
 
-    let path = "eval_outputs.png";
-    let file = std::fs::File::create(path).unwrap();
-    let ref mut w = BufWriter::new(file);
-
-    let mut encoder = png::Encoder::new(w, width.try_into().unwrap(), height.try_into().unwrap());
-    encoder.set_color(png::ColorType::Grayscale);
-    encoder.set_depth(png::BitDepth::Eight);
-
-    let mut writer = encoder.write_header().unwrap();
-
-    // let data = [255, 0, 0, 255, 0, 0, 0, 255]; // "An array containing a RGBA sequence. First pixel is red and second pixel is black."
-    let data: Vec<u8> = merged_outputs
-        .iter()
-        .map(|v| {
-            let pixel_value: u8 = (*v).try_into().unwrap();
-            pixel_value * 255
-        })
-        .collect();
-
-    // TODO(interstellar) FIX: nb outputs SHOULD be == 120x52 = 6240; but 6341 for now!
-    // possibly linked to  println!("output called"); in fancy-garbling/src/circuit.rs ?
-    writer.write_image_data(&data).unwrap(); // Save
+    write_png("eval_outputs.png", width, height, &merged_outputs);
 }

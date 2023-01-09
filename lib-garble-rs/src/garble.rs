@@ -11,7 +11,7 @@ pub use fancy_garbling::classic::EvalCache;
 use sgx_tstd::vec::Vec;
 
 pub type EvaluatorInput = u16;
-type GarblerInput = u16;
+pub(crate) type GarblerInput = u16;
 
 // TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
 // we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
@@ -91,7 +91,6 @@ impl InterstellarGarbledCircuit {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::garble_skcd;
     use crate::tests::{FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS, FULL_ADDER_2BITS_ALL_INPUTS};
 

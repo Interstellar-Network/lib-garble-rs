@@ -47,20 +47,6 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
     garb: &InterstellarGarbledCircuit,
     watermark_text: &str,
 ) -> EncodedGarblerInputs {
-    let watermark_font = watermark::new_font();
-    let watermark = watermark::draw_text(
-        garb.config
-            .display_config
-            .expect("no display_config! circuit is not a display circuit?")
-            .width,
-        garb.config
-            .display_config
-            .expect("no display_config! circuit is not a display circuit?")
-            .height,
-        &watermark_font,
-        watermark_text,
-    );
-
     // Those are splitted into:
     // - "buf" gate (cf Verilog "rndswitch.v"; and correspondingly lib_garble/src/packmsg/packmsg_utils.cpp PrepareInputLabels);
     //    it MUST always be 0 else the 7 segments will not work as expected = 1 bit
@@ -73,7 +59,17 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
         // second digit: 7 segments: 2
         1u16, 0, 1, 1, 1, 0, 1, //
     ];
-    let garbler_input_watermark = watermark::convert_image_to_garbler_inputs(watermark);
+    let garbler_input_watermark = watermark::new_watermark(
+        garb.config
+            .display_config
+            .expect("no display_config! circuit is not a display circuit?")
+            .width,
+        garb.config
+            .display_config
+            .expect("no display_config! circuit is not a display circuit?")
+            .height,
+        watermark_text,
+    );
 
     let garbler_inputs = [
         garbler_input_buf,

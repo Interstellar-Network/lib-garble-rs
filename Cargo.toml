@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "lib-garble-rs",
     "ipfs-client-http-req",

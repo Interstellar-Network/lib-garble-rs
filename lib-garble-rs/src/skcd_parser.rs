@@ -1,6 +1,7 @@
-use crate::circuit::DisplayConfig;
-use crate::circuit::InterstellarCircuit;
-use crate::circuit::SkcdConfig;
+use crate::circuit::{
+    DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
+    InterstellarCircuit, SkcdConfig,
+};
 use fancy_garbling::circuit::CircuitBuilder;
 use fancy_garbling::circuit::CircuitRef;
 use fancy_garbling::Fancy;
@@ -91,7 +92,11 @@ impl TryFrom<i32> for SkcdGateType {
 #[derive(Debug)]
 pub enum CircuitParserError {
     /// InvalidGateIdError: the given GateID from the .skcd DOES NOT match CircuitBuilder's
-    InvalidGateIdError(String),
+    InvalidGateId(String),
+    /// Can not convert GarblerInputsType(i32) to GarblerInputsType
+    GarblerInputsType,
+    /// Can not convert EvaluatorInputsType(i32) to EvaluatorInputsType
+    EvaluatorInputsType,
 }
 
 impl InterstellarCircuit {
@@ -121,25 +126,35 @@ impl InterstellarCircuit {
         let skcd_config = skcd.config.unwrap();
         let mut input_idx = 0;
 
-        let mut config = SkcdConfig {
-            display_config: None,
-        };
-
         // garbler inputs; same as "evaluator_inputs" above but a bit more complicated b/c how we are about to use
         // them depend on the type (eg 7 segments, i-ching, basic gate inputs for adder, etc)
         let mut skcd_inputs_is_garbled = Vec::<bool>::new();
+        let mut garbler_inputs = Vec::with_capacity(skcd_config.garbler_inputs.len());
         for skcd_garbler_input in skcd_config.garbler_inputs {
             for _i in 0..skcd_garbler_input.length {
                 skcd_inputs_is_garbled.push(true);
                 input_idx += 1;
             }
+
+            garbler_inputs.push(GarblerInputs {
+                r#type: GarblerInputsType::try_from(skcd_garbler_input.r#type)
+                    .map_err(|_e| CircuitParserError::GarblerInputsType)?,
+                length: skcd_garbler_input.length,
+            });
         }
 
+        let mut evaluator_inputs = Vec::with_capacity(skcd_config.evaluator_inputs.len());
         for skcd_evaluator_input in skcd_config.evaluator_inputs {
             for _i in 0..skcd_evaluator_input.length {
                 skcd_inputs_is_garbled.push(false);
                 input_idx += 1;
             }
+
+            evaluator_inputs.push(EvaluatorInputs {
+                r#type: EvaluatorInputsType::try_from(skcd_evaluator_input.r#type)
+                    .map_err(|_e| CircuitParserError::EvaluatorInputsType)?,
+                length: skcd_evaluator_input.length,
+            });
         }
 
         assert_eq!(
@@ -202,6 +217,11 @@ impl InterstellarCircuit {
         }
 
         // config
+        let mut config = SkcdConfig {
+            display_config: None,
+            garbler_inputs,
+            evaluator_inputs,
+        };
         // NOTE: "display_config" is OPTIONAL
         if let Some(skcd_display_config) = skcd_config.display_config {
             config.display_config = Some(DisplayConfig {
@@ -241,7 +261,7 @@ impl SkcdGateConverter {
     pub fn get(&self, skcd_gate_id: &str) -> Result<&CircuitRef, CircuitParserError> {
         self.map_skcd_gate_id_to_circuit_ref
             .get(skcd_gate_id)
-            .ok_or_else(|| CircuitParserError::InvalidGateIdError(skcd_gate_id.to_string()))
+            .ok_or_else(|| CircuitParserError::InvalidGateId(skcd_gate_id.to_string()))
     }
 
     pub fn insert(&mut self, skcd_gate_id: &str, circuit_ref: CircuitRef) {

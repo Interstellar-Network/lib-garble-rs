@@ -122,17 +122,14 @@ mod tests {
         assert_eq!(convert_image_to_garbler_inputs(image), vec![1u16, 1, 0, 1]);
     }
 
-    #[test]
-    fn test_draw_text_one_line_ascii() {
+    fn test_my_draw_text_mut(text: &str, expected_png_bytes: &[u8]) {
         let width = 600;
         let height = 200;
         let mut image = GrayImage::new(width, height);
 
-        my_draw_text_mut(&mut image, "Hello world");
+        my_draw_text_mut(&mut image, text);
 
-        let expected_png = read_png_to_bytes(include_bytes!(
-            "../examples/data/test_draw_text_one_line_ascii.png"
-        ));
+        let expected_png = read_png_to_bytes(expected_png_bytes);
         // WHEN UPDATING TEST:
         // tests_utils::png_utils::write_png_direct(
         //     "TOREMOVE.png",
@@ -141,5 +138,37 @@ mod tests {
         //     image.as_bytes(),
         // );
         assert_eq!(image.as_bytes(), expected_png);
+    }
+
+    #[test]
+    fn test_draw_text_one_line_ascii() {
+        test_my_draw_text_mut(
+            "Hello world",
+            include_bytes!("../examples/data/test_draw_text_one_line_ascii.png"),
+        );
+    }
+
+    #[test]
+    fn test_draw_text_two_lines_ascii_lf() {
+        test_my_draw_text_mut(
+            "Hello\nworld",
+            include_bytes!("../examples/data/test_draw_text_two_lines_ascii.png"),
+        );
+    }
+
+    #[test]
+    fn test_draw_text_two_lines_ascii_crlf() {
+        test_my_draw_text_mut(
+            "Hello\r\nworld",
+            include_bytes!("../examples/data/test_draw_text_two_lines_ascii.png"),
+        );
+    }
+
+    #[test]
+    fn test_draw_text_french() {
+        test_my_draw_text_mut(
+            "Héllô",
+            include_bytes!("../examples/data/test_draw_text_french.png"),
+        );
     }
 }

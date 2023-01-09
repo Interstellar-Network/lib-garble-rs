@@ -66,7 +66,7 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let (mut garb, _width, _height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
-    let encoded_garbler_inputs = garb.encode_garbler_inputs(&[0; 1 + 2 * 7 + 120 * 52]);
+    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
     let evaluator_inputs = vec![0u16; 9];
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;

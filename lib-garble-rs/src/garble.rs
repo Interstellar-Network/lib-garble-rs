@@ -57,7 +57,10 @@ impl InterstellarGarbledCircuit {
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
-    pub fn encode_garbler_inputs(&self, garbler_inputs: &[GarblerInput]) -> EncodedGarblerInputs {
+    pub(crate) fn encode_garbler_inputs(
+        &self,
+        garbler_inputs: &[GarblerInput],
+    ) -> EncodedGarblerInputs {
         EncodedGarblerInputs {
             wires: self.encoder.encode_garbler_inputs(garbler_inputs),
         }

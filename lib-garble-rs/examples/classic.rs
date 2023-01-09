@@ -36,7 +36,8 @@ fn main() {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
+    let encoded_garbler_inputs =
+        garbled_display_circuit_prepare_garbler_inputs(&garb, "Héllô\nWorld");
 
     let mut evaluator_inputs = vec![
         // "rnd": 9 inputs

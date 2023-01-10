@@ -43,7 +43,7 @@ pub fn eval_client(
 pub fn garble_display_message_2digits(
     skcd_bytes: &[u8],
 ) -> (InterstellarGarbledCircuit, usize, usize) {
-    let garb = garble_skcd(skcd_bytes);
+    let garb = garble_skcd(skcd_bytes).unwrap();
 
     let display_config = garb.config.display_config.unwrap().clone();
     let width = display_config.width as usize;

@@ -5,6 +5,7 @@ use crate::circuit::{
 use fancy_garbling::circuit::CircuitBuilder;
 use fancy_garbling::circuit::CircuitRef;
 use fancy_garbling::Fancy;
+use num_enum::TryFromPrimitive;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -36,7 +37,7 @@ mod interstellarpbskcd {
 /// - lib_circuits/src/blif/gate_types.h
 /// - lib_garble/src/justgarble/gate_types.h
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, TryFromPrimitive)]
 #[repr(i32)]
 enum SkcdGateType {
     ZERO = 0,
@@ -61,32 +62,6 @@ enum SkcdGateType {
     NAOB = 13,
     OR = 14,
     ONE = 15,
-}
-
-impl TryFrom<i32> for SkcdGateType {
-    type Error = ();
-
-    fn try_from(v: i32) -> Result<Self, Self::Error> {
-        match v {
-            x if x == SkcdGateType::ZERO as i32 => Ok(SkcdGateType::ZERO),
-            x if x == SkcdGateType::NOR as i32 => Ok(SkcdGateType::NOR),
-            x if x == SkcdGateType::AANB as i32 => Ok(SkcdGateType::AANB),
-            x if x == SkcdGateType::INVB as i32 => Ok(SkcdGateType::INVB),
-            x if x == SkcdGateType::NAAB as i32 => Ok(SkcdGateType::NAAB),
-            x if x == SkcdGateType::INV as i32 => Ok(SkcdGateType::INV),
-            x if x == SkcdGateType::XOR as i32 => Ok(SkcdGateType::XOR),
-            x if x == SkcdGateType::NAND as i32 => Ok(SkcdGateType::NAND),
-            x if x == SkcdGateType::AND as i32 => Ok(SkcdGateType::AND),
-            x if x == SkcdGateType::XNOR as i32 => Ok(SkcdGateType::XNOR),
-            x if x == SkcdGateType::BUF as i32 => Ok(SkcdGateType::BUF),
-            x if x == SkcdGateType::AONB as i32 => Ok(SkcdGateType::AONB),
-            x if x == SkcdGateType::BUFB as i32 => Ok(SkcdGateType::BUFB),
-            x if x == SkcdGateType::NAOB as i32 => Ok(SkcdGateType::NAOB),
-            x if x == SkcdGateType::OR as i32 => Ok(SkcdGateType::OR),
-            x if x == SkcdGateType::ONE as i32 => Ok(SkcdGateType::ONE),
-            _ => Err(()),
-        }
-    }
 }
 
 /// Errors emitted by the circuit parser.

@@ -25,7 +25,7 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let mut garb = garble_skcd(&buffer);
+    let mut garb = garble_skcd(&buffer).unwrap();
 
     let display_config = garb.config.display_config.unwrap().clone();
     let width = display_config.width as usize;
@@ -37,7 +37,7 @@ fn main() {
     let rand_0_1 = Uniform::from(0..=1);
 
     let encoded_garbler_inputs =
-        garbled_display_circuit_prepare_garbler_inputs(&garb, "Héllô\nWorld");
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "Héllô\nWorld").unwrap();
 
     let mut evaluator_inputs = vec![
         // "rnd": 9 inputs

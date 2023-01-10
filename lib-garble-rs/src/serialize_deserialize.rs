@@ -75,7 +75,7 @@ mod tests {
     /// test that specific(=postcard) (de)serialization works
     #[test]
     fn test_serialize_deserialize_full_adder_2bits() {
-        let ref_garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
+        let ref_garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
@@ -91,7 +91,8 @@ mod tests {
     fn test_serialize_deserialize_display_message_120x52_2digits() {
         let ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
-        ));
+        ))
+        .unwrap();
         let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
@@ -111,7 +112,8 @@ mod tests {
     fn test_encoder_has_no_garbler_inputs_display_message_120x52_2digits() {
         let ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
-        ));
+        ))
+        .unwrap();
         let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 

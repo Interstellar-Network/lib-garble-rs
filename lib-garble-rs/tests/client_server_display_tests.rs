@@ -22,7 +22,8 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         ));
 
         // [server 2]
-        let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
+        let encoded_garbler_inputs =
+            garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
 
         // TODO [server 3]
         (garb, encoded_garbler_inputs)

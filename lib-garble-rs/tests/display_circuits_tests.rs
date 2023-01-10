@@ -28,7 +28,8 @@ fn test_garble_display_message_120x52_2digits_42() {
         // "rnd": 9 inputs
         0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
     ];
-    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
+    let encoded_garbler_inputs =
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
 
     let mut eval_cache = garb.init_cache();
 
@@ -66,7 +67,8 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let (mut garb, _width, _height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
-    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
+    let encoded_garbler_inputs =
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
     let evaluator_inputs = vec![0u16; 9];
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
@@ -124,7 +126,8 @@ fn bench_eval_display_message_640x360_2digits_42() {
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
     ));
 
-    let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(&garb, "");
+    let encoded_garbler_inputs =
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
 
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);

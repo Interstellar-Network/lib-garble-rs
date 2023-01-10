@@ -45,15 +45,21 @@ pub enum InterstellarEvaluatorError {
     FancyError(EvaluatorError),
 }
 
+#[derive(Debug)]
+pub enum GarblerError {
+    GarblerError,
+}
+
 impl InterstellarGarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full parse_skcd+garble, cf lib.rs
-    pub(crate) fn garble(circuit: InterstellarCircuit) -> Self {
-        let (encoder, garbled) = garble(circuit.circuit).unwrap();
-        InterstellarGarbledCircuit {
+    pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
+        let (encoder, garbled) =
+            garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)?;
+        Ok(InterstellarGarbledCircuit {
             garbled,
             encoder,
             config: circuit.config,
-        }
+        })
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
@@ -108,7 +114,7 @@ mod tests {
     /// modified version of "eval" from our own fork, it is useful to CHECK it here
     #[test]
     fn test_compare_evals_full_adder_2bits() {
-        let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"));
+        let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
         let garbler_inputs = vec![];
         let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
 

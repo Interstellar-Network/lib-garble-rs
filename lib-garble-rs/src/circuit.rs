@@ -56,7 +56,7 @@ pub struct SkcdConfig {
     pub(crate) evaluator_inputs: Vec<EvaluatorInputs>,
 }
 
-/// Represents the raw(ie UNgarbled) circuit; usually created from a .skcd file
+/// Represents the raw(ie **UN**garbled) circuit; usually created from a .skcd file
 ///
 /// Exists mostly to mask swanky/fancy-garbling Circuit to the public.
 pub(crate) struct InterstellarCircuit {

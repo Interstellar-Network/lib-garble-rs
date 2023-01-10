@@ -24,6 +24,8 @@ use sgx_tstd::string::ToString;
 
 // derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
 #[allow(clippy::derive_partial_eq_without_eq)]
+#[allow(clippy::perf)]
+#[allow(clippy::pedantic)]
 mod interstellarpbskcd {
     // TODO(interstellar) can we use prost-build(and prost-derive) in SGX env?
     // include!(concat!(env!("OUT_DIR"), "/interstellarpbskcd.rs"));
@@ -33,9 +35,9 @@ mod interstellarpbskcd {
 /// All the Gates type possible in SKCD file format
 ///
 /// SHOULD match
-/// - "enum SkcdGateType" from skcd.proto
-/// - lib_circuits/src/blif/gate_types.h
-/// - lib_garble/src/justgarble/gate_types.h
+/// - `enum SkcdGateType` from skcd.proto
+/// - `lib_circuits/src/blif/gate_types.h`
+/// - `lib_garble/src/justgarble/gate_types.h`
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, TryFromPrimitive)]
 #[repr(i32)]
@@ -68,11 +70,30 @@ enum SkcdGateType {
 #[derive(Debug)]
 pub enum CircuitParserError {
     /// InvalidGateIdError: the given GateID from the .skcd DOES NOT match CircuitBuilder's
-    InvalidGateId(String),
+    InvalidGateId {
+        gate_id: String,
+    },
     /// Can not convert GarblerInputsType(i32) to GarblerInputsType
     GarblerInputsType,
     /// Can not convert EvaluatorInputsType(i32) to EvaluatorInputsType
     EvaluatorInputsType,
+    DeserializerInternalError {
+        err: prost::DecodeError,
+    },
+    /// Placeholder for constant Fancy::CircuitBuilder::Error
+    /// All `constant`, `or`, etc technically return `Result` b/c the Fancy-Garbling
+    /// API is used for both garbling and eval, but in practice those function can not fail.
+    FancyGarblingCircuitBuilderErrorPlaceholder {
+        err: fancy_garbling::errors::CircuitBuilderError,
+    },
+    /// Protobuf(proto3) field are NOT optional but on prost side they are Option<>
+    /// so we need to add unwrap
+    Proto3ProstOptionPlaceholder,
+    /// when building the `outputs`, the GateID MUST have be created earlier
+    /// This is a "sub-enum" of InvalidGateId
+    OutputInvalidGateId {
+        gate_id: String,
+    },
 }
 
 impl InterstellarCircuit {
@@ -80,17 +101,19 @@ impl InterstellarCircuit {
     /// It is doing what fancy-garbling/src/parser.rs is doing for a "Blif Fashion" txt file,
     /// but for a .skcd instead.
     /// SKCD is essentially the same format, but with the gates written in a different order:
-    /// - in "Bilf Fashion": gates are written "gate0_input0 gate0_input1 gate0_output gate0_type" etc
-    /// - in SKCD: "gate0_input0 gate1_input0 gate2_input0" etc
+    /// - in "Blif Fashion": gates are written `gate0_input0 gate0_input1 gate0_output gate0_type` etc
+    /// - in SKCD: `gate0_input0 gate1_input0 gate2_input0` etc
     ///
     /// return:
     /// - the graph corresponding to the .skcd(as-is; gates NOT transformed/optimized/etc)
     /// - the list of inputs (gate ids)
     /// - the list of ouputs (gate ids)
     /// [inputs/outputs are needed to walk the graph, and optimize/rewrite if desired]
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
         // TODO(interstellar) decode_length_delimited ?
-        let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf).unwrap();
+        let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf)
+            .map_err(|err| CircuitParserError::DeserializerInternalError { err })?;
 
         let mut circ_builder = CircuitBuilder::new();
 
@@ -99,7 +122,9 @@ impl InterstellarCircuit {
 
         let mut skcd_gate_converter = SkcdGateConverter::new();
 
-        let skcd_config = skcd.config.unwrap();
+        let skcd_config = skcd
+            .config
+            .ok_or(CircuitParserError::Proto3ProstOptionPlaceholder)?;
         let mut input_idx = 0;
 
         // garbler inputs; same as "evaluator_inputs" above but a bit more complicated b/c how we are about to use
@@ -150,30 +175,59 @@ impl InterstellarCircuit {
 
         // TODO(interstellar) how should we use skcd's a/b/go?
         for skcd_gate in skcd.gates {
-            let xref = skcd_gate_converter.get(&skcd_gate.a);
-            let yref = skcd_gate_converter.get(&skcd_gate.b);
+            // **IMPORTANT** NOT ALL Gate to be built require x_ref and y_ref
+            // so DO NOT unwrap here!
+            // That would break the circuit building process!
+            let x_ref =
+                skcd_gate_converter
+                    .get(&skcd_gate.a)
+                    .ok_or(CircuitParserError::InvalidGateId {
+                        gate_id: skcd_gate.a,
+                    });
+            let y_ref =
+                skcd_gate_converter
+                    .get(&skcd_gate.b)
+                    .ok_or(CircuitParserError::InvalidGateId {
+                        gate_id: skcd_gate.b,
+                    });
 
             let new_gate = match skcd_gate.r#type.try_into() {
-                Ok(SkcdGateType::ZERO) => circ_builder.constant(0, q).unwrap(),
-                Ok(SkcdGateType::ONE) => circ_builder.constant(1, q).unwrap(),
+                Ok(SkcdGateType::ZERO) => circ_builder.constant(0, q).map_err(|err| {
+                    CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                })?,
+                Ok(SkcdGateType::ONE) => circ_builder.constant(1, q).map_err(|err| {
+                    CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                })?,
                 Ok(SkcdGateType::OR) => {
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    circ_builder.or(xref?, yref?).unwrap()
+                    circ_builder.or(x_ref?, y_ref?).map_err(|err| {
+                        CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                    })?
                 }
                 Ok(SkcdGateType::XOR) => {
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    circ_builder.xor(xref?, yref?).unwrap()
+                    circ_builder.xor(x_ref?, y_ref?).map_err(|err| {
+                        CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                    })?
                 }
                 Ok(SkcdGateType::NAND) => {
                     // TODO can we use fn proj(&mut self, A: &Wire, q_out: u16, tt: Option<Vec<u16>>)?
                     // let z = circ_builder.proj(&xref, q, Some(vec![0; 4]));
-                    let z = circ_builder.and(xref?, yref?).unwrap();
-                    circ_builder.negate(&z).unwrap()
+                    let z = circ_builder.and(x_ref?, y_ref?).map_err(|err| {
+                        CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                    })?;
+                    circ_builder.negate(&z).map_err(|err| {
+                        CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                    })?
                 }
-                Ok(SkcdGateType::INV) => circ_builder.negate(xref?).unwrap(),
-                Ok(SkcdGateType::BUF) => circ_builder.cmul(xref?, 1).unwrap(),
+                Ok(SkcdGateType::INV) => circ_builder.negate(x_ref?).map_err(|err| {
+                    CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                })?,
+                Ok(SkcdGateType::BUF) => circ_builder.cmul(x_ref?, 1).map_err(|err| {
+                    CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+                })?,
                 _ => todo!(),
             };
 
@@ -188,8 +242,12 @@ impl InterstellarCircuit {
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
         for o in skcd.outputs {
-            let z = skcd_gate_converter.get(&o).unwrap();
-            circ_builder.output(z).unwrap();
+            let z = skcd_gate_converter
+                .get(&o)
+                .ok_or(CircuitParserError::OutputInvalidGateId { gate_id: o })?;
+            circ_builder.output(z).map_err(|err| {
+                CircuitParserError::FancyGarblingCircuitBuilderErrorPlaceholder { err }
+            })?;
         }
 
         // config
@@ -203,7 +261,7 @@ impl InterstellarCircuit {
             config.display_config = Some(DisplayConfig {
                 width: skcd_display_config.width,
                 height: skcd_display_config.height,
-            })
+            });
         }
 
         Ok(InterstellarCircuit {
@@ -215,12 +273,12 @@ impl InterstellarCircuit {
 
 /// We need to convert something like
 /// ".gate XOR  a=rnd[2] b=rnd[0] O=n7016" in the .skcd(which is basically a .blif)
-/// into something that CircuitBuilder can accept.
-/// Essentially we need to convert a String ID -> CircuitRef(= a usize)
+/// into something that `CircuitBuilder` can accept.
+/// Essentially we need to convert a String ID -> `CircuitRef`(= a usize)
 ///
 /// IMPORTANT
 /// For this to work, the INPUTS MUST also go through the same conversion, else
-/// when using CircuitBuilder.or/and/etc the CircuitRef WOULD NOT match anything.
+/// when using CircuitBuilder.or/and/etc the `CircuitRef` WOULD NOT match anything.
 /// NOTE that in this case the Circuit still would build fine, but it would fail
 /// when eval/garbling.
 struct SkcdGateConverter {
@@ -234,10 +292,8 @@ impl SkcdGateConverter {
         }
     }
 
-    pub fn get(&self, skcd_gate_id: &str) -> Result<&CircuitRef, CircuitParserError> {
-        self.map_skcd_gate_id_to_circuit_ref
-            .get(skcd_gate_id)
-            .ok_or_else(|| CircuitParserError::InvalidGateId(skcd_gate_id.to_string()))
+    pub fn get(&self, skcd_gate_id: &str) -> Option<&CircuitRef> {
+        self.map_skcd_gate_id_to_circuit_ref.get(skcd_gate_id)
     }
 
     pub fn insert(&mut self, skcd_gate_id: &str, circuit_ref: CircuitRef) {

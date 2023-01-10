@@ -34,7 +34,7 @@ impl Clone for InterstellarGarbledCircuit {
     }
 }
 
-/// EncodedGarblerInputs: sent to the client as part of "EvaluableGarbledCircuit"
+/// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EncodedGarblerInputs {
     pub(crate) wires: Vec<Wire>,
@@ -51,7 +51,7 @@ pub enum GarblerError {
 }
 
 impl InterstellarGarbledCircuit {
-    /// NOTE: it is NOT pub b/c we want to only expose the full parse_skcd+garble, cf lib.rs
+    /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
         let (encoder, garbled) =
             garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)?;
@@ -78,6 +78,13 @@ impl InterstellarGarbledCircuit {
         }
     }
 
+    /// Eval using Fancy-Garbling's eval(or rather `eval_with_prealloc`)
+    ///
+    /// # Errors
+    ///
+    /// `FancyError` if something went wrong during **either** eval(now)
+    /// or initially when garbling!
+    /// In the latter case it means the circuit is a dud and nothing can be done!
     pub fn eval_with_prealloc(
         &mut self,
         encoded_garbler_inputs: &EncodedGarblerInputs,

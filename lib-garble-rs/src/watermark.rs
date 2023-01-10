@@ -5,17 +5,25 @@ use crate::garble::GarblerInput;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
+use snafu::prelude::*;
 
 const FONT_BYTES: &[u8] = include_bytes!("../examples/data/BF_Modernista-Regular.ttf");
 const WATERMARK_COLOR: [u8; 1] = [255u8];
 
+/// The given integer is NOT a valid 7 segments option[ie 0-9]
+#[derive(Debug, Snafu)]
+#[snafu(display("Can open read the .ttf"))]
+pub(crate) struct FontTtfErr {}
+
 /// Init a Font using the hardcoded .ttf from "data/"
-fn new_font<'a>() -> Font<'a> {
-    Font::try_from_bytes(FONT_BYTES).unwrap()
+fn new_font<'a>() -> Result<Font<'a>, FontTtfErr> {
+    Font::try_from_bytes(FONT_BYTES).ok_or(FontTtfErr {})
 }
 
-/// cf https://docs.rs/imageproc/latest/imageproc/drawing/fn.draw_text_mut.html
+/// imageproc's `draw_text_mut` DOES NOT support multiline so we need to handle it on our side
 /// "this function does not support newlines, you must do this manually"
+/// cf [imageproc docs](https://docs.rs/imageproc/latest/imageproc/drawing/fn.draw_text_mut.html)
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn my_draw_text_mut_with_newline(
     image: &mut GrayImage,
     color: Luma<u8>,
@@ -34,16 +42,17 @@ fn my_draw_text_mut_with_newline(
             scale,
             font,
             line_str,
-        )
+        );
     }
 }
 
 /// Draw a basic text onto a new image
-/// cf https://github.com/Interstellar-Network/imageproc/blob/master/examples/font.rs
+/// cf [imageproc examples](https://github.com/Interstellar-Network/imageproc/blob/master/examples/font.rs)
 ///
-/// Return: a GRAYSCALE image; len = img_height * img_width
-fn my_draw_text_mut(image: &mut GrayImage, text: &str) {
-    let font = new_font();
+/// Return: a GRAYSCALE image; len = `img_height` * `img_width`
+#[allow(clippy::cast_possible_wrap)]
+fn my_draw_text_mut(image: &mut GrayImage, text: &str) -> Result<(), FontTtfErr> {
+    let font = new_font()?;
 
     // TODO(interstellar) adjust pos and size; ideally measure the final text then center it as best as we can
     // eg use "text_size" etc
@@ -52,8 +61,8 @@ fn my_draw_text_mut(image: &mut GrayImage, text: &str) {
         x: height * 2.0,
         y: height,
     };
-    let text_pos_x = (image.width() / 4).try_into().unwrap();
-    let text_pos_y = (image.height() / 2).try_into().unwrap();
+    let text_pos_x = image.width() as i32 / 4;
+    let text_pos_y = image.height() as i32 / 2;
 
     my_draw_text_mut_with_newline(
         image,
@@ -64,11 +73,13 @@ fn my_draw_text_mut(image: &mut GrayImage, text: &str) {
         &font,
         text,
     );
+
+    Ok(())
 }
 
-/// "Convert" GrayImage(ie result of draw_text etc) to the correct input type for
+/// "Convert" GrayImage(ie result of `draw_text` etc) to the correct input type for
 /// garb.eval()
-/// NOTE: "GrayImage" has pixels whose values is [0-255], but garb.eval() expects only [0-1]
+/// NOTE: `GrayImage` has pixels whose values is [0-255], but garb.eval() expects only [0-1]
 /// so we convert them.
 ///
 /// ie Vec<u8> -> Vec<u16>
@@ -80,26 +91,29 @@ fn convert_image_to_garbler_inputs(image: GrayImage) -> Vec<GarblerInput> {
         .into_iter()
         .map(|pixel| {
             // IMPORTANT: we NEED a threshold here b/c "draw_text_mut" has apparently some AA
-            let pixel = i32::from(pixel > 0);
-            pixel.try_into().unwrap()
+            u16::from(pixel > 0)
         })
         .collect()
 }
 
 /// NOTE: our use case is to create a "watermark", that's why we create(and discard) the image here
 /// instead of passing it as parameter.
-/// cf convert_image_to_garbler_inputs
-pub(crate) fn new_watermark(img_width: u32, img_height: u32, text: &str) -> Vec<GarblerInput> {
+/// cf `convert_image_to_garbler_inputs`
+pub(crate) fn new_watermark(
+    img_width: u32,
+    img_height: u32,
+    text: &str,
+) -> Result<Vec<GarblerInput>, FontTtfErr> {
     let mut image = GrayImage::new(img_width, img_height);
 
-    my_draw_text_mut(&mut image, text);
+    my_draw_text_mut(&mut image, text)?;
     assert_eq!(
         image.len(),
         img_width as usize * img_height as usize,
         "watermark: wrong size!"
     );
 
-    convert_image_to_garbler_inputs(image)
+    Ok(convert_image_to_garbler_inputs(image))
 }
 
 #[cfg(test)]

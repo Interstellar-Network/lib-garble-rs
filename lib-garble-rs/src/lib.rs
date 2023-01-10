@@ -1,10 +1,19 @@
 // #![no_std]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(elided_lifetimes_in_paths)]
+#![warn(clippy::suspicious)]
+#![warn(clippy::complexity)]
+#![warn(clippy::perf)]
+#![warn(clippy::style)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::expect_used)]
+#![warn(clippy::panic)]
+#![warn(clippy::unwrap_used)]
 
 extern crate alloc;
 
 use alloc::vec::Vec;
+use snafu::prelude::*;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
@@ -26,14 +35,25 @@ pub use garble::EvaluatorInput;
 pub use garble::InterstellarGarbledCircuit;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
-#[derive(Debug)]
+#[derive(Debug, Snafu)]
 pub enum InterstellarError {
     /// Error at InterstellarGarbledCircuit::garble
     GarbleError,
     /// Error at garbled_display_circuit_prepare_garbler_inputs
     SkcdParserError,
+    /// garbled_display_circuit_prepare_garbler_inputs: the circuit SHOULD be
+    /// a "display circuit"; ie it MUST contain a valid config with field "display_config" set
+    NotAValidDisplayCircuit,
     /// The given integer is NOT a valid 7 segments option[ie 0-9]
-    NotAValid7Segment(u8),
+    NotAValid7Segment { digit: u8 },
+    /// "BUF garbler_input SHOULD be of length == 1"
+    GarblerInputsInvalidBufLength,
+    /// SevenSegments garbler_input SHOULD be of length % 7
+    GarblerInputs7SegmentsNotMod7,
+    /// SevenSegments garbler_input SHOULD match digits parameter
+    GarblerInputs7SegmentsWrongLength,
+    /// error during `new_watermark`
+    WatermarkError { msg: String },
 }
 
 /// This is the main entry point of this function; meant to be called by the "pallet-ocw-garble"
@@ -42,6 +62,11 @@ pub enum InterstellarError {
 /// - parses a .skcd; usually coming from IPFS
 /// - garbles it
 /// - encode the "garbler inputs" ie the message/watermark/OTP(pinpad or message)
+///
+/// # Errors
+/// - if the circuit can not be parsed; eg `skcd_buf` does not contain properly serialized data(postcard)
+/// - something went wrong during `garble`
+///
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
 pub fn garble_skcd(skcd_buf: &[u8]) -> Result<InterstellarGarbledCircuit, InterstellarError> {
     let circ = circuit::InterstellarCircuit::parse_skcd(skcd_buf)
@@ -50,11 +75,17 @@ pub fn garble_skcd(skcd_buf: &[u8]) -> Result<InterstellarGarbledCircuit, Inters
     InterstellarGarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarbleError)
 }
 
-/// Prepare the garbler_inputs; it contains both:
+/// Prepare the `garbler_inputs`; it contains both:
 /// - the watermark(ie the message)
 /// - the 7 segments digits
 /// NOTE: this is ONLY applicable to "display circuits"
 ///
+/// # Errors
+///
+/// Will return en error when:
+/// - "digits" contains value outside the valid 7 segments range [0-9]
+/// - the inputs(ie "digits") length do not match what the circuit "garb" expects
+///   eg if "garb" expects 14 bits of `garbler_input` for  7 segments -> digits.len() == 2
 // TODO(interstellar) randomize 7 segs(then replace "garbler_input_segments")
 // TODO(interstellar) the number of digits DEPENDS on the config!
 pub fn garbled_display_circuit_prepare_garbler_inputs(
@@ -79,38 +110,37 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
     for garbler_input in &garb.config.garbler_inputs {
         match garbler_input.r#type {
             circuit::GarblerInputsType::Buf => {
-                assert_eq!(
-                    garbler_input.length, 1,
-                    "BUF garbler_input SHOULD be of length == 1"
-                );
+                if garbler_input.length != 1 {
+                    return Err(InterstellarError::GarblerInputsInvalidBufLength);
+                }
+
                 garbler_inputs.push(0u16);
             }
             circuit::GarblerInputsType::SevenSegments => {
-                assert!(
-                    garbler_input.length % 7 == 0,
-                    "SevenSegments garbler_input SHOULD be of length % 7"
-                );
-                assert_eq!(
-                    garbler_input.length as usize,
-                    digits.len() * 7,
-                    "SevenSegments garbler_input SHOULD match digits parameter"
-                );
+                if garbler_input.length % 7 != 0 {
+                    return Err(InterstellarError::GarblerInputs7SegmentsNotMod7);
+                }
+                if garbler_input.length as usize != digits.len() * 7 {
+                    return Err(InterstellarError::GarblerInputs7SegmentsWrongLength);
+                }
+
                 let mut segments_inputs = segments::digits_to_segments_bits(digits)
-                    .map_err(|e| InterstellarError::NotAValid7Segment(e.number))?;
+                    .map_err(|e| InterstellarError::NotAValid7Segment { digit: e.number })?;
                 garbler_inputs.append(&mut segments_inputs);
             }
             circuit::GarblerInputsType::Watermark => {
+                let display_config = garb
+                    .config
+                    .display_config
+                    .ok_or(InterstellarError::NotAValidDisplayCircuit)?;
                 let mut watermark_inputs = watermark::new_watermark(
-                    garb.config
-                        .display_config
-                        .expect("no display_config! circuit is not a display circuit?")
-                        .width,
-                    garb.config
-                        .display_config
-                        .expect("no display_config! circuit is not a display circuit?")
-                        .height,
+                    display_config.width,
+                    display_config.height,
                     watermark_text,
-                );
+                )
+                .map_err(|err| InterstellarError::WatermarkError {
+                    msg: err.to_string(),
+                })?;
                 garbler_inputs.append(&mut watermark_inputs);
             }
         }

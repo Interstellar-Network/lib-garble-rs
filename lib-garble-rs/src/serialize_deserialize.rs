@@ -42,11 +42,11 @@ pub fn serialize_for_evaluator(
     encoded_garbler_inputs: EncodedGarblerInputs,
 ) -> Vec<u8> {
     // TODO(interstellar)? but is this the correct time to CHECK?
-    // assert_eq!(
-    //     garb.encoder.num_garbler_inputs(),
-    //     encoded_garbler_inputs.wires.len(),
-    //     "wrong encoded_garbler_inputs len!"
-    // );
+    assert_eq!(
+        garb.encoder.num_garbler_inputs(),
+        encoded_garbler_inputs.wires.len(),
+        "wrong encoded_garbler_inputs len!"
+    );
 
     let eval_garb = EvaluableGarbledCircuit {
         garb,
@@ -92,7 +92,8 @@ mod tests {
         let ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ));
-        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
+        let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
+        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);
@@ -111,7 +112,8 @@ mod tests {
         let ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ));
-        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
+        let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
+        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs);
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf);

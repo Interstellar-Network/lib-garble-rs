@@ -61,6 +61,12 @@ impl InterstellarGarbledCircuit {
         &self,
         garbler_inputs: &[GarblerInput],
     ) -> EncodedGarblerInputs {
+        // TODO(interstellar)? but is this the correct time to CHECK?
+        assert_eq!(
+            self.encoder.num_garbler_inputs(),
+            garbler_inputs.len(),
+            "wrong garbler_inputs len!"
+        );
         EncodedGarblerInputs {
             wires: self.encoder.encode_garbler_inputs(garbler_inputs),
         }

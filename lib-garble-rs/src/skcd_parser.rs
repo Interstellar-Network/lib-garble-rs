@@ -37,6 +37,7 @@ mod interstellarpbskcd {
 /// - lib_garble/src/justgarble/gate_types.h
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
+#[repr(i32)]
 enum SkcdGateType {
     ZERO = 0,
     NOR = 1,

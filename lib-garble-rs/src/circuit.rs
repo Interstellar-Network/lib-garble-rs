@@ -15,6 +15,7 @@ pub struct DisplayConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[repr(i32)]
 pub(crate) enum GarblerInputsType {
     /// MUST be set to 0!
     Buf = 0,
@@ -38,6 +39,7 @@ impl TryFrom<i32> for GarblerInputsType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[repr(i32)]
 pub(crate) enum EvaluatorInputsType {
     /// The "display circuit" standard input type: SHOULD be randomized during each eval loop
     Rnd = 0,

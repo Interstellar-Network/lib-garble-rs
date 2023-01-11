@@ -92,6 +92,8 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     assert_eq!(outputs, expected_outputs);
 }
 
+/// BENCH "eval_with_prealloc"
+/// ie the client-side of the pipeline
 // NOTE it is quite slow in Debug! Make sure to enable optimizations
 #[test]
 fn bench_eval_display_message_640x360_2digits_42() {
@@ -116,11 +118,9 @@ fn bench_eval_display_message_640x360_2digits_42() {
     // How many eval() we will combine
     // Reminder: each segment have a 50% chance to be displayed at each eval()
     // So typically using 10 evals means almost all of the segments will be displayed
-    const NB_EVALS: usize = 50;
+    const NB_ITERATIONS: usize = 50;
 
-    let mut eval_times = Vec::with_capacity(NB_EVALS);
-    // To try and make sure eval is run and NOT optimized-out
-    let mut eval_datas = Vec::with_capacity(NB_EVALS);
+    let mut loop_times = Vec::with_capacity(NB_ITERATIONS);
 
     let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
@@ -140,7 +140,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
     let mut data = vec![Some(0u16); width * height];
     let mut eval_cache = garb.init_cache();
 
-    for _ in 0..NB_EVALS {
+    for _ in 0..NB_ITERATIONS {
         // profiling::scope!("Looped eval");
         // coz::progress!();
 
@@ -157,14 +157,15 @@ fn bench_eval_display_message_640x360_2digits_42() {
             true,
         );
 
+        core::hint::black_box(&data);
+        assert!(data.len() > 0);
+
         let duration = start.elapsed();
 
-        eval_times.push(duration.as_millis());
-        eval_datas.push(data.iter().filter(|&o| *o != Some(0u16)).count());
+        loop_times.push(duration.as_millis());
     }
 
-    println!("eval_times : {:?}", eval_times);
-    println!("eval_datas : {:?}", eval_datas.len());
+    println!("loop_times : {:?}", loop_times);
 
     // let eval_outputs = write_png(width, height, data);
 
@@ -173,4 +174,36 @@ fn bench_eval_display_message_640x360_2digits_42() {
     //     "../examples/data/eval_outputs_display_message_640x360_2digits_42.png"
     // ));
     // assert_eq!(eval_outputs, expected_outputs);
+}
+
+/// BENCH "garble" + "garbled_display_circuit_prepare_garbler_inputs"
+/// ie the server-side of the pipeline
+// NOTE it is quite slow in Debug! Make sure to enable optimizations
+#[test]
+fn bench_garble_display_message_640x360_2digits_42() {
+    const NB_ITERATIONS: usize = 5;
+
+    let mut loop_times = Vec::with_capacity(NB_ITERATIONS);
+
+    for _ in 0..NB_ITERATIONS {
+        let start = Instant::now();
+
+        let (garb, width, height) = garble_display_message_2digits(include_bytes!(
+            "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
+        ));
+
+        let encoded_garbler_inputs =
+            garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "aaa\nbbb").unwrap();
+
+        core::hint::black_box(garb);
+        core::hint::black_box(width);
+        core::hint::black_box(height);
+        core::hint::black_box(encoded_garbler_inputs);
+
+        let duration = start.elapsed();
+
+        loop_times.push(duration.as_millis());
+    }
+
+    println!("loop_times : {:?}", loop_times);
 }

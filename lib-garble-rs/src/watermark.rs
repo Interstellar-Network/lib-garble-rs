@@ -141,7 +141,7 @@ mod tests {
         let height = 200;
         let mut image = GrayImage::new(width, height);
 
-        my_draw_text_mut(&mut image, text);
+        my_draw_text_mut(&mut image, text).unwrap();
 
         let expected_png = read_png_to_bytes(expected_png_bytes);
         // WHEN UPDATING TEST:

@@ -86,7 +86,6 @@ fn require_send_sync() {
 }
 
 #[test]
-#[ignore = "FAIL"]
 fn test_ipfs_thread_safe_adds() {
     let (ipfs_internal_client, ipfs_reference_client, _foreign_node) = setup_ipfs();
 

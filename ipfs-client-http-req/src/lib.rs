@@ -16,14 +16,13 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::time::Duration;
 use http_req::error as http_req_error;
-use http_req::request::{Method, RequestBuilder};
+use http_req::request::{Method, Request};
 use http_req::uri::Uri;
 use serde::Deserialize;
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 use snafu::prelude::*;
 use std::format;
-use std::net::TcpStream;
 use std::string::ToString;
 
 /// cf https://github.com/ferristseng/rust-ipfs-api/blob/master/ipfs-api-prelude/src/from_uri.rs#L17
@@ -80,12 +79,21 @@ pub const MULTIPART_CONTENT_DISPOSITION: &[u8] =
     b"Content-Disposition: form-data; name=\"file\"; filename=\"TODO_path\"";
 pub const MULTIPART_CONTENT_TYPE: &[u8] = b"Content-Type: application/octet-stream";
 
+/// IpfsClient using http_req
+/// Compatible with no_std/sgx
+///
+/// Only support a SUBSET of the API; namely ADD and CAT for now
+///
+/// NOTE: for thread safety reasons, the underlying "stream" is NOT kept around
+/// cf commented-out code relating to it if needed in the future.
+/// In which case you will probably need to replace Request for RequestBuilder
+/// As a bonus it avoids trying to connect in "new" which can be useful.
 pub struct IpfsClient {
     // This is NOT a Uri b/c it would require keep a ref to the underlying &str; ie Uri<'a>
     root_uri: String,
     // TODO(interstellar) thread safety: or something else?
     // stream: Arc<RwLock<TcpStream>>,
-    stream: TcpStream,
+    // stream: TcpStream,
 }
 
 // In sgx env: Uri has no lifetime so we simply ignore it
@@ -112,18 +120,19 @@ fn parse_uri<'a>(uri_str: &'a str) -> Result<UriType<'a>, IpfsError> {
 impl IpfsClient {
     pub fn new(root_uri: &str) -> Result<Self> {
         let api_uri = format!("{}{}", root_uri, VERSION_PATH_V0);
-        let addr = parse_uri(&api_uri)?;
+
+        // let addr = parse_uri(&api_uri)?;
 
         //Connect to remote host
-        let stream = TcpStream::connect((
-            addr.host().ok_or_else(|| IpfsError::UriError {
-                msg: format!("invalid host: {}", addr),
-            })?,
-            addr.corr_port(),
-        ))
-        .map_err(|err| IpfsError::TcpStreamError {
-            msg: err.to_string(),
-        })?;
+        // let stream = TcpStream::connect((
+        //     addr.host().ok_or_else(|| IpfsError::UriError {
+        //         msg: format!("invalid host: {}", addr),
+        //     })?,
+        //     addr.corr_port(),
+        // ))
+        // .map_err(|err| IpfsError::TcpStreamError {
+        //     msg: err.to_string(),
+        // })?;
 
         // Open secure connection over TlsStream, because of `addr` (https)
         // TODO(interstellar) IPFS support https
@@ -131,10 +140,7 @@ impl IpfsClient {
         //     .connect(addr.host().unwrap_or(""), stream)
         //     .unwrap();
 
-        Ok(IpfsClient {
-            root_uri: api_uri,
-            stream,
-        })
+        Ok(IpfsClient { root_uri: api_uri })
     }
 
     /// IPFS add
@@ -174,11 +180,11 @@ impl IpfsClient {
         request.body(&body_bytes);
 
         let mut writer = Vec::new();
-        let stream = self
-            .stream
-            .try_clone()
-            .map_err(|err| IpfsError::IoStreamError { err })?;
-        send_request(stream, &mut writer, request)
+        // let stream = self
+        //     .stream
+        //     .try_clone()
+        //     .map_err(|err| IpfsError::IoStreamError { err })?;
+        send_request(&mut writer, request)
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
@@ -192,21 +198,20 @@ impl IpfsClient {
 
         // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
         let mut writer = Vec::new();
-        let stream = self
-            .stream
-            .try_clone()
-            .map_err(|err| IpfsError::IoStreamError { err })?;
-        send_request_raw_response(stream, &mut writer, request)
+        // let stream = self
+        //     .stream
+        //     .try_clone()
+        //     .map_err(|err| IpfsError::IoStreamError { err })?;
+        send_request_raw_response(&mut writer, request)
     }
 }
 
 /// response is a JSON struct
 fn send_request<'a, ResponseType: Deserialize<'a>>(
-    mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
-    request: RequestBuilder<'_>,
+    request: Request<'_>,
 ) -> Result<ResponseType, IpfsError> {
-    let result = request.send(&mut stream, writer);
+    let result = request.send(writer);
 
     match result {
         Ok(response) => {
@@ -231,11 +236,10 @@ fn send_request<'a, ResponseType: Deserialize<'a>>(
 /// response is raw data
 // TODO(interstellar) can we combine send_request and send_request_raw_response
 fn send_request_raw_response<'a>(
-    mut stream: TcpStream,
     writer: &'a mut Vec<u8>,
-    request: RequestBuilder<'a>,
+    request: Request<'a>,
 ) -> Result<Vec<u8>, IpfsError> {
-    let result = request.send(&mut stream, writer);
+    let result = request.send(writer);
 
     match result {
         Ok(response) => {
@@ -255,9 +259,9 @@ fn send_request_raw_response<'a>(
     }
 }
 
-fn new_request<'a>(full_uri: &'a UriType<'a>) -> Result<RequestBuilder<'a>> {
+fn new_request<'a>(full_uri: &'a UriType<'a>) -> Result<Request<'a>> {
     // TODO(interstellar) keep-alive? is it needed? or Close?
-    let mut request: RequestBuilder<'a> = RequestBuilder::new(full_uri);
+    let mut request: Request<'a> = Request::new(full_uri);
     // TODO(interstellar) timeout from new()
     request.timeout(Some(Duration::from_millis(1000)));
     request.method(Method::POST);

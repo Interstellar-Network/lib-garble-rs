@@ -3,20 +3,17 @@ use rand::thread_rng;
 use std::time::Instant;
 
 mod common;
-use crate::common::garble_and_eval_utils::{eval_client, garble_display_message_2digits};
-use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
+use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
 use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
-// TODO!!! MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
-#[test]
-fn test_garble_display_message_120x52_2digits_42() {
+/// MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
+fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
     // The more we combine, the less this test will be flaky
     // TODO should we instead map "specific inputs" -> "expected outputs"; and assume everything is OK is eg 10 random inputs are OK?
     const NB_EVALS: usize = 50;
 
-    let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
-        "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
-    ));
+    let (mut garb, width, height) = garble_skcd_helper(skcd_bytes);
 
     let mut merged_outputs = vec![0u16; width * height];
     let mut rng = thread_rng();
@@ -24,12 +21,9 @@ fn test_garble_display_message_120x52_2digits_42() {
 
     let mut temp_outputs = vec![Some(0u16); width * height];
 
-    let mut evaluator_inputs = vec![
-        // "rnd": 9 inputs
-        0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
-    ];
     let encoded_garbler_inputs =
-        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
+        garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
+    let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     let mut eval_cache = garb.init_cache();
 
@@ -55,7 +49,15 @@ fn test_garble_display_message_120x52_2digits_42() {
         }
     }
 
-    let merged_outputs = convert_vec_u16_to_u8(&merged_outputs);
+    convert_vec_u16_to_u8(&merged_outputs)
+}
+
+#[test]
+fn test_garble_display_message_120x52_2digits_42() {
+    let merged_outputs = garble_and_eval(
+        include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
+        &[4, 2],
+    );
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_42.png"
     ));
@@ -63,8 +65,20 @@ fn test_garble_display_message_120x52_2digits_42() {
 }
 
 #[test]
+fn test_garble_display_pinpad_590x50() {
+    let merged_outputs = garble_and_eval(
+        include_bytes!("../examples/data/display_pinpad_590x50.skcd.pb.bin"),
+        &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3],
+    );
+    let expected_outputs = read_png_to_bytes(include_bytes!(
+        "../examples/data/eval_outputs_display_pinpad_590x50.png"
+    ));
+    assert_eq!(merged_outputs, expected_outputs);
+}
+
+#[test]
 fn test_garble_display_message_120x52_2digits_zeros() {
-    let (mut garb, _width, _height) = garble_display_message_2digits(include_bytes!(
+    let (mut garb, _width, _height) = garble_skcd_helper(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
     let encoded_garbler_inputs =
@@ -122,7 +136,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
 
     let mut loop_times = Vec::with_capacity(NB_ITERATIONS);
 
-    let (mut garb, width, height) = garble_display_message_2digits(include_bytes!(
+    let (mut garb, width, height) = garble_skcd_helper(include_bytes!(
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
     ));
 
@@ -132,10 +146,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let mut evaluator_inputs = vec![
-        // "rnd": 9 inputs
-        0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
-    ];
+    let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     let mut data = vec![Some(0u16); width * height];
     let mut eval_cache = garb.init_cache();
@@ -188,7 +199,7 @@ fn bench_garble_display_message_640x360_2digits_42() {
     for _ in 0..NB_ITERATIONS {
         let start = Instant::now();
 
-        let (garb, width, height) = garble_display_message_2digits(include_bytes!(
+        let (garb, width, height) = garble_skcd_helper(include_bytes!(
             "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
         ));
 

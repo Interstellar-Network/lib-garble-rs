@@ -9,15 +9,15 @@ use rand::distributions::Uniform;
 use rand::thread_rng;
 
 mod common;
-use crate::common::garble_and_eval_utils::{eval_client, garble_display_message_2digits};
-use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
+use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
 use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {
     let (mut garb, encoded_garbler_inputs) = {
         // [server 1]
-        let (garb, _width, _height) = garble_display_message_2digits(include_bytes!(
+        let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ));
 
@@ -40,10 +40,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         let mut outputs = vec![Some(0u16); width * height];
 
         // [client 2]
-        let mut evaluator_inputs = vec![
-            // "rnd": 9 inputs
-            0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
-        ];
+        let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
         let mut eval_cache = garb.init_cache();
 

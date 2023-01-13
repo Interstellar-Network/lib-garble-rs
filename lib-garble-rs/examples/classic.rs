@@ -4,8 +4,9 @@ use rand::thread_rng;
 use std::io::BufReader;
 use std::io::Read;
 
-use lib_garble_rs::garble_skcd;
-use lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs;
+use lib_garble_rs::{
+    garble_skcd, garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs,
+};
 use tests_utils::png_utils::write_png;
 
 fn main() {
@@ -15,10 +16,8 @@ fn main() {
     const NB_EVALS: i32 = 10;
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
-    let f = std::fs::File::open(
-        "lib-garble-rs/examples/data/display_message_640x360_2digits.skcd.pb.bin",
-    )
-    .unwrap();
+    let f = std::fs::File::open("lib-garble-rs/examples/data/display_pinpad_590x50.skcd.pb.bin")
+        .unwrap();
     let mut reader = BufReader::new(f);
 
     let mut buffer = Vec::new();
@@ -37,12 +36,10 @@ fn main() {
     let rand_0_1 = Uniform::from(0..=1);
 
     let encoded_garbler_inputs =
-        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "Héllô\nWorld").unwrap();
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
+            .unwrap();
 
-    let mut evaluator_inputs = vec![
-        // "rnd": 9 inputs
-        0u16, 0, 0, 0, 0, 0, 0, 0, 0, //
-    ];
+    let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     let mut eval_cache = garb.init_cache();
 

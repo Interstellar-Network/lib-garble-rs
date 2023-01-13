@@ -151,6 +151,37 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
     Ok(garb.encode_garbler_inputs(&garbler_inputs))
 }
 
+/// Like `garbled_display_circuit_prepare_garbler_inputs` but for the client-side(ie Evaluator)
+/// Initialize a Vec for the "to be randomized each eval loop" evaluator inputs
+///
+/// # Errors
+///
+/// # Panics
+///
+/// TODO! If the given circuit if NOT a "display circuit" it will panic instead of properly passing to the client
+pub fn prepare_evaluator_inputs(
+    garb: &InterstellarGarbledCircuit,
+) -> Result<Vec<EvaluatorInput>, InterstellarError> {
+    let mut evaluator_inputs = Vec::with_capacity(
+        garb.config
+            .evaluator_inputs
+            .iter()
+            .fold(0, |acc, e| acc + e.length as usize),
+    );
+
+    for evaluator_input in &garb.config.evaluator_inputs {
+        match evaluator_input.r#type {
+            circuit::EvaluatorInputsType::Rnd => {
+                let mut inputs_0 = vec![0; evaluator_input.length as usize];
+                evaluator_inputs.append(&mut inputs_0);
+            }
+            _ => todo!("prepare_evaluator_inputs: only Rnd supported for now"),
+        }
+    }
+
+    Ok(evaluator_inputs)
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::garble_skcd;

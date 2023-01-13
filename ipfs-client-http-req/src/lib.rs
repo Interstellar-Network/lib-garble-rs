@@ -138,7 +138,7 @@ impl IpfsClient {
         .concat();
 
         let full_uri_str = format!("{}/add", self.root_uri);
-        let (response_body, content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+        let (response_body, _content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
             Some(body_bytes.into()),
             &full_uri_str,
             ocw_common::RequestMethod::Post,
@@ -146,12 +146,12 @@ impl IpfsClient {
             Duration::from_millis(2000),
         )
         .map_err(|err| IpfsError::HttpError {
-            msg: "TODO".to_string(),
+            msg: err.to_string(),
             code: 500,
         })?;
 
-        Ok(serde_json::from_slice(response_body.as_ref())
-            .map_err(|err| IpfsError::DeserializationError { err })?)
+        serde_json::from_slice(response_body.as_ref())
+            .map_err(|err| IpfsError::DeserializationError { err })
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
@@ -160,7 +160,7 @@ impl IpfsClient {
     pub fn ipfs_cat(&self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
         // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
         let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
-        let (response_body, content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+        let (response_body, _content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
             None,
             &full_uri_str,
             ocw_common::RequestMethod::Post,
@@ -168,7 +168,7 @@ impl IpfsClient {
             Duration::from_millis(2000),
         )
         .map_err(|err| IpfsError::HttpError {
-            msg: "TODO".to_string(),
+            msg: err.to_string(),
             code: 500,
         })?;
 

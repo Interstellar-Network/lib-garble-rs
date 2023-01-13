@@ -40,9 +40,7 @@ pub fn eval_client(
 
 /// garble then eval a test .skcd
 /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
-pub fn garble_display_message_2digits(
-    skcd_bytes: &[u8],
-) -> (InterstellarGarbledCircuit, usize, usize) {
+pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (InterstellarGarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 
     let display_config = garb.config.display_config.unwrap().clone();

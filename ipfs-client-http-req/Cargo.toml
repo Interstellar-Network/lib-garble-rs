@@ -1,6 +1,6 @@
 [package]
 name = "ipfs-client-http-req"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,22 +10,24 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "2.1.0", default-features = false, features = ["alloc", "macros"] }
 snafu = { version = "0.7", default-features = false }
-http_req_sgx = { package = "http_req", git = "https://github.com/mesalock-linux/http_req-sgx", optional = true }
+# http_req_sgx = { package = "http_req", git = "https://github.com/mesalock-linux/http_req-sgx", optional = true }
 # default is "native-tls", but that needs to (cross-)compile openssl-sys which COULD be a pain on Android; In ancy case, rustls works fine
-http_req_std = { package = "http_req", version = "0.9", optional = true, default-features = false, features = ["rust-tls"] }
-sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", features = ["net"], optional = true }
+# http_req_std = { package = "http_req", version = "0.9", optional = true, default-features = false, features = ["rust-tls"] }
+# sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", features = ["net"], optional = true }
+# TODO git = "https://github.com/Interstellar-Network/pallets.git", branch = "interstellar-M5"
+ocw-common = { path = "../../pallets/ocw-common", default-features = false, features = ["sp_offchain"] }
 
 [features]
 default = ["std"]
-sgx = ["sgx_tstd", "http_req_sgx"]
-std = ["http_req_std"]
+sgx = ["ocw-common/sgx"]
+std = ["ocw-common/std"]
 
 [dev-dependencies]
 rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 # cf https://github.com/rs-ipfs/rust-ipfs/blob/master/Cargo.toml
 # Needed for tests/foreign_ipfs.rs
-libp2p = { default-features = false, features = ["floodsub", "identify", "kad", "tcp-tokio", "mplex", "noise", "ping", "yamux", "dns-tokio"], version = "0.48" }
-base64 = { default-features = false, features = ["alloc"], version = "0.13" }
+libp2p = { default-features = false, features = ["floodsub", "identify", "kad", "tcp-tokio", "mplex", "noise", "ping", "yamux", "dns-tokio"], version = "0" }
+base64 = { default-features = false, features = ["alloc"], version = "0" }
 anyhow = "1.0"
 
 # A recent version is required for the Send trait else

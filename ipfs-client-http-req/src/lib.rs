@@ -2,36 +2,23 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(elided_lifetimes_in_paths)]
 
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-extern crate sgx_tstd as std;
-
 extern crate alloc;
 
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use http_req_sgx as http_req;
-#[cfg(feature = "std")]
-use http_req_std as http_req;
-
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::time::Duration;
-use http_req::error as http_req_error;
-use http_req::request::{Method, Request};
-use http_req::uri::Uri;
 use serde::Deserialize;
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 use snafu::prelude::*;
 use std::format;
-use std::string::ToString;
 
 /// cf https://github.com/ferristseng/rust-ipfs-api/blob/master/ipfs-api-prelude/src/from_uri.rs#L17
 const VERSION_PATH_V0: &str = "/api/v0";
 
 #[derive(Debug, Snafu)]
 pub enum IpfsError {
-    #[snafu(display("response error: {}", err))]
-    ResponseError { err: http_req_error::Error },
     #[snafu(display("http error[{}]: {}", code, msg))]
     HttpError { msg: String, code: u16 },
     #[snafu(display("uri error: {}", msg))]
@@ -96,27 +83,6 @@ pub struct IpfsClient {
     // stream: TcpStream,
 }
 
-// In sgx env: Uri has no lifetime so we simply ignore it
-#[cfg(feature = "std")]
-type UriType<'a> = Uri<'a>;
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-type UriType<'a> = Uri;
-
-fn parse_uri<'a>(uri_str: &'a str) -> Result<UriType<'a>, IpfsError> {
-    // Parse uri and assign it to variable `addr`
-    // TODO(interstellar) why do we get "the trait `FromStr` is not implemented for `Uri<'_>`" in either SGX or STD???
-    #[cfg(feature = "std")]
-    let addr: UriType<'a> = Uri::try_from(uri_str).map_err(|err| IpfsError::UriError {
-        msg: format!("invalid uri ({}) : {} ", uri_str, err),
-    })?;
-    #[cfg(all(not(feature = "std"), feature = "sgx"))]
-    let addr: UriType<'a> = uri_str.parse().map_err(|err| IpfsError::UriError {
-        msg: format!("invalid uri ({}) : {} ", uri_str, err),
-    })?;
-
-    Ok(addr)
-}
-
 impl IpfsClient {
     pub fn new(root_uri: &str) -> Result<Self> {
         let api_uri = format!("{}{}", root_uri, VERSION_PATH_V0);
@@ -172,19 +138,20 @@ impl IpfsClient {
         .concat();
 
         let full_uri_str = format!("{}/add", self.root_uri);
-        let full_uri = parse_uri(&full_uri_str)?;
-        let mut request = new_request(&full_uri)?;
-        request.header("Content-Type", "multipart/form-data;boundary=\"boundary\"");
-        request.header("Content-Length", &body_bytes.len().to_string());
-        // TODO(interstellar)
-        request.body(&body_bytes);
+        let (response_body, content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+            Some(body_bytes.into()),
+            &full_uri_str,
+            ocw_common::RequestMethod::Post,
+            Some(ocw_common::ContentType::MultipartFormData),
+            Duration::from_millis(2000),
+        )
+        .map_err(|err| IpfsError::HttpError {
+            msg: "TODO".to_string(),
+            code: 500,
+        })?;
 
-        let mut writer = Vec::new();
-        // let stream = self
-        //     .stream
-        //     .try_clone()
-        //     .map_err(|err| IpfsError::IoStreamError { err })?;
-        send_request(&mut writer, request)
+        Ok(serde_json::from_slice(response_body.as_ref())
+            .map_err(|err| IpfsError::DeserializationError { err })?)
     }
 
     /// https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
@@ -193,78 +160,18 @@ impl IpfsClient {
     pub fn ipfs_cat(&self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
         // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
         let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
-        let full_uri = parse_uri(&full_uri_str)?;
-        let request = new_request(&full_uri)?;
+        let (response_body, content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+            None,
+            &full_uri_str,
+            ocw_common::RequestMethod::Post,
+            None,
+            Duration::from_millis(2000),
+        )
+        .map_err(|err| IpfsError::HttpError {
+            msg: "TODO".to_string(),
+            code: 500,
+        })?;
 
-        // TODO(interstellar) can we make it work using eg IpfsCatResponse, #serde(transparent)? etc?
-        let mut writer = Vec::new();
-        // let stream = self
-        //     .stream
-        //     .try_clone()
-        //     .map_err(|err| IpfsError::IoStreamError { err })?;
-        send_request_raw_response(&mut writer, request)
+        Ok(response_body.to_vec())
     }
-}
-
-/// response is a JSON struct
-fn send_request<'a, ResponseType: Deserialize<'a>>(
-    writer: &'a mut Vec<u8>,
-    request: Request<'_>,
-) -> Result<ResponseType, IpfsError> {
-    let result = request.send(writer);
-
-    match result {
-        Ok(response) => {
-            let status_code = response.status_code();
-            if status_code.is_success() {
-                let add_response: ResponseType = serde_json::from_slice(writer)
-                    .map_err(|err| IpfsError::DeserializationError { err })?;
-                Ok(add_response)
-            } else {
-                Err(IpfsError::HttpError {
-                    // TODO(interstellar) remove clone
-                    msg: String::from_utf8(writer.clone())
-                        .map_err(|err| IpfsError::Utf8Error { err })?,
-                    code: u16::from(response.status_code()),
-                })
-            }
-        }
-        Err(err) => Err(IpfsError::ResponseError { err }),
-    }
-}
-
-/// response is raw data
-// TODO(interstellar) can we combine send_request and send_request_raw_response
-fn send_request_raw_response<'a>(
-    writer: &'a mut Vec<u8>,
-    request: Request<'a>,
-) -> Result<Vec<u8>, IpfsError> {
-    let result = request.send(writer);
-
-    match result {
-        Ok(response) => {
-            let status_code = response.status_code();
-            if status_code.is_success() {
-                Ok(writer.clone())
-            } else {
-                Err(IpfsError::HttpError {
-                    // TODO(interstellar) remove clone
-                    msg: String::from_utf8(writer.clone())
-                        .map_err(|err| IpfsError::Utf8Error { err })?,
-                    code: u16::from(response.status_code()),
-                })
-            }
-        }
-        Err(err) => Err(IpfsError::ResponseError { err }),
-    }
-}
-
-fn new_request<'a>(full_uri: &'a UriType<'a>) -> Result<Request<'a>> {
-    // TODO(interstellar) keep-alive? is it needed? or Close?
-    let mut request: Request<'a> = Request::new(full_uri);
-    // TODO(interstellar) timeout from new()
-    request.timeout(Some(Duration::from_millis(1000)));
-    request.method(Method::POST);
-
-    Ok(request)
 }

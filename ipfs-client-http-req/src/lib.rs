@@ -4,6 +4,9 @@
 
 extern crate alloc;
 
+#[cfg(all(not(feature = "std"), feature = "sgx"))]
+extern crate sgx_tstd as std;
+
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;

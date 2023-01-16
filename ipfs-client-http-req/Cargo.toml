@@ -22,17 +22,7 @@ sgx = ["ocw-common/sgx", "sgx_tstd"]
 std = ["ocw-common/std"]
 
 [dev-dependencies]
-rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
-# cf https://github.com/rs-ipfs/rust-ipfs/blob/master/Cargo.toml
-# Needed for tests/foreign_ipfs.rs
+tests-utils = { git = "https://github.com/Interstellar-Network/pallets", branch = "interstellar-M5" }
 libp2p = { default-features = false, features = ["floodsub", "identify", "kad", "tcp-tokio", "mplex", "noise", "ping", "yamux", "dns-tokio"], version = "0" }
-base64 = { default-features = false, features = ["alloc"], version = "0" }
-anyhow = "1.0"
-
-# A recent version is required for the Send trait else
-# "the trait `Send` is not implemented for `dyn Future<Output = Result<AddResponse, ipfs_api_backend_hyper::Error>>`"
-# https://github.com/ferristseng/rust-ipfs-api/issues/90
-# ipfs-api-backend-hyper = "0.3"
-ipfs-api-backend-hyper = { version = "0.5", features = [ "with-send-sync" , "with-builder" ] }
 tokio-test = "*"
-crossbeam-utils = "0.8.14"
+crossbeam-utils = "*"

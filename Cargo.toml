@@ -16,4 +16,5 @@ debug = 1
 
 # [patch."https://github.com/Interstellar-Network/pallets.git"]
 # ocw-common = { path = "../pallets/ocw-common/" }
+# tests-utils = { path = "../pallets/tests_utils/" }
 ################################################################################

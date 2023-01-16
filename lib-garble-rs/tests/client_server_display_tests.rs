@@ -11,7 +11,7 @@ use rand::thread_rng;
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
 use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
-use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
+use png_tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {

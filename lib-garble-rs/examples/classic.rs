@@ -7,7 +7,7 @@ use std::io::Read;
 use lib_garble_rs::{
     garble_skcd, garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs,
 };
-use tests_utils::png_utils::write_png;
+use png_tests_utils::png_utils::write_png;
 
 fn main() {
     // How many eval() we will combine

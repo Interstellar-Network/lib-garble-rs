@@ -1,13 +1,13 @@
-mod common;
-use crate::common::foreign_ipfs::ForeignNode;
 use crossbeam_utils::thread;
-use ipfs_api_backend_hyper::IpfsApi;
 use ipfs_client_http_req::IpfsClient;
 use libp2p::futures::TryStreamExt;
 use std::io::Cursor;
+use tests_utils::foreign_ipfs;
+use tests_utils::foreign_ipfs::IpfsApi;
+use tests_utils::foreign_ipfs::IpfsClient as IpfsReferenceClient;
 
-fn setup_ipfs() -> (IpfsClient, ipfs_api_backend_hyper::IpfsClient, ForeignNode) {
-    let (foreign_node, ipfs_reference_client) = common::foreign_ipfs::run_ipfs_in_background();
+fn setup_ipfs() -> (IpfsClient, IpfsReferenceClient, foreign_ipfs::ForeignNode) {
+    let (foreign_node, ipfs_reference_client) = foreign_ipfs::run_ipfs_in_background();
     // let ipfs_server_multiaddr = format!("/ip4/127.0.0.1/tcp/{}", foreign_node.api_port);
     let ipfs_server_multiaddr = format!("http://localhost:{}", foreign_node.api_port);
     let ipfs_internal_client = IpfsClient::new(&ipfs_server_multiaddr).unwrap();
@@ -17,7 +17,7 @@ fn setup_ipfs() -> (IpfsClient, ipfs_api_backend_hyper::IpfsClient, ForeignNode)
 
 fn test_ipfs_add_aux<'a>(
     ipfs_internal_client: &'a IpfsClient,
-    ipfs_reference_client: &'a ipfs_api_backend_hyper::IpfsClient,
+    ipfs_reference_client: &'a IpfsReferenceClient,
 ) {
     // AZaz
     let content = &[65u8, 90, 97, 122];

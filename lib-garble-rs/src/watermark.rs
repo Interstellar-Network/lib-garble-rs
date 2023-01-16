@@ -120,7 +120,7 @@ pub(crate) fn new_watermark(
 mod tests {
     use super::*;
     use image::EncodableLayout;
-    use tests_utils::png_utils::read_png_to_bytes;
+    use png_tests_utils::png_utils::read_png_to_bytes;
 
     #[test]
     fn test_convert_image_to_garbler_inputs_black_white() {

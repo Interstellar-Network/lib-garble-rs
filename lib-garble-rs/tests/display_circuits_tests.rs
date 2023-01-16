@@ -5,7 +5,7 @@ use std::time::Instant;
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
 use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
-use tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
+use png_tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
 
 /// MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
 fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {

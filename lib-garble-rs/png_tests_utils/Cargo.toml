@@ -1,5 +1,5 @@
 [package]
-name = "tests-utils"
+name = "png-tests-utils"
 version = "0.1.0"
 edition = "2021"
 

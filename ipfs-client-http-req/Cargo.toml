@@ -23,6 +23,7 @@ std = ["ocw-common/std"]
 
 [dev-dependencies]
 tests-utils = { git = "https://github.com/Interstellar-Network/pallets", branch = "interstellar-M5" }
-libp2p = { default-features = false, features = ["floodsub", "identify", "kad", "tcp-tokio", "mplex", "noise", "ping", "yamux", "dns-tokio"], version = "0" }
-tokio-test = "*"
-crossbeam-utils = "*"
+tokio = { version = "*", default-features = false, features = ["rt", "macros"] }
+parking_lot = ">0.12.0"
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36", features = ["std"] }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36", features = ["std"]}

@@ -54,21 +54,6 @@ pub struct IpfsAddResponse {
 // #[serde(transparent)]
 pub struct IpfsCatResponse(Vec<u8>);
 
-// https://github.com/mikedilger/formdata/blob/master/src/lib.rs
-// WARNING: DO NOT use "\n" as end of line: it MUST be escaped(hence '\' in this example)
-// let body_bytes = b"--boundary\r\n\
-//                 Content-Disposition: form-data; name=\"file\"; filename=\"TODO_path\"\r\n\
-//                 Content-Type: application/octet-stream\r\n\
-//                 \r\n\
-//                 TODO_content1\r\n\
-//                 TODO_content2\r\n\
-//                 --boundary--";
-pub const MULTIPART_NEW_LINE: &[u8] = b"\r\n";
-pub const MULTIPART_BOUNDARY: &[u8] = b"--boundary";
-pub const MULTIPART_CONTENT_DISPOSITION: &[u8] =
-    b"Content-Disposition: form-data; name=\"file\"; filename=\"TODO_path\"";
-pub const MULTIPART_CONTENT_TYPE: &[u8] = b"Content-Type: application/octet-stream";
-
 /// IpfsClient using http_req
 /// Compatible with no_std/sgx
 ///
@@ -115,32 +100,12 @@ impl IpfsClient {
     /// IPFS add
     /// cf https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
     /// and https://github.com/ferristseng/rust-ipfs-api/blob/master/ipfs-api-prelude/src/request/add.rs
+    /// param: body_bytes: MUST be a multipar/form-data body! eg construct it with `ocw_common::new_multipart_body_bytes`
     ///
     /// param root_uri: eg "http://localhost:5001"
-    pub fn ipfs_add(&self, body: &[u8]) -> Result<IpfsAddResponse, IpfsError> {
-        // TODO(interstellar) avoid copying
-        let multipart_start = [
-            MULTIPART_BOUNDARY,
-            MULTIPART_NEW_LINE,
-            MULTIPART_CONTENT_DISPOSITION,
-            MULTIPART_NEW_LINE,
-            MULTIPART_CONTENT_TYPE,
-            MULTIPART_NEW_LINE,
-            // Space b/w "headers" and "body"
-            MULTIPART_NEW_LINE,
-        ]
-        .concat();
-        // No need for a new line at the end
-        let body_bytes = [
-            multipart_start.as_slice(),
-            body,
-            MULTIPART_NEW_LINE,
-            MULTIPART_BOUNDARY,
-            b"--",
-        ]
-        .concat();
-
+    pub fn ipfs_add(&self, body_bytes: &[u8]) -> Result<IpfsAddResponse, IpfsError> {
         let full_uri_str = format!("{}/add", self.root_uri);
+        let body_bytes: Vec<u8> = ocw_common::new_multipart_body_bytes(body_bytes);
         let (response_body, _content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
             Some(body_bytes.into()),
             &full_uri_str,

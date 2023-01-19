@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+log = { version = "0.4", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde_with = { version = "2.1.0", default-features = false, features = ["alloc", "macros"] }
@@ -14,16 +15,16 @@ snafu = { version = "0.7", default-features = false }
 # default is "native-tls", but that needs to (cross-)compile openssl-sys which COULD be a pain on Android; In ancy case, rustls works fine
 # http_req_std = { package = "http_req", version = "0.9", optional = true, default-features = false, features = ["rust-tls"] }
 sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true }
-ocw-common = { git = "https://github.com/Interstellar-Network/pallets.git", branch = "interstellar-M5", default-features = false, features = ["sp_offchain"] }
+ocw-common = { git = "https://github.com/Interstellar-Network/pallets.git", branch = "interstellar-M5", default-features = false }
 
 [features]
 default = ["std"]
-sgx = ["ocw-common/sgx", "sgx_tstd"]
-std = ["ocw-common/std"]
+sgx = ["ocw-common/sgx", "sgx_tstd", "ocw-common/with_http_req_sgx"]
+std = ["ocw-common/std", "ocw-common/with_http_req_std"]
 
 [dev-dependencies]
 tests-utils = { git = "https://github.com/Interstellar-Network/pallets", branch = "interstellar-M5" }
 tokio = { version = "*", default-features = false, features = ["rt", "macros"] }
-parking_lot = ">0.12.0"
-sp-io = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36", features = ["std"] }
-sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36", features = ["std"]}
+futures = "0.3"
+test-log = "0.2"
+env_logger = "0.10"

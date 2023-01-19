@@ -106,16 +106,19 @@ impl IpfsClient {
     pub fn ipfs_add(&self, body_bytes: &[u8]) -> Result<IpfsAddResponse, IpfsError> {
         let full_uri_str = format!("{}/add", self.root_uri);
         let body_bytes: Vec<u8> = ocw_common::new_multipart_body_bytes(body_bytes);
-        let (response_body, _content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+        let (response_body, _content_type) = ocw_common::http_req_fetch_from_remote_grpc_web(
             Some(body_bytes.into()),
             &full_uri_str,
             ocw_common::RequestMethod::Post,
             Some(ocw_common::ContentType::MultipartFormData),
             Duration::from_millis(2000),
         )
-        .map_err(|err| IpfsError::HttpError {
-            msg: err.to_string(),
-            code: 500,
+        .map_err(|err| {
+            log::error!("ipfs_add err: {}", err.to_string());
+            IpfsError::HttpError {
+                msg: err.to_string(),
+                code: 500,
+            }
         })?;
 
         serde_json::from_slice(response_body.as_ref())
@@ -128,7 +131,7 @@ impl IpfsClient {
     pub fn ipfs_cat(&self, ipfs_hash: &str) -> Result<Vec<u8>, IpfsError> {
         // TODO(interstellar) args: &offset=<value>&length=<value>&progress=false
         let full_uri_str = format!("{}/cat?arg={}", self.root_uri, ipfs_hash);
-        let (response_body, _content_type) = ocw_common::sp_offchain_fetch_from_remote_grpc_web(
+        let (response_body, _content_type) = ocw_common::http_req_fetch_from_remote_grpc_web(
             None,
             &full_uri_str,
             ocw_common::RequestMethod::Post,

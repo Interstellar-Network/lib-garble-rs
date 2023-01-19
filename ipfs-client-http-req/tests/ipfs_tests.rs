@@ -1,10 +1,7 @@
+use futures::TryStreamExt;
 use ipfs_client_http_req::IpfsClient;
-use parking_lot::RwLock;
-use sp_core::offchain::testing;
-use sp_core::offchain::testing::OffchainState;
-use sp_core::offchain::OffchainWorkerExt;
 use std::io::Cursor;
-use std::sync::Arc;
+use test_log::test;
 use tests_utils::foreign_ipfs;
 use tests_utils::foreign_ipfs::IpfsApi;
 use tests_utils::foreign_ipfs::IpfsClient as IpfsReferenceClient;
@@ -18,121 +15,46 @@ fn setup_ipfs() -> (IpfsClient, IpfsReferenceClient, foreign_ipfs::ForeignNode) 
     (ipfs_internal_client, ipfs_reference_client, foreign_node)
 }
 
-/// Setup a OffchainWorkerExt so that we can make http request with "t.execute_with"
-fn new_test_ext() -> (sp_io::TestExternalities, Arc<RwLock<OffchainState>>) {
-    let (offchain, state) = testing::TestOffchainExt::new();
-
-    let mut t = sp_io::TestExternalities::default();
-    t.register_extension(OffchainWorkerExt::new(offchain));
-    (t, state)
-}
-
-fn mock_ipfs_add_response(state: &mut testing::OffchainState, api_port: u16, body_bytes: &[u8]) {
-    state.expect_request(testing::PendingRequest {
-        method: "POST".into(),
-        uri: format!("http://127.0.0.1:{}/api/v0/add", api_port),
-        // cf "fn decode_rpc_json" for the expected format
-        response: Some(br#"{"Name":"TODO_path","Hash":"QmUjBgZpddDdKZkAFszLyrX2YkBLPKLmkKWJFsU1fTcJWo","Size":"36"}"#.to_vec()),
-        sent: true,
-        headers: vec![(
-            "Content-Type".into(),
-            "multipart/form-data;boundary=\"boundary\"".into(),
-        )],
-        // MUST match MyTestCallbackMock
-        // But it adds the whole "multipart" boundaries etc
-        body: ocw_common::new_multipart_body_bytes(body_bytes),
-        response_headers: vec![("content-type".into(), "text/plain".into())],
-        ..Default::default()
-    });
-}
-
-fn mock_ipfs_cat_response(
-    state: &mut testing::OffchainState,
-    api_port: u16,
-    ipfs_cid: &str,
-    file_bytes: &[u8],
-) {
-    state.expect_request(testing::PendingRequest {
-        method: "POST".into(),
-        uri: format!("http://127.0.0.1:{}/api/v0/cat?arg={}", api_port, ipfs_cid),
-        // cf "fn decode_rpc_json" for the expected format
-        response: Some(file_bytes.to_vec()),
-        sent: true,
-        headers: vec![],
-        response_headers: vec![("content-type".into(), "text/plain".into())],
-        ..Default::default()
-    });
-}
-
-#[test]
-fn test_ipfs_add_and_cat_ok() {
-    let (ipfs_internal_client, _ipfs_reference_client, foreign_node) = setup_ipfs();
-    let (mut t, state) = new_test_ext();
+#[tokio::test]
+async fn test_ipfs_add_ok() {
+    let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
 
     // MOCK ipfs_internal_client "ipfs_add"
     let content = &[65u8, 90, 97, 122]; // AZaz
-    mock_ipfs_add_response(&mut state.write(), foreign_node.api_port, content);
-    mock_ipfs_cat_response(
-        &mut state.write(),
-        foreign_node.api_port,
-        "QmUjBgZpddDdKZkAFszLyrX2YkBLPKLmkKWJFsU1fTcJWo",
-        content,
-    );
+    let add_response = ipfs_internal_client.ipfs_add(content).unwrap();
 
-    let add_response = t.execute_with(|| {
-        let res = ipfs_internal_client.ipfs_add(content);
-
-        res.unwrap()
-    });
-
-    // CAT using the official client
-    // ...
-    //             ipfs_reference_client
-    //                 .cat(&add_response.hash)
-    //                 .map_ok(|chunk| chunk.to_vec())
-    //                 .try_concat()
-    //                 .await
-    //         })
-    //         .unwrap()
-    // ...
-    // FAIL: never returns; even with tokio::test and await, etc
-    // CAT using internal client
-    let skcd_buf = t.execute_with(|| {
-        let res = ipfs_internal_client.ipfs_cat(&add_response.hash);
-
-        res.unwrap()
-    });
+    let skcd_buf = ipfs_reference_client
+        .cat(&add_response.hash)
+        .map_ok(|chunk| chunk.to_vec())
+        .try_concat()
+        .await
+        .unwrap();
 
     let res_str = String::from_utf8(skcd_buf).unwrap();
     assert_eq!(res_str, "AZaz");
+
+    // Needed to keep the server alive?
+    assert!(foreign_node.daemon.id() > 0);
 }
 
 #[tokio::test]
 async fn test_ipfs_cat_ok() {
     let (ipfs_internal_client, ipfs_reference_client, foreign_node) = setup_ipfs();
-    let (mut t, state) = new_test_ext();
 
     // ADD using the official client
     let content = &[65u8, 90, 97, 122]; // AZaz
     let cursor = Cursor::new(content);
     let ipfs_server_response = ipfs_reference_client.add(cursor).await.unwrap();
 
-    // MOCK ipfs_internal_client "ipfs_cat"
-    mock_ipfs_cat_response(
-        &mut state.write(),
-        foreign_node.api_port,
-        &ipfs_server_response.hash,
-        content,
-    );
+    let res = ipfs_internal_client
+        .ipfs_cat(&ipfs_server_response.hash)
+        .unwrap();
 
-    t.execute_with(|| {
-        let res = ipfs_internal_client.ipfs_cat(&ipfs_server_response.hash);
+    let res_str = String::from_utf8(res).unwrap();
+    assert_eq!(res_str, "AZaz");
 
-        let res = res.unwrap();
-
-        let res_str = String::from_utf8(res).unwrap();
-        assert_eq!(res_str, "AZaz");
-    });
+    // Needed to keep the server alive?
+    assert!(foreign_node.daemon.id() > 0);
 }
 
 /// https://rust-lang.github.io/api-guidelines/interoperability.html#types-are-send-and-sync-where-possible-c-send-sync

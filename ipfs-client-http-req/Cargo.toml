@@ -15,12 +15,12 @@ snafu = { version = "0.7", default-features = false }
 # default is "native-tls", but that needs to (cross-)compile openssl-sys which COULD be a pain on Android; In ancy case, rustls works fine
 # http_req_std = { package = "http_req", version = "0.9", optional = true, default-features = false, features = ["rust-tls"] }
 sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true }
-ocw-common = { git = "https://github.com/Interstellar-Network/pallets.git", branch = "interstellar-M5", default-features = false }
+http-grpc-client = { default-features = false, git = "https://github.com/Interstellar-Network/rs-common.git", branch = "interstellar-M5" }
 
 [features]
 default = ["std"]
-sgx = ["ocw-common/sgx", "sgx_tstd", "ocw-common/with_http_req_sgx"]
-std = ["ocw-common/std", "ocw-common/with_http_req_std"]
+sgx = ["http-grpc-client/sgx", "sgx_tstd", "http-grpc-client/with_http_req_sgx"]
+std = ["http-grpc-client/std", "http-grpc-client/with_http_req_std"]
 
 [dev-dependencies]
 tests-utils = { git = "https://github.com/Interstellar-Network/pallets", branch = "interstellar-M5" }

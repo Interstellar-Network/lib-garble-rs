@@ -14,6 +14,8 @@ opt-level = 2
 # fancy-garbling = { path = "../swanky/fancy-garbling/" }
 
 # [patch."https://github.com/Interstellar-Network/pallets.git"]
-# ocw-common = { path = "../pallets/ocw-common/" }
 # tests-utils = { path = "../pallets/tests_utils/" }
+
+# [patch."https://github.com/Interstellar-Network/rs-common.git"]
+# http-grpc-client = { path = "../rs-common/http-grpc-client/" }
 ################################################################################

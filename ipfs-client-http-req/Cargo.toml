@@ -23,7 +23,7 @@ sgx = ["http-grpc-client/sgx", "sgx_tstd", "http-grpc-client/with_http_req_sgx"]
 std = ["http-grpc-client/std", "http-grpc-client/with_http_req_std"]
 
 [dev-dependencies]
-tests-utils = { git = "https://github.com/Interstellar-Network/pallets", branch = "interstellar-M5" }
+tests-utils = { git = "https://github.com/Interstellar-Network/rs-common", branch = "interstellar-M5" }
 tokio = { version = "*", default-features = false, features = ["rt", "macros"] }
 futures = "0.3"
 test-log = "0.2"

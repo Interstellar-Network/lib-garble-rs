@@ -73,7 +73,7 @@ pub struct IpfsClient {
 
 impl IpfsClient {
     pub fn new(root_uri: &str) -> Result<Self> {
-        let api_uri = format!("{}{}", root_uri, VERSION_PATH_V0);
+        let api_uri = format!("{root_uri}{VERSION_PATH_V0}");
 
         // let addr = parse_uri(&api_uri)?;
 

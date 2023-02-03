@@ -1,0 +1,181 @@
+name: Build and Test
+
+on:
+  push:
+
+jobs:
+  ##############################################################################
+  ##############################################################################
+  # TODO split test and lint; but that REQUIRE caching else recompile from scratch in between
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/prepare@v3-dev
+        with:
+          ssh_key_input: ${{ secrets.SSH_KEY_MACHINE_USER_INTERSTELLAR_CI }}
+          install_cmake_and_ninja: false
+
+      - uses: Interstellar-Network/gh-actions/prepare_rust@v3-dev
+        with:
+          toolchain_components: "rustfmt,clippy"
+
+      - uses: Interstellar-Network/gh-actions/install-protoc@v3-dev
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/install-go-ipfs@v3-dev
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/rust-build-and-test@v3-dev
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/rust-lint@v3-dev
+
+      ##########################################################################
+
+      # TODO move into separate action? ideally into a JS action "post" that setup ccache?
+      # NOTE: remove if using "rust-build-and-test"
+      - name: Print ccache/sccache stats
+        # display stats even if tests failed
+        if: always()
+        run: |
+          ccache --show-stats || true
+          sccache --show-stats || true
+        shell: bash
+
+  ##############################################################################
+  ##############################################################################
+  sgx:
+    runs-on: ubuntu-latest
+    steps:
+      ##########################################################################
+      # This is pretty dumb: we MUST call action/checkout BEFORE using a local action...
+      # else: Error: Can't find 'action.yml', 'action.yaml' or 'Dockerfile' under '/home/runner/work/rs-common/rs-common/.github/actions/setup'. Did you forget to run actions/checkout before running your local action?
+      - uses: Interstellar-Network/gh-actions/prepare@v3-dev
+        with:
+          ssh_key_input: ${{ secrets.SSH_KEY_MACHINE_USER_INTERSTELLAR_CI }}
+          install_cmake_and_ninja: false
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/prepare_rust@v3-dev
+        with:
+          use_toolchain_toml: "true"
+          toolchain_toml_path: ./tests_sgx/samplecode/project_template/enclave/rust-toolchain.toml
+          toolchain_components: ""
+
+      - uses: Interstellar-Network/gh-actions/install-protoc@v3-dev
+
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/install-sgx-sdk@v3-dev
+
+      # cf core-primitives/enclave-api/build.rs and service/build.rs
+      - name: Build SGX samplecode
+        run: |
+          cd tests_sgx
+          export CUSTOM_EDL_PATH=$PWD/edl
+          export CUSTOM_COMMON_PATH=$PWD/common
+          (cd samplecode/project_template && make clean && make && cd bin/ && ./app)
+        shell: bash
+
+  ##############################################################################
+  ##############################################################################
+  android:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # cf https://stackoverflow.com/questions/66025220/paired-values-in-github-actions-matrix
+        # list of pairs:
+        # - cargo target
+        # - NDK "ANDROID_ABI"
+        android-target: [
+            {
+              cargo_target: "aarch64-linux-android",
+              android_abi: "arm64-v8a",
+              experimental: false,
+            },
+            {
+              cargo_target: "armv7-linux-androideabi",
+              android_abi: "armeabi-v7a",
+              # TODO it fails b/c of pointer size difference, at least in Scuttlebut
+              # but as we are still not in PROD/GA, we only care about aarch64 for now
+              experimental: true,
+            },
+          ]
+    steps:
+      ##########################################################################
+
+      - uses: Interstellar-Network/gh-actions/prepare@v3-dev
+        with:
+          ssh_key_input: ${{ secrets.SSH_KEY_MACHINE_USER_INTERSTELLAR_CI }}
+          install_cmake_and_ninja: false
+
+      - uses: Interstellar-Network/gh-actions/prepare_rust@v3-dev
+        with:
+          toolchain_components: ""
+
+      - uses: Interstellar-Network/gh-actions/install-protoc@v3-dev
+
+      ##########################################################################
+      # cf https://github.com/android-actions/setup-android
+
+      # for now https://github.com/actions-rs/toolchain only support one "target"...
+      # TODO? "x86_64-unknown-linux-gnu"
+      - run: rustup target add ${{ matrix.android-target.cargo_target }}
+
+      # TODO apparently this is not cached?
+      # if not: cache the whole "Setup Android SDK"+"Delete old NDK v23"+"Install NDK v24"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      # else: "Warning: Observed package id 'ndk;23.2.8568313' in inconsistent location '/usr/local/lib/android/sdk/ndk-bundle' (Expected '/usr/local/lib/android/sdk/ndk/23.2.8568313')"
+      - name: Delete old NDK v23
+        # version required else: "Warning: Failed to find package 'ndk'"
+        run: sdkmanager --uninstall "ndk;23.2.8568313"
+      - name: Install NDK v25
+        # version required else: "Warning: Failed to find package 'ndk'"
+        # MUST match version used at NDK_ROOT below! Careful when updating!
+        run: sdkmanager "ndk;25.1.8937393"
+
+      ##########################################################################
+      # compile for android
+      # NOTE: AR is NOT is the same PATH as CC/CXX
+      # cf https://github.com/Interstellar-Network/wallet-app/blob/master/shared/build.gradle.kts
+      # For how/which variables are used
+      - name: setup env vars for Rust Android build
+        # NDK_ROOT MUST match version installed above
+        # cf https://github.com/android-actions/setup-android/blob/main/src/main.ts#L184
+        # to see what env var are available
+        run: |
+          export NDK_ROOT=$ANDROID_SDK_ROOT/ndk/25.1.8937393
+          echo NDK_ROOT=$NDK_ROOT
+          ls -al $NDK_ROOT/..
+
+          echo "CC_armv7_linux_androideabi=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi33-clang" >> $GITHUB_ENV
+          echo "CXX_armv7_linux_androideabi=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi33-clang++" >> $GITHUB_ENV
+          echo "AR_armv7_linux_androideabi=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi33-clang" >> $GITHUB_ENV
+
+          echo "CC_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang" >> $GITHUB_ENV
+          echo "CXX_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang++" >> $GITHUB_ENV
+          echo "AR_aarch64_linux_android=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang" >> $GITHUB_ENV
+
+          echo "CMAKE_TOOLCHAIN_FILE=$NDK_ROOT/build/cmake/android.toolchain.cmake" >> $GITHUB_ENV
+          echo "ANDROID_PLATFORM=21" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Compile Android ${{ matrix.android-target.cargo_target }}
+        run: |
+          cargo build --verbose --target=${{ matrix.android-target.cargo_target }}
+        env:
+          ANDROID_ABI: ${{ matrix.android-target.android_abi }}
+        shell: bash
+        # TODO it fails b/c of pointer size difference, at least in Scuttlebut
+        # but as we are still not in PROD/GA, we only care about aarch64 for now
+        continue-on-error: ${{ matrix.android-target.experimental }}

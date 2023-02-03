@@ -1,0 +1,57 @@
+[package]
+name = "lib-garble-rs"
+version = "0.2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false, features = ["serde1"] }
+# TODO(interstellar) no_std not supported on crate.io; need a fork/patch
+imageproc = { version = "0.23.0", default-features = false, git = "https://github.com/Interstellar-Network/imageproc.git", branch = "sgx-nostd-compat" }
+# FAIL: no_std OK without any features, but if can not draw text there is not point...
+image = { version = "0.24.5", default-features = false, git = "https://github.com/Interstellar-Network/image.git", branch = "sgx-nostd-compat" }
+rusttype = { version = "0.9.3", default-features = false }
+bytes = { version = "1", default-features = false }
+num_enum = { version = "0.5", default-features = false }
+snafu = { version = "0.7", default-features = false }
+# TODO(interstellar) serde: "alloc"?
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+# https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
+# TODO(interstellar) we need a7aac766e362d87d for no_std compat
+prost = { version = "0.11", default-features = false, features = ["prost-derive"], git = "https://github.com/tokio-rs/prost.git", rev = "a7aac766e362d87de5180774c124829e198f2b4c" }
+
+sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true }
+
+# # TODO(interstellar) remove profiling? This is probably not hurting at all without the corresponding enabled feature
+# profiling = "1.0"
+
+[dev-dependencies]
+png = "0.17"
+rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
+png-tests-utils = { path = "png_tests_utils" }
+
+# # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
+# # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!
+# tracy-client = { version = "0.14.1" }
+# tracing-tracy = { version = "0.10.1" }
+
+# coz = "0.1"
+
+[build-dependencies]
+# prost-build = "0.11"
+
+# [features]
+# default = ["profile-with-tracy"]
+
+# profile-with-puffin = ["profiling/profile-with-puffin"]
+# profile-with-optick = ["profiling/profile-with-optick"]
+# profile-with-superluminal = ["profiling/profile-with-superluminal"]
+# profile-with-tracing = ["profiling/profile-with-tracing"]
+# profile-with-tracy = ["profiling/profile-with-tracy"]
+
+[features]
+default = ["std"]
+sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx"]
+std = ["fancy-garbling/std", "imageproc/std"]

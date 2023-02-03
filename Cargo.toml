@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "lib-garble-rs",
+    "ipfs-client-http-req",
+]
+
+[profile.dev]
+# lib-garble-rs is REALLY slow in debug
+opt-level = 2
+
+################################################################################
+# [patch."https://github.com/Interstellar-Network/swanky.git"]
+# fancy-garbling = { path = "../swanky/fancy-garbling/" }
+
+# [patch."https://github.com/Interstellar-Network/pallets.git"]
+# tests-utils = { path = "../pallets/tests_utils/" }
+
+# [patch."https://github.com/Interstellar-Network/rs-common.git"]
+# http-grpc-client = { path = "../rs-common/http-grpc-client/" }
+################################################################################

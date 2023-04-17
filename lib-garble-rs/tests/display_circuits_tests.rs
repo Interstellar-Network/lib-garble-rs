@@ -25,8 +25,6 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
-    let mut eval_cache = garb.init_cache();
-
     for _ in 0..NB_EVALS {
         eval_client(
             &mut garb,
@@ -35,7 +33,6 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
             &mut temp_outputs,
             &mut rng,
             &rand_0_1,
-            &mut eval_cache,
             true,
         );
 
@@ -87,14 +84,8 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
     let mut outputs = vec![Some(0u16); width * height];
-    let mut eval_cache = garb.init_cache();
-    garb.eval_with_prealloc(
-        &encoded_garbler_inputs,
-        &evaluator_inputs,
-        &mut outputs,
-        &mut eval_cache,
-    )
-    .unwrap();
+    garb.eval_with_prealloc(&encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
+        .unwrap();
     // convert Vec<std::option::Option<u16>> -> Vec<u16>
     let outputs: Vec<u16> = outputs.into_iter().map(|i| i.unwrap()).collect();
     // convert Vec<u16> -> Vec<u8>
@@ -149,7 +140,6 @@ fn bench_eval_display_message_640x360_2digits_42() {
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     let mut data = vec![Some(0u16); width * height];
-    let mut eval_cache = garb.init_cache();
 
     for _ in 0..NB_ITERATIONS {
         // profiling::scope!("Looped eval");
@@ -164,7 +154,6 @@ fn bench_eval_display_message_640x360_2digits_42() {
             &mut data,
             &mut rng,
             &rand_0_1,
-            &mut eval_cache,
             true,
         );
 

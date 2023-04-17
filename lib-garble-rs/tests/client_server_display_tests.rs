@@ -42,8 +42,6 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         // [client 2]
         let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
-        let mut eval_cache = garb.init_cache();
-
         // [client 3]
         eval_client(
             &mut garb,
@@ -52,7 +50,6 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
             &mut outputs,
             &mut rng,
             &rand_0_1,
-            &mut eval_cache,
             false,
         );
 

@@ -1,11 +1,9 @@
 use crate::circuit::InterstellarCircuit;
 use crate::circuit::SkcdConfig;
-use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
+use fancy_garbling::classic::Encoder;
 use fancy_garbling::errors::EvaluatorError;
 use fancy_garbling::Wire;
 use serde::{Deserialize, Serialize};
-
-pub use fancy_garbling::classic::EvalCache;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
@@ -18,7 +16,7 @@ pub(crate) type GarblerInput = u16;
 // and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct InterstellarGarbledCircuit {
-    pub(crate) garbled: GarbledCircuit,
+    pub(crate) garbled: crate::new_garble_scheme::GarbledCircuit,
     pub(crate) encoder: Encoder,
     pub config: SkcdConfig,
 }
@@ -53,13 +51,7 @@ pub enum GarblerError {
 impl InterstellarGarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
-        let (encoder, garbled) =
-            garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)?;
-        Ok(InterstellarGarbledCircuit {
-            garbled,
-            encoder,
-            config: circuit.config,
-        })
+        crate::new_garble_scheme::garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
@@ -90,24 +82,10 @@ impl InterstellarGarbledCircuit {
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
-        eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         let encoded_evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
 
-        self.garbled
-            .eval_with_prealloc(
-                eval_cache,
-                &encoded_garbler_inputs.wires,
-                &encoded_evaluator_inputs,
-                outputs,
-            )
-            .map_err(InterstellarEvaluatorError::FancyError)?;
-
-        Ok(())
-    }
-
-    pub fn init_cache(&mut self) -> EvalCache {
-        self.garbled.init_cache()
+        crate::new_garble_scheme::eval(&self.garbled, outputs)
     }
 }
 
@@ -127,23 +105,16 @@ mod tests {
 
         let mut outputs_prealloc = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
-        let mut eval_cache = garb.init_cache();
-
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval_with_prealloc(
-                &encoded_garbler_inputs,
-                &inputs,
-                &mut outputs_prealloc,
-                &mut eval_cache,
-            )
-            .unwrap();
-
-            let encoded_garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
-            let encoded_evaluator_inputs = garb.encoder.encode_evaluator_inputs(inputs);
-            let outputs_direct = garb
-                .garbled
-                .eval(&encoded_garbler_inputs, &encoded_evaluator_inputs)
+            garb.eval_with_prealloc(&encoded_garbler_inputs, &inputs, &mut outputs_prealloc)
                 .unwrap();
+
+            // let encoded_garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
+            // let encoded_evaluator_inputs = garb.encoder.encode_evaluator_inputs(inputs);
+            // let outputs_direct = garb
+            //     .garbled
+            //     .eval(&encoded_garbler_inputs, &encoded_evaluator_inputs)
+            //     .unwrap();
 
             // convert Vec<std::option::Option<u16>> -> Vec<u16>
             let outputs_prealloc: Vec<u16> = outputs_prealloc.iter().map(|i| i.unwrap()).collect();
@@ -151,7 +122,7 @@ mod tests {
             let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
 
             assert_eq!(outputs_prealloc, expected_outputs);
-            assert_eq!(outputs_direct, expected_outputs);
+            // assert_eq!(outputs_direct, expected_outputs);
         }
     }
 }

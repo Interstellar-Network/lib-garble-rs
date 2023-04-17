@@ -41,8 +41,6 @@ fn main() {
 
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
-    let mut eval_cache = garb.init_cache();
-
     for _ in 0..NB_EVALS {
         // randomize the "rnd" part of the inputs
         // cf "rndswitch.v" comment above; DO NOT touch the last!
@@ -54,7 +52,6 @@ fn main() {
             &encoded_garbler_inputs,
             &evaluator_inputs,
             &mut temp_outputs,
-            &mut eval_cache,
         )
         .unwrap();
         assert_eq!(

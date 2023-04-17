@@ -21,7 +21,6 @@ pub fn eval_client(
     data: &mut Vec<Option<u16>>,
     rng: &mut ThreadRng,
     rand_0_1: &Uniform<u16>,
-    eval_cache: &mut lib_garble_rs::EvalCache,
     should_randomize_evaluator_inputs: bool,
 ) {
     // randomize the "rnd" part of the inputs
@@ -34,7 +33,7 @@ pub fn eval_client(
 
     // coz::scope!("eval_client");
 
-    garb.eval_with_prealloc(encoded_garbler_inputs, evaluator_inputs, data, eval_cache)
+    garb.eval_with_prealloc(encoded_garbler_inputs, evaluator_inputs, data)
         .unwrap();
 }
 

@@ -25,6 +25,7 @@ use sgx_tstd::vec;
 
 mod circuit;
 mod garble;
+mod new_garble_scheme;
 mod segments;
 mod serialize_deserialize;
 mod skcd_parser;
@@ -32,7 +33,6 @@ mod watermark;
 
 // re-export
 pub use garble::EncodedGarblerInputs;
-pub use garble::EvalCache;
 pub use garble::EvaluatorInput;
 pub use garble::InterstellarGarbledCircuit;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
@@ -221,16 +221,9 @@ pub(crate) mod tests {
 
         let mut outputs = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
-        let mut eval_cache = garb.init_cache();
-
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval_with_prealloc(
-                &encoded_garbler_inputs,
-                &inputs,
-                &mut outputs,
-                &mut eval_cache,
-            )
-            .unwrap();
+            garb.eval_with_prealloc(&encoded_garbler_inputs, &inputs, &mut outputs)
+                .unwrap();
 
             // convert Vec<std::option::Option<u16>> -> Vec<u16>
             let outputs: Vec<u16> = outputs.iter().map(|i| i.unwrap()).collect();

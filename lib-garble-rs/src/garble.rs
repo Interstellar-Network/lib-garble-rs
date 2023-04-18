@@ -1,3 +1,5 @@
+mod new_garbling_scheme;
+
 use crate::circuit::InterstellarCircuit;
 use crate::circuit::SkcdConfig;
 use fancy_garbling::classic::Encoder;
@@ -27,6 +29,8 @@ pub enum GarblerError {
 #[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "test", derive(Clone))]
 pub struct GarbledCircuit {
+    // TODO DO NOT Serialize the Encoder/MUST NOT be sent to the client-side b/c that probably leaks data
+    // Instead we should just send the list of pair (0,1) for each EvaluatorInput only
     pub(crate) encoder: Encoder,
     pub config: SkcdConfig,
 }

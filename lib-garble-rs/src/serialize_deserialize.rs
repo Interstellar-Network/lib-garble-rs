@@ -7,7 +7,7 @@
 ///   WOULD also require to add a few getters to expose deltas/Block/etc
 ///   NOTE: works in `no_std/sgx` only when using pregenerated .rs
 use crate::EncodedGarblerInputs;
-use crate::InterstellarGarbledCircuit;
+use crate::GarbledCircuit;
 use alloc::vec::Vec;
 use postcard::{from_bytes, to_allocvec};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use snafu::prelude::*;
 /// That is the "package" sent to the client for evaluation
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EvaluableGarbledCircuit {
-    garb: InterstellarGarbledCircuit,
+    garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
 }
 
@@ -40,7 +40,7 @@ pub enum Error {
 ///
 // TODO modify the API: it should probably take non-encoded inputs(ie &[u16])
 pub fn serialize_for_evaluator(
-    garb: InterstellarGarbledCircuit,
+    garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
 ) -> Result<Vec<u8>, Error> {
     if garb.encoder.num_garbler_inputs() != encoded_garbler_inputs.wires.len() {
@@ -70,9 +70,8 @@ pub fn serialize_for_evaluator(
 ///
 pub fn deserialize_for_evaluator(
     buf: &[u8],
-) -> Result<(InterstellarGarbledCircuit, EncodedGarblerInputs), postcard::Error> {
-    let (garb, encoded_garbler_inputs): (InterstellarGarbledCircuit, EncodedGarblerInputs) =
-        from_bytes(buf)?;
+) -> Result<(GarbledCircuit, EncodedGarblerInputs), postcard::Error> {
+    let (garb, encoded_garbler_inputs): (GarbledCircuit, EncodedGarblerInputs) = from_bytes(buf)?;
 
     Ok((garb, encoded_garbler_inputs))
 }
@@ -109,7 +108,7 @@ mod tests {
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
 
-        assert_eq!(ref_garb.garbled, new_garb.garbled);
+        assert_eq!(ref_garb, new_garb);
         assert_eq!(
             ref_garb.encoder.num_evaluator_inputs(),
             new_garb.encoder.num_evaluator_inputs()

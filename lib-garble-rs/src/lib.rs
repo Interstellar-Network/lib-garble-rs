@@ -25,7 +25,6 @@ use sgx_tstd::vec;
 
 mod circuit;
 mod garble;
-mod new_garble_scheme;
 mod segments;
 mod serialize_deserialize;
 mod skcd_parser;
@@ -34,12 +33,12 @@ mod watermark;
 // re-export
 pub use garble::EncodedGarblerInputs;
 pub use garble::EvaluatorInput;
-pub use garble::InterstellarGarbledCircuit;
+pub use garble::GarbledCircuit;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
 #[derive(Debug, Snafu)]
 pub enum InterstellarError {
-    /// Error at InterstellarGarbledCircuit::garble
+    /// Error at GarbledCircuit::garble
     GarbleError,
     /// Error at garbled_display_circuit_prepare_garbler_inputs
     SkcdParserError,
@@ -70,11 +69,11 @@ pub enum InterstellarError {
 /// - something went wrong during `garble`
 ///
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
-pub fn garble_skcd(skcd_buf: &[u8]) -> Result<InterstellarGarbledCircuit, InterstellarError> {
+pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError> {
     let circ = circuit::InterstellarCircuit::parse_skcd(skcd_buf)
         .map_err(|_e| InterstellarError::SkcdParserError)?;
 
-    InterstellarGarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarbleError)
+    GarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarbleError)
 }
 
 /// Prepare the `garbler_inputs`; it contains both:
@@ -91,7 +90,7 @@ pub fn garble_skcd(skcd_buf: &[u8]) -> Result<InterstellarGarbledCircuit, Inters
 // TODO(interstellar) randomize 7 segs(then replace "garbler_input_segments")
 // TODO(interstellar) the number of digits DEPENDS on the config!
 pub fn garbled_display_circuit_prepare_garbler_inputs(
-    garb: &InterstellarGarbledCircuit,
+    garb: &GarbledCircuit,
     digits: &[u8],
     watermark_text: &str,
 ) -> Result<EncodedGarblerInputs, InterstellarError> {
@@ -160,7 +159,7 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
 ///
 /// TODO! If the given circuit if NOT a "display circuit" it will panic instead of properly passing to the client
 pub fn prepare_evaluator_inputs(
-    garb: &InterstellarGarbledCircuit,
+    garb: &GarbledCircuit,
 ) -> Result<Vec<EvaluatorInput>, InterstellarError> {
     let mut evaluator_inputs = Vec::with_capacity(
         garb.config
@@ -222,7 +221,7 @@ pub(crate) mod tests {
         let mut outputs = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval_with_prealloc(&encoded_garbler_inputs, &inputs, &mut outputs)
+            garb.eval(&encoded_garbler_inputs, &inputs, &mut outputs)
                 .unwrap();
 
             // convert Vec<std::option::Option<u16>> -> Vec<u16>

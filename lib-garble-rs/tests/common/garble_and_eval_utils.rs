@@ -1,7 +1,7 @@
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::EncodedGarblerInputs;
 use lib_garble_rs::EvaluatorInput;
-use lib_garble_rs::InterstellarGarbledCircuit;
+use lib_garble_rs::GarbledCircuit;
 
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
@@ -15,7 +15,7 @@ use rand::rngs::ThreadRng;
 /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
 // #[profiling::function]
 pub fn eval_client(
-    garb: &mut InterstellarGarbledCircuit,
+    garb: &mut GarbledCircuit,
     encoded_garbler_inputs: &EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
     data: &mut Vec<Option<u16>>,
@@ -33,13 +33,13 @@ pub fn eval_client(
 
     // coz::scope!("eval_client");
 
-    garb.eval_with_prealloc(encoded_garbler_inputs, evaluator_inputs, data)
+    garb.eval(encoded_garbler_inputs, evaluator_inputs, data)
         .unwrap();
 }
 
 /// garble then eval a test .skcd
 /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
-pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (InterstellarGarbledCircuit, usize, usize) {
+pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (GarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 
     let display_config = garb.config.display_config.unwrap().clone();

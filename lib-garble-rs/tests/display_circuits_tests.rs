@@ -83,8 +83,8 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let evaluator_inputs = vec![0u16; 9];
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
-    let mut outputs = vec![Some(0u16); width * height];
-    garb.eval_with_prealloc(&encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
+    let mut outputs: Vec<Option<u16>> = vec![Some(0u16); width * height];
+    garb.eval(&encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
         .unwrap();
     // convert Vec<std::option::Option<u16>> -> Vec<u16>
     let outputs: Vec<u16> = outputs.into_iter().map(|i| i.unwrap()).collect();

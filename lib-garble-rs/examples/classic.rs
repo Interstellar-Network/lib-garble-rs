@@ -48,7 +48,7 @@ fn main() {
             *input = rand_0_1.sample(&mut rng);
         }
 
-        garb.eval_with_prealloc(
+        garb.eval(
             &encoded_garbler_inputs,
             &evaluator_inputs,
             &mut temp_outputs,

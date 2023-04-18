@@ -5,32 +5,8 @@ use fancy_garbling::errors::EvaluatorError;
 use fancy_garbling::Wire;
 use serde::{Deserialize, Serialize};
 
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
-
 pub type EvaluatorInput = u16;
 pub(crate) type GarblerInput = u16;
-
-// TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
-// we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
-// and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct InterstellarGarbledCircuit {
-    pub(crate) garbled: crate::new_garble_scheme::GarbledCircuit,
-    pub(crate) encoder: Encoder,
-    pub config: SkcdConfig,
-}
-
-#[cfg(test)]
-impl Clone for InterstellarGarbledCircuit {
-    fn clone(&self) -> InterstellarGarbledCircuit {
-        InterstellarGarbledCircuit {
-            garbled: self.garbled.clone(),
-            encoder: self.encoder.clone(),
-            config: self.config.clone(),
-        }
-    }
-}
 
 /// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -48,10 +24,18 @@ pub enum GarblerError {
     GarblerError,
 }
 
-impl InterstellarGarbledCircuit {
+#[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "test", derive(Clone))]
+pub struct GarbledCircuit {
+    pub(crate) encoder: Encoder,
+    pub config: SkcdConfig,
+}
+
+impl GarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
-        crate::new_garble_scheme::garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)
+        todo!()
+        // .map_err(|_e| GarblerError::GarblerError)
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
@@ -77,15 +61,15 @@ impl InterstellarGarbledCircuit {
     /// `FancyError` if something went wrong during **either** eval(now)
     /// or initially when garbling!
     /// In the latter case it means the circuit is a dud and nothing can be done!
-    pub fn eval_with_prealloc(
+    pub fn eval(
         &mut self,
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<Option<u16>>,
     ) -> Result<(), InterstellarEvaluatorError> {
-        let encoded_evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
-
-        crate::new_garble_scheme::eval(&self.garbled, outputs)
+        todo!()
+        // let encoded_evaluator_inputs = garbled.encoder.encode_evaluator_inputs(evaluator_inputs);
+        // crate::new_garble_scheme::eval(&garbled, outputs)
     }
 }
 
@@ -106,7 +90,7 @@ mod tests {
         let mut outputs_prealloc = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval_with_prealloc(&encoded_garbler_inputs, &inputs, &mut outputs_prealloc)
+            garb.eval(&encoded_garbler_inputs, &inputs, &mut outputs_prealloc)
                 .unwrap();
 
             // let encoded_garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);

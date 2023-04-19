@@ -38,6 +38,8 @@ pub struct GarbledCircuit {
 impl GarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
+        circuit.gates;
+        circuit.circuit.
         todo!()
         // .map_err(|_e| GarblerError::GarblerError)
     }

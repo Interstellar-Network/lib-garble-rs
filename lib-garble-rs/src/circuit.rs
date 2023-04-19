@@ -1,4 +1,6 @@
 use fancy_garbling::circuit::Circuit;
+use fancy_garbling::circuit::CircuitRef;
+use fancy_garbling::circuit::Gate;
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -61,5 +63,10 @@ pub struct SkcdConfig {
 /// Exists mostly to mask swanky/fancy-garbling Circuit to the public.
 pub(crate) struct InterstellarCircuit {
     pub(crate) circuit: Circuit,
+    /// This is needed for our new garbling scheme b/c we want to iterate on the gates
+    /// but Fancy's Circuit DOES NOT expose the fields.
+    /// This is essentially a copy of what is inside "circuit" field above.
+    pub(crate) refs: Vec<CircuitRef>,
+    pub(crate) gates: Vec<Gate>,
     pub(crate) config: SkcdConfig,
 }

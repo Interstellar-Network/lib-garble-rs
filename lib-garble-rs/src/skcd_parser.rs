@@ -266,6 +266,7 @@ impl InterstellarCircuit {
 
         Ok(InterstellarCircuit {
             circuit: circ_builder.finish(),
+            refs: skcd_gate_converter.get_all_gates(),
             config,
         })
     }
@@ -299,6 +300,14 @@ impl SkcdGateConverter {
     pub fn insert(&mut self, skcd_gate_id: &str, circuit_ref: CircuitRef) {
         self.map_skcd_gate_id_to_circuit_ref
             .insert(skcd_gate_id.to_string(), circuit_ref);
+    }
+
+    fn get_all_gates(&mut self) -> Vec<CircuitRef> {
+        // TODO remove clone
+        self.map_skcd_gate_id_to_circuit_ref
+            .clone()
+            .into_values()
+            .collect()
     }
 }
 

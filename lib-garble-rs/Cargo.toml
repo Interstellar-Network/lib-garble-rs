@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fancy-garbling = { git = "https://github.com/Interstellar-Network/swanky.git", branch = "interstellar-initial", default-features = false, features = ["serde1"] }
 # TODO(interstellar) no_std not supported on crate.io; need a fork/patch
 imageproc = { version = "0.23.0", default-features = false, git = "https://github.com/Interstellar-Network/imageproc.git", branch = "sgx-nostd-compat" }
 # FAIL: no_std OK without any features, but if can not draw text there is not point...
@@ -53,5 +52,5 @@ png-tests-utils = { path = "png_tests_utils" }
 
 [features]
 default = ["std"]
-sgx = ["fancy-garbling/sgx", "sgx_tstd", "imageproc/sgx"]
-std = ["fancy-garbling/std", "imageproc/std"]
+sgx = ["sgx_tstd", "imageproc/sgx"]
+std = ["imageproc/std"]

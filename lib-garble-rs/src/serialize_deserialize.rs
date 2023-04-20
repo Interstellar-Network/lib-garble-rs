@@ -43,10 +43,10 @@ pub fn serialize_for_evaluator(
     garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
 ) -> Result<Vec<u8>, Error> {
-    if garb.encoder.num_garbler_inputs() != encoded_garbler_inputs.wires.len() {
+    if garb.num_garbler_inputs() != encoded_garbler_inputs.wires.len() {
         return Err(Error::SerializeForEvaluatorWrongInputsLength {
             inputs_len: encoded_garbler_inputs.wires.len(),
-            expected_len: garb.encoder.num_garbler_inputs(),
+            expected_len: garb.num_garbler_inputs(),
         });
     }
 
@@ -102,7 +102,7 @@ mod tests {
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
+        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs()];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
@@ -110,8 +110,8 @@ mod tests {
 
         assert_eq!(ref_garb, new_garb);
         assert_eq!(
-            ref_garb.encoder.num_evaluator_inputs(),
-            new_garb.encoder.num_evaluator_inputs()
+            ref_garb.num_evaluator_inputs(),
+            new_garb.num_evaluator_inputs()
         );
         assert_eq!(ref_garb.config, new_garb.config);
     }
@@ -123,12 +123,12 @@ mod tests {
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.encoder.num_garbler_inputs()];
+        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs()];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
 
-        assert_eq!(new_garb.encoder.num_garbler_inputs(), 0);
+        assert_eq!(new_garb.num_garbler_inputs(), 0);
     }
 }

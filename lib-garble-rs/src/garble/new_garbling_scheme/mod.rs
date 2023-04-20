@@ -32,6 +32,9 @@
 //! gate. Namely, gj (a, b) is the result of the binary function of gate gj on the binary
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
+
+use serde::{Deserialize, Serialize};
+
 struct Circuit {}
 
 struct Block {
@@ -45,7 +48,8 @@ impl Block {
     }
 }
 
-struct Wire {
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub(crate) struct Wire {
     val: bool,
 }
 

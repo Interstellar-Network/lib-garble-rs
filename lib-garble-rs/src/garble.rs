@@ -2,9 +2,7 @@ mod new_garbling_scheme;
 
 use crate::circuit::InterstellarCircuit;
 use crate::circuit::SkcdConfig;
-use fancy_garbling::classic::Encoder;
-use fancy_garbling::errors::EvaluatorError;
-use fancy_garbling::Wire;
+use crate::garble::new_garbling_scheme::Wire;
 use serde::{Deserialize, Serialize};
 
 pub type EvaluatorInput = u16;
@@ -18,7 +16,7 @@ pub struct EncodedGarblerInputs {
 
 #[derive(Debug)]
 pub enum InterstellarEvaluatorError {
-    FancyError(EvaluatorError),
+    EvaluatorError,
 }
 
 #[derive(Debug)]
@@ -31,17 +29,23 @@ pub enum GarblerError {
 pub struct GarbledCircuit {
     // TODO DO NOT Serialize the Encoder/MUST NOT be sent to the client-side b/c that probably leaks data
     // Instead we should just send the list of pair (0,1) for each EvaluatorInput only
-    pub(crate) encoder: Encoder,
+    // pub(crate) encoder: Encoder,
     pub config: SkcdConfig,
 }
 
 impl GarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
     pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
-        circuit.gates;
-        circuit.circuit.
         todo!()
         // .map_err(|_e| GarblerError::GarblerError)
+    }
+
+    pub(crate) fn num_evaluator_inputs(&self) -> usize {
+        todo!()
+    }
+
+    pub(crate) fn num_garbler_inputs(&self) -> usize {
+        todo!()
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
@@ -51,13 +55,11 @@ impl GarbledCircuit {
     ) -> EncodedGarblerInputs {
         // TODO(interstellar)? but is this the correct time to CHECK?
         assert_eq!(
-            self.encoder.num_garbler_inputs(),
+            self.num_garbler_inputs(),
             garbler_inputs.len(),
             "wrong garbler_inputs len!"
         );
-        EncodedGarblerInputs {
-            wires: self.encoder.encode_garbler_inputs(garbler_inputs),
-        }
+        EncodedGarblerInputs { wires: todo!() }
     }
 
     /// Eval using Fancy-Garbling's eval(or rather `eval_with_prealloc`)

@@ -171,6 +171,7 @@ impl InterstellarCircuit {
                 _ => todo!(),
             };
 
+            skcd_gate_converter.insert(&skcd_gate.o);
             gates.push(Gate {
                 internal: new_gate_internal,
                 output: skcd_gate_converter
@@ -237,12 +238,17 @@ impl SkcdGateConverter {
         self.map_skcd_gate_id_to_circuit_ref.get(skcd_gate_id)
     }
 
+    /// insert
+    /// NOOP if already in the map
     pub fn insert(&mut self, skcd_gate_id: &str) {
-        assert!(self
-            .map_skcd_gate_id_to_circuit_ref
-            .insert(skcd_gate_id.to_string(), GateRef { id: self.cur_len })
-            .is_none());
-        self.cur_len += 1;
+        match self.get(skcd_gate_id) {
+            Some(_) => {}
+            None => {
+                self.map_skcd_gate_id_to_circuit_ref
+                    .insert(skcd_gate_id.to_string(), GateRef { id: self.cur_len });
+                self.cur_len += 1;
+            }
+        }
     }
 }
 

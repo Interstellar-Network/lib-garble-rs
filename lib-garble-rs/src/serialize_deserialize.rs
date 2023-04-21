@@ -43,10 +43,10 @@ pub fn serialize_for_evaluator(
     garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
 ) -> Result<Vec<u8>, Error> {
-    if garb.num_garbler_inputs() != encoded_garbler_inputs.wires.len() {
+    if garb.num_garbler_inputs() as usize != encoded_garbler_inputs.wires.len() {
         return Err(Error::SerializeForEvaluatorWrongInputsLength {
             inputs_len: encoded_garbler_inputs.wires.len(),
-            expected_len: garb.num_garbler_inputs(),
+            expected_len: garb.num_garbler_inputs() as usize,
         });
     }
 
@@ -102,7 +102,7 @@ mod tests {
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs()];
+        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs() as usize];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
@@ -123,7 +123,7 @@ mod tests {
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs()];
+        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs() as usize];
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();

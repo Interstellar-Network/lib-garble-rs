@@ -83,7 +83,10 @@ impl InterstellarCircuit {
         // them depend on the type (eg 7 segments, i-ching, basic gate inputs for adder, etc)
         let mut skcd_inputs_is_garbled = Vec::<bool>::new();
         let mut garbler_inputs = Vec::with_capacity(skcd_config.garbler_inputs.len());
+        let mut num_garbler_inputs = 0;
         for skcd_garbler_input in skcd_config.garbler_inputs {
+            num_garbler_inputs += skcd_garbler_input.length;
+
             for _i in 0..skcd_garbler_input.length {
                 skcd_inputs_is_garbled.push(true);
                 input_idx += 1;
@@ -97,7 +100,10 @@ impl InterstellarCircuit {
         }
 
         let mut evaluator_inputs = Vec::with_capacity(skcd_config.evaluator_inputs.len());
+        let mut num_evaluator_inputs = 0;
         for skcd_evaluator_input in skcd_config.evaluator_inputs {
+            num_evaluator_inputs += skcd_evaluator_input.length;
+
             for _i in 0..skcd_evaluator_input.length {
                 skcd_inputs_is_garbled.push(false);
                 input_idx += 1;
@@ -113,7 +119,12 @@ impl InterstellarCircuit {
         assert_eq!(
             input_idx,
             skcd.inputs.len(),
-            "inputs and SkcdConfig fields DO NOT match!"
+            "inputs and SkcdConfig fields DO NOT match[1]!"
+        );
+        assert_eq!(
+            num_garbler_inputs as usize + num_evaluator_inputs as usize,
+            skcd.inputs.len(),
+            "inputs and SkcdConfig fields DO NOT match[2]!"
         );
 
         for skcd_input in skcd.inputs.iter() {
@@ -202,8 +213,9 @@ impl InterstellarCircuit {
 
         Ok(InterstellarCircuit {
             circuit: Circuit {
-                n: skcd.inputs.len(),
-                m: skcd.outputs.len(),
+                num_garbler_inputs,
+                num_evaluator_inputs,
+                m: skcd.outputs.len().try_into().unwrap(),
                 gates,
             },
             config,

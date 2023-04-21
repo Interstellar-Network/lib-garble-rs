@@ -40,12 +40,22 @@ impl GarbledCircuit {
         // .map_err(|_e| GarblerError::GarblerError)
     }
 
-    pub(crate) fn num_evaluator_inputs(&self) -> usize {
-        todo!()
+    pub(crate) fn num_evaluator_inputs(&self) -> u32 {
+        let mut num_evaluator_inputs = 0;
+        for skcd_input in &self.config.evaluator_inputs {
+            num_evaluator_inputs += skcd_input.length;
+        }
+
+        num_evaluator_inputs
     }
 
-    pub(crate) fn num_garbler_inputs(&self) -> usize {
-        todo!()
+    pub(crate) fn num_garbler_inputs(&self) -> u32 {
+        let mut num_garbler_inputs = 0;
+        for skcd_input in &self.config.garbler_inputs {
+            num_garbler_inputs += skcd_input.length;
+        }
+
+        num_garbler_inputs
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
@@ -55,7 +65,7 @@ impl GarbledCircuit {
     ) -> EncodedGarblerInputs {
         // TODO(interstellar)? but is this the correct time to CHECK?
         assert_eq!(
-            self.num_garbler_inputs(),
+            self.num_garbler_inputs() as usize,
             garbler_inputs.len(),
             "wrong garbler_inputs len!"
         );

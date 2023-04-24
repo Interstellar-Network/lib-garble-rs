@@ -5,10 +5,6 @@ members = [
     "ipfs-client-http-req",
 ]
 
-[profile.dev]
-# lib-garble-rs is REALLY slow in debug
-opt-level = 2
-
 ################################################################################
 # [patch."https://github.com/Interstellar-Network/swanky.git"]
 # fancy-garbling = { path = "../swanky/fancy-garbling/" }

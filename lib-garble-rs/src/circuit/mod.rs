@@ -153,29 +153,11 @@ impl InterstellarCircuit {
             }
         }
 
-        // let circuit = vec![
-        //     // CombineOperation::GF2(Operation::Input(0)),
-        //     // CombineOperation::GF2(Operation::Input(1)),
-        //     CombineOperation::GF2(Operation::Mul(2, 1, 0)),
-        //     CombineOperation::GF2(Operation::SubConst(3, 0, true)),
-        //     CombineOperation::GF2(Operation::AssertZero(3)),
-        //     CombineOperation::GF2(Operation::SubConst(4, 1, true)),
-        //     CombineOperation::GF2(Operation::AssertZero(4)),
-        //     CombineOperation::GF2(Operation::SubConst(5, 2, true)),
-        //     CombineOperation::GF2(Operation::AssertZero(5)),
-        //     // // Similar Circuit in Z64
-        //     // CombineOperation::Z64(Operation::Input(0)),
-        //     // CombineOperation::Z64(Operation::Input(1)),
-        //     // CombineOperation::Z64(Operation::Mul(2, 1, 0)),
-        //     // CombineOperation::Z64(Operation::SubConst(3, 0, 14)),
-        //     // CombineOperation::Z64(Operation::AssertZero(3)),
-        //     // CombineOperation::Z64(Operation::SubConst(4, 1, 15)),
-        //     // CombineOperation::Z64(Operation::AssertZero(4)),
-        //     // CombineOperation::Z64(Operation::SubConst(5, 2, 14 * 15)),
-        //     // CombineOperation::Z64(Operation::AssertZero(5)),
-        // ];
-
-        evaluate_composite_program(&circuit, &[], &[]);
+        let bool_inputs: Vec<bool> = evaluator_inputs
+            .iter()
+            .map(|input| input.clone() == 0)
+            .collect();
+        evaluate_composite_program(&circuit, &bool_inputs, &[]);
         todo!()
     }
 }

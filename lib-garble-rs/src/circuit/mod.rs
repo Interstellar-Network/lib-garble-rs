@@ -14,8 +14,7 @@ pub(crate) use skcd_config::{
 pub(crate) struct Circuit {
     pub(crate) num_garbler_inputs: u32,
     pub(crate) num_evaluator_inputs: u32,
-    // TODO?
-    // pub(crate) inputs: Vec<GateRef>,
+    pub(crate) inputs: Vec<WireRef>,
     pub(crate) m: u32,
     pub(crate) gates: Vec<gate::Gate>,
     #[cfg(test)]
@@ -75,10 +74,12 @@ impl InterstellarCircuit {
 
         let mut circuit = vec![];
 
-        for evaluator_input in evaluator_inputs {
-            circuit.push(CombineOperation::GF2(Operation::Input(
-                evaluator_input.clone() as usize,
-            )));
+        // TODO remove field Circuit.inputs?
+        // for (idx, _evaluator_input) in evaluator_inputs.iter().enumerate() {
+        //     circuit.push(CombineOperation::GF2(Operation::Input(idx)));
+        // }
+        for input_wire in &self.circuit.inputs {
+            circuit.push(CombineOperation::GF2(Operation::Input(input_wire.id)));
         }
 
         // TODO do we want "self" to be mutable or not?
@@ -86,6 +87,7 @@ impl InterstellarCircuit {
 
         // cf https://github.com/trailofbits/mcircuit/blob/8fe9b315f2e8cae6020a2884ae544d59bd0bbd41/src/parsers/blif.rs#L194
         // For how to match blif/skcd gates into mcircuit's Operation
+        // WARNING: apparently Operation::XXX is (OUTPUT, INPUT1, etc)! OUTPUT IS FIRST!
         for gate in &self.circuit.gates {
             match &gate.internal {
                 GateInternal::Standard {
@@ -97,14 +99,14 @@ impl InterstellarCircuit {
                     // GateType::INVB => todo!(),
                     // GateType::NAAB => todo!(),
                     GateType::INV => circuit.push(CombineOperation::GF2(Operation::AddConst(
+                        gate.output.id,
                         input_a.clone().unwrap().id,
-                        0,
                         true,
                     ))),
                     GateType::XOR => circuit.push(CombineOperation::GF2(Operation::Add(
+                        gate.output.id,
                         input_a.clone().unwrap().id,
                         input_b.clone().unwrap().id,
-                        gate.output.id,
                     ))),
                     GateType::NAND => {
                         // NAND is a AND, whose output is NOTed
@@ -115,27 +117,27 @@ impl InterstellarCircuit {
                             .unwrap();
 
                         let op_and = CombineOperation::GF2(Operation::Mul(
+                            nand_intermediate_output.id,
                             input_a.clone().unwrap().id,
                             input_b.clone().unwrap().id,
-                            nand_intermediate_output.id,
                         ));
                         let op_not = CombineOperation::GF2(Operation::AddConst(
-                            nand_intermediate_output.id,
                             gate.output.id,
+                            nand_intermediate_output.id,
                             true,
                         ));
                         circuit.push(op_and);
                         circuit.push(op_not);
                     }
                     GateType::AND => circuit.push(CombineOperation::GF2(Operation::Mul(
+                        gate.output.id,
                         input_a.clone().unwrap().id,
                         input_b.clone().unwrap().id,
-                        gate.output.id,
                     ))),
                     // GateType::XNOR => todo!(),
                     GateType::BUF => circuit.push(CombineOperation::GF2(Operation::AddConst(
+                        gate.output.id,
                         input_a.clone().unwrap().id,
-                        0,
                         false,
                     ))),
                     // GateType::AONB => todo!(),
@@ -148,16 +150,21 @@ impl InterstellarCircuit {
                     _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
                 GateInternal::Constant { value } => circuit.push(CombineOperation::GF2(
-                    Operation::Const(value.clone() as usize, true),
+                    Operation::Const(gate.output.id, value.clone()),
                 )),
             }
         }
 
         let bool_inputs: Vec<bool> = evaluator_inputs
             .iter()
-            .map(|input| input.clone() == 0)
+            .map(|input| input.clone() == 1)
             .collect();
         evaluate_composite_program(&circuit, &bool_inputs, &[]);
+        // let arith_inputs: Vec<u64> = evaluator_inputs
+        //     .iter()
+        //     .map(|input| input.clone() as u64)
+        //     .collect();
+        // evaluate_composite_program(&circuit, &[], &arith_inputs);
         todo!()
     }
 }

@@ -15,6 +15,9 @@ pub(crate) struct WireRef {
 /// - `enum SkcdGateType` from skcd.proto
 /// - `lib_circuits/src/blif/gate_types.h`
 /// - `lib_garble/src/justgarble/gate_types.h`
+///
+/// IMPORTANT: "ONE" and "ZERO" are special cases: they are mapped to GateInternal::Constant
+/// The rest is parsed as-is into a GateInternal::Standard
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, TryFromPrimitive)]
 #[repr(i32)]

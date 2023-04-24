@@ -131,8 +131,10 @@ impl InterstellarCircuit {
             "inputs and SkcdConfig fields DO NOT match[2]!"
         );
 
+        let mut inputs = Vec::with_capacity(skcd.inputs.len());
         for skcd_input in skcd.inputs.iter() {
             skcd_to_wire_ref_converter.insert(skcd_input);
+            inputs.push(skcd_to_wire_ref_converter.get(skcd_input).unwrap().clone());
         }
 
         // IMPORTANT: we MUST use skcd.o to set the CORRECT outputs
@@ -217,6 +219,7 @@ impl InterstellarCircuit {
             circuit: Circuit {
                 num_garbler_inputs,
                 num_evaluator_inputs,
+                inputs,
                 m: skcd.outputs.len().try_into().unwrap(),
                 gates,
                 #[cfg(test)]

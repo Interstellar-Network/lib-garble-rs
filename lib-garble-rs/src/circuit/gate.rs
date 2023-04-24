@@ -4,8 +4,8 @@ use num_enum::TryFromPrimitive;
 /// - another Gate's inputs
 /// - a Gate's output
 /// - a Circuit's output
-#[derive(Clone)]
-pub(crate) struct GateRef {
+#[derive(Debug, Clone)]
+pub(crate) struct WireRef {
     pub(crate) id: usize,
 }
 
@@ -57,19 +57,21 @@ pub(crate) enum GateType {
 /// Which means Constant type only has an output and NO input.
 ///
 /// NOTE: it SHOULD be optimized-out by Verilog/ABC but right now, we CAN have multiple ZERO and ONE gates in a Circuit!
+#[derive(Debug)]
 pub(crate) enum GateInternal {
     Standard {
         r#type: GateType,
-        input_a: Option<GateRef>,
-        input_b: Option<GateRef>,
+        input_a: Option<WireRef>,
+        input_b: Option<WireRef>,
     },
     Constant {
         value: bool,
     },
 }
 
+#[derive(Debug)]
 pub(crate) struct Gate {
     pub(crate) internal: GateInternal,
     /// Gate's output is in practice a Gate's ID or idx
-    pub(crate) output: GateRef,
+    pub(crate) output: WireRef,
 }

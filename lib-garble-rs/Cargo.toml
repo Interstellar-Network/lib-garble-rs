@@ -30,6 +30,7 @@ sgx_tstd = { branch = "master", git = "https://github.com/apache/teaclave-sgx-sd
 png = "0.17"
 rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 png-tests-utils = { path = "png_tests_utils" }
+mcircuit = { git = "https://github.com/trailofbits/mcircuit.git", version = "0.1.10" }
 
 # # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
 # # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!

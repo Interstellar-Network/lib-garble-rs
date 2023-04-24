@@ -1,8 +1,8 @@
 use crate::circuit::{
     Circuit, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
-    GateType, InterstellarCircuit, SkcdConfig,
+    GateType, InterstellarCircuit, SkcdConfig, SkcdToWireRefConverter,
 };
-use crate::circuit::{Gate, GateInternal, GateRef};
+use crate::circuit::{Gate, GateInternal, WireRef};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -66,13 +66,17 @@ impl InterstellarCircuit {
     /// - the list of inputs (gate ids)
     /// - the list of ouputs (gate ids)
     /// [inputs/outputs are needed to walk the graph, and optimize/rewrite if desired]
+    ///
+    /// NOTE: due to the way the parsing is done(ie "inputs" first, then iterating on the "gates"
+    /// WITH InvalidGateId if not yet present), the resulting Gates SHOULD
+    /// be in topological(-ish) order.
     #[allow(clippy::too_many_lines)]
     pub(crate) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf)
             .map_err(|err| CircuitParserError::DeserializerInternalError { err })?;
 
-        let mut skcd_gate_converter = SkcdGateConverter::new();
+        let mut skcd_to_wire_ref_converter = SkcdToWireRefConverter::new();
 
         let skcd_config = skcd
             .config
@@ -128,7 +132,7 @@ impl InterstellarCircuit {
         );
 
         for skcd_input in skcd.inputs.iter() {
-            skcd_gate_converter.insert(skcd_input);
+            skcd_to_wire_ref_converter.insert(skcd_input);
         }
 
         // IMPORTANT: we MUST use skcd.o to set the CORRECT outputs
@@ -139,7 +143,7 @@ impl InterstellarCircuit {
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
         for skcd_output in skcd.outputs.iter() {
-            skcd_gate_converter.insert(skcd_output);
+            skcd_to_wire_ref_converter.insert(skcd_output);
         }
 
         // TODO(interstellar) how should we use skcd's a/b/go?
@@ -148,18 +152,16 @@ impl InterstellarCircuit {
             // **IMPORTANT** NOT ALL Gate to be built require x_ref and y_ref
             // so DO NOT unwrap here!
             // That would break the circuit building process!
-            let x_ref =
-                skcd_gate_converter
-                    .get(&skcd_gate.a)
-                    .ok_or(CircuitParserError::InvalidGateId {
-                        gate_id: skcd_gate.a,
-                    });
-            let y_ref =
-                skcd_gate_converter
-                    .get(&skcd_gate.b)
-                    .ok_or(CircuitParserError::InvalidGateId {
-                        gate_id: skcd_gate.b,
-                    });
+            let x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a).ok_or(
+                CircuitParserError::InvalidGateId {
+                    gate_id: skcd_gate.a,
+                },
+            );
+            let y_ref = skcd_to_wire_ref_converter.get(&skcd_gate.b).ok_or(
+                CircuitParserError::InvalidGateId {
+                    gate_id: skcd_gate.b,
+                },
+            );
 
             let new_gate_internal = match skcd_gate.r#type.try_into() {
                 Ok(GateType::ZERO) => GateInternal::Constant { value: false },
@@ -182,10 +184,10 @@ impl InterstellarCircuit {
                 _ => todo!(),
             };
 
-            skcd_gate_converter.insert(&skcd_gate.o);
+            skcd_to_wire_ref_converter.insert(&skcd_gate.o);
             gates.push(Gate {
                 internal: new_gate_internal,
-                output: skcd_gate_converter
+                output: skcd_to_wire_ref_converter
                     .get(&skcd_gate.o)
                     .ok_or(CircuitParserError::InvalidGateId {
                         gate_id: skcd_gate.o,
@@ -217,50 +219,11 @@ impl InterstellarCircuit {
                 num_evaluator_inputs,
                 m: skcd.outputs.len().try_into().unwrap(),
                 gates,
+                #[cfg(test)]
+                skcd_to_wire_ref_converter,
             },
             config,
         })
-    }
-}
-
-/// We need to convert something like
-/// ".gate XOR  a=rnd[2] b=rnd[0] O=n7016" in the .skcd(which is basically a .blif)
-/// into something that `CircuitBuilder` can accept.
-/// Essentially we need to convert a String ID -> `CircuitRef`(= a usize)
-///
-/// IMPORTANT
-/// For this to work, the INPUTS MUST also go through the same conversion, else
-/// when using CircuitBuilder.or/and/etc the `CircuitRef` WOULD NOT match anything.
-/// NOTE that in this case the Circuit still would build fine, but it would fail
-/// when eval/garbling.
-struct SkcdGateConverter {
-    map_skcd_gate_id_to_circuit_ref: HashMap<String, GateRef>,
-    cur_len: usize,
-}
-
-impl SkcdGateConverter {
-    pub fn new() -> Self {
-        Self {
-            map_skcd_gate_id_to_circuit_ref: HashMap::new(),
-            cur_len: 0,
-        }
-    }
-
-    pub fn get(&self, skcd_gate_id: &str) -> Option<&GateRef> {
-        self.map_skcd_gate_id_to_circuit_ref.get(skcd_gate_id)
-    }
-
-    /// insert
-    /// NOOP if already in the map
-    pub fn insert(&mut self, skcd_gate_id: &str) {
-        match self.get(skcd_gate_id) {
-            Some(_) => {}
-            None => {
-                self.map_skcd_gate_id_to_circuit_ref
-                    .insert(skcd_gate_id.to_string(), GateRef { id: self.cur_len });
-                self.cur_len += 1;
-            }
-        }
     }
 }
 
@@ -277,7 +240,7 @@ mod tests {
 
         assert!(circ.num_evaluator_inputs() == 3);
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = circ.eval_plain(&[], inputs);
+            let outputs = circ.eval_plain(inputs);
             assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
         }
     }

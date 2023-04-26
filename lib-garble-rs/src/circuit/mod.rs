@@ -1,6 +1,8 @@
 mod gate;
 mod skcd_config;
 
+use std::collections::HashMap;
+
 pub(crate) use gate::{Gate, GateInternal, GateType, WireRef};
 pub(crate) use skcd_config::{
     DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
@@ -56,12 +58,11 @@ impl InterstellarCircuit {
         num_inputs
     }
 
-    /// Evaluate (clear text version == UNGARBLED) using "mcircuit"
+    /// Evaluate (clear text version == UNGARBLED) using crate "boolean_expression"
     /// For simplicity, this only supports "evaluator_inputs" b/c this is only
     /// used to test basic circuits(eg adders, etc) so no point in having 2PC.
     pub(crate) fn eval_plain(&self, evaluator_inputs: &[u16]) -> Vec<u16> {
-        use mcircuit::evaluate_composite_program;
-        use mcircuit::{CombineOperation, Operation, WireValue};
+        use boolean_expression::*;
 
         assert!(
             self.num_evaluator_inputs() == self.circuit.n(),
@@ -72,99 +73,101 @@ impl InterstellarCircuit {
             "only basic circuits wihout garbler inputs! [2]"
         );
 
-        let mut circuit = vec![];
+        let mut circuit = BDD::new();
+        // Map: "WireRef" == Gate ID to a BDDFunc
+        let mut bdd_map = HashMap::new();
 
         // TODO remove field Circuit.inputs?
         // for (idx, _evaluator_input) in evaluator_inputs.iter().enumerate() {
-        //     circuit.push(CombineOperation::GF2(Operation::Input(idx)));
+        //     circuit.push(CombineOperation::Z64(Operation::Input(idx)));
         // }
         for input_wire in &self.circuit.inputs {
-            circuit.push(CombineOperation::GF2(Operation::Input(input_wire.id)));
+            bdd_map.insert(input_wire.id, circuit.terminal(input_wire.id));
         }
-
-        // TODO do we want "self" to be mutable or not?
-        let mut skcd_to_wire_ref_converter = self.circuit.skcd_to_wire_ref_converter.clone();
 
         // cf https://github.com/trailofbits/mcircuit/blob/8fe9b315f2e8cae6020a2884ae544d59bd0bbd41/src/parsers/blif.rs#L194
         // For how to match blif/skcd gates into mcircuit's Operation
         // WARNING: apparently Operation::XXX is (OUTPUT, INPUT1, etc)! OUTPUT IS FIRST!
         for gate in &self.circuit.gates {
-            match &gate.internal {
+            let bdd_gate: BDDFunc = match &gate.internal {
                 GateInternal::Standard {
                     r#type,
                     input_a,
                     input_b,
                 } => match r#type {
-                    // GateType::AANB => todo!(),
-                    // GateType::INVB => todo!(),
-                    // GateType::NAAB => todo!(),
-                    GateType::INV => circuit.push(CombineOperation::GF2(Operation::AddConst(
-                        gate.output.id,
-                        input_a.clone().unwrap().id,
-                        true,
-                    ))),
-                    GateType::XOR => circuit.push(CombineOperation::GF2(Operation::Add(
-                        gate.output.id,
-                        input_a.clone().unwrap().id,
-                        input_b.clone().unwrap().id,
-                    ))),
+                    GateType::INV => circuit.not(
+                        bdd_map
+                            .get(&input_a.as_ref().unwrap().id)
+                            .expect("GateType::INV missing input!")
+                            .clone(),
+                    ),
+                    GateType::XOR => circuit.xor(
+                        bdd_map
+                            .get(&input_a.as_ref().unwrap().id)
+                            .expect("GateType::XOR missing input a!")
+                            .clone(),
+                        bdd_map
+                            .get(&input_b.as_ref().unwrap().id)
+                            .expect("GateType::XOR missing input b!")
+                            .clone(),
+                    ),
                     GateType::NAND => {
                         // NAND is a AND, whose output is NOTed
-                        let nand_intermediate_output_id = format!("NAND_temp_{}", gate.output.id);
-                        skcd_to_wire_ref_converter.insert(&nand_intermediate_output_id);
-                        let nand_intermediate_output = skcd_to_wire_ref_converter
-                            .get(&nand_intermediate_output_id)
-                            .unwrap();
+                        let and_output = circuit.and(
+                            bdd_map
+                                .get(&input_a.as_ref().unwrap().id)
+                                .expect("GateType::NAND missing input a!")
+                                .clone(),
+                            bdd_map
+                                .get(&input_b.as_ref().unwrap().id)
+                                .expect("GateType::NAND missing input b!")
+                                .clone(),
+                        );
 
-                        let op_and = CombineOperation::GF2(Operation::Mul(
-                            nand_intermediate_output.id,
-                            input_a.clone().unwrap().id,
-                            input_b.clone().unwrap().id,
-                        ));
-                        let op_not = CombineOperation::GF2(Operation::AddConst(
-                            gate.output.id,
-                            nand_intermediate_output.id,
-                            true,
-                        ));
-                        circuit.push(op_and);
-                        circuit.push(op_not);
+                        circuit.not(and_output)
                     }
-                    GateType::AND => circuit.push(CombineOperation::GF2(Operation::Mul(
-                        gate.output.id,
-                        input_a.clone().unwrap().id,
-                        input_b.clone().unwrap().id,
-                    ))),
-                    // GateType::XNOR => todo!(),
-                    GateType::BUF => circuit.push(CombineOperation::GF2(Operation::AddConst(
-                        gate.output.id,
-                        input_a.clone().unwrap().id,
-                        false,
-                    ))),
-                    // GateType::AONB => todo!(),
-                    // GateType::BUFB => todo!(),
-                    // GateType::NAOB => todo!(),
-                    // GateType::OR => todo!(),
-                    // GateType::NOR => todo!(),
-                    // GateType::ONE => todo!(),
-                    // GateType::ZERO => todo!(),
+                    GateType::AND => circuit.and(
+                        bdd_map
+                            .get(&input_a.as_ref().unwrap().id)
+                            .expect("GateType::AND missing input a!")
+                            .clone(),
+                        bdd_map
+                            .get(&input_b.as_ref().unwrap().id)
+                            .expect("GateType::AND missing input b!")
+                            .clone(),
+                    ),
+                    // ite = If-Then-Else
+                    // we define BUF as "if input == 1 then input; else 0"
+                    GateType::BUF => circuit.ite(
+                        bdd_map
+                            .get(&input_a.as_ref().unwrap().id)
+                            .expect("GateType::BUF missing input a!")
+                            .clone(),
+                        bdd_map
+                            .get(&input_a.as_ref().unwrap().id)
+                            .expect("GateType::BUF missing input a!")
+                            .clone(),
+                        BDD_ZERO,
+                    ),
                     _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
-                GateInternal::Constant { value } => circuit.push(CombineOperation::GF2(
-                    Operation::Const(gate.output.id, value.clone()),
-                )),
-            }
+                GateInternal::Constant { value } => circuit.constant(value.clone()),
+            };
+
+            bdd_map.insert(gate.output.id, bdd_gate);
         }
 
         let bool_inputs: Vec<bool> = evaluator_inputs
             .iter()
             .map(|input| input.clone() == 1)
             .collect();
-        evaluate_composite_program(&circuit, &bool_inputs, &[]);
-        // let arith_inputs: Vec<u64> = evaluator_inputs
-        //     .iter()
-        //     .map(|input| input.clone() as u64)
-        //     .collect();
-        // evaluate_composite_program(&circuit, &[], &arith_inputs);
+        let arith_inputs: Vec<u64> = evaluator_inputs
+            .iter()
+            .map(|input| input.clone() as u64)
+            .collect();
+
+        // circuit.sat(f)
+
         todo!()
     }
 }

@@ -144,8 +144,10 @@ impl InterstellarCircuit {
         // -> the 2 CORRECT outputs to be set are: [8,11]
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
+        let mut outputs = Vec::with_capacity(skcd.outputs.len());
         for skcd_output in skcd.outputs.iter() {
             skcd_to_wire_ref_converter.insert(skcd_output);
+            outputs.push(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
         }
 
         // TODO(interstellar) how should we use skcd's a/b/go?
@@ -220,7 +222,7 @@ impl InterstellarCircuit {
                 num_garbler_inputs,
                 num_evaluator_inputs,
                 inputs,
-                m: skcd.outputs.len().try_into().unwrap(),
+                outputs,
                 gates,
                 #[cfg(test)]
                 skcd_to_wire_ref_converter,
@@ -243,8 +245,8 @@ mod tests {
 
         assert!(circ.num_evaluator_inputs() == 3);
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = circ.eval_plain(inputs);
-            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
+            let outputs = circ.eval_plain(inputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
+            assert!(outputs.is_ok());
         }
     }
 }

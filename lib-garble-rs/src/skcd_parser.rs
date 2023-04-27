@@ -245,8 +245,8 @@ mod tests {
 
         assert!(circ.num_evaluator_inputs() == 3);
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let outputs = circ.eval_plain(inputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
-            assert!(outputs.is_ok());
+            let outputs = circ.eval_plain(inputs).unwrap();
+            assert_eq!(outputs, FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i]);
         }
     }
 }

@@ -36,9 +36,16 @@
 use num_bigint::BigInt;
 use num_traits::identities::One;
 use num_traits::identities::Zero;
+use rand::seq::SliceRandom;
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use serde::{Deserialize, Serialize};
 
-struct Circuit {}
+use crate::circuit::Circuit;
+
+/// Kappa: κ in the paper
+/// This is the "computational security parameter" which is for example 128 bits
+const KAPPA: usize = 128;
 
 struct Block {
     val: u128,
@@ -117,6 +124,63 @@ struct Delta {}
 fn f1_1_collapse(compressed_set: CompressedSet) -> Delta {
     todo!()
 }
+
+type LabelBits = Vec<bool>;
+
+#[derive(PartialEq)]
+struct Label0 {
+    bits: LabelBits,
+}
+
+#[derive(PartialEq)]
+struct Label1 {
+    bits: LabelBits,
+}
+
+/// "Algorithm 3 Init(C, ℓ)"
+///
+/// 1: extract n from C and initialize e = []
+/// 2:  for input wire W ∈ [n] do
+/// 3:      Sample LW0 ← {0, 1}ℓ uniformly at random
+/// 4:      Sample LW1 ← {0, 1}ℓ − {LW0 } uniformly at random
+/// 5:      Set e[W ] = eW = (LW0 , LW1 )
+/// 6:  end for
+/// 7: Return e
+fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<(Label0, Label1)> {
+    let mut e = vec![];
+    for input_wire in &circuit.inputs {
+        // TODO let lw0: [u8; KAPPA] = rng.gen();
+        let lw0 = Label0 {
+            bits: (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect(),
+        };
+        let lw1 = Label1 {
+            bits: (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect(),
+        };
+
+        // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
+        assert!(lw0.bits != lw1.bits, "LW0 and LW1 MUST NOT be the same!");
+
+        e.push((lw0, lw1));
+    }
+
+    assert_eq!(e.len(), circuit.inputs.len(), "wrong e length! [1]");
+    assert_eq!(e.len(), circuit.n() as usize, "wrong e length! [2]");
+
+    e
+}
+
+pub(crate) fn garble(circuit: Circuit) {
+    // "External length parameter"
+    let l = KAPPA;
+    // "Internal length parameter"
+    let l_prime = 8 * l;
+
+    let mut rng = ChaChaRng::from_entropy();
+
+    let e = init(&circuit, &mut rng);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// "A Key Length Search" [rug version]
 /// Ported from matlab to Rust using phind.com

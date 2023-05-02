@@ -33,9 +33,6 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
-use num_bigint::BigInt;
-use num_traits::identities::One;
-use num_traits::identities::Zero;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
@@ -247,7 +244,12 @@ pub(crate) fn garble(circuit: Circuit) {
 
 /// "A Key Length Search" [num-bigint+num-traits version]
 /// Ported from matlab to Rust using phind.com
+#[cfg(feature = "key_length_search")]
 pub(crate) fn key_length_search_num(search_from: u32, search_to: u32) -> Option<u32> {
+    use num_bigint::BigInt;
+    use num_traits::identities::One;
+    use num_traits::identities::Zero;
+
     // Constants
     let sigma: u32 = 80;
     let kappa: u32 = 256;
@@ -280,7 +282,11 @@ pub(crate) fn key_length_search_num(search_from: u32, search_to: u32) -> Option<
     ell
 }
 
-fn binomial_num(n: u32, k: u32) -> BigInt {
+#[cfg(feature = "key_length_search")]
+fn binomial_num(n: u32, k: u32) -> num_bigint::BigInt {
+    use num_bigint::BigInt;
+    use num_traits::One;
+
     let mut res = BigInt::one();
 
     for i in 1..=k {
@@ -295,6 +301,7 @@ fn binomial_num(n: u32, k: u32) -> BigInt {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "key_length_search")]
     #[test]
     fn test_key_length_search() {
         assert_eq!(key_length_search_num(1700, 1800).unwrap(), 42);

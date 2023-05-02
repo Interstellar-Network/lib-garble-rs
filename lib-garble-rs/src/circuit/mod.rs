@@ -19,14 +19,29 @@ pub(crate) struct Circuit {
     pub(crate) inputs: Vec<WireRef>,
     pub(crate) outputs: Vec<WireRef>,
     pub(crate) gates: Vec<gate::Gate>,
-    #[cfg(test)]
-    pub(crate) skcd_to_wire_ref_converter: skcd_config::SkcdToWireRefConverter,
+    pub(crate) wires: Vec<WireRef>,
 }
 
 impl Circuit {
     /// Return "n" ie the number of inputs
     pub(crate) fn n(&self) -> u32 {
         self.num_garbler_inputs + self.num_evaluator_inputs
+    }
+
+    /// Return "m" ie the number of wires
+    pub(crate) fn m(&self) -> u32 {
+        self.wires.len().try_into().unwrap()
+    }
+
+    /// Return "q" ie the number of gates
+    pub(crate) fn q(&self) -> u32 {
+        self.gates.len().try_into().unwrap()
+    }
+
+    /// Return the list of all the wires.
+    /// Used during garbling "init" function to create the "encoding".
+    pub(crate) fn wires(&self) -> &Vec<WireRef> {
+        &self.wires
     }
 }
 

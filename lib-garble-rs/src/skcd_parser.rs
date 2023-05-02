@@ -224,8 +224,7 @@ impl InterstellarCircuit {
                 inputs,
                 outputs,
                 gates,
-                #[cfg(test)]
-                skcd_to_wire_ref_converter,
+                wires: skcd_to_wire_ref_converter.get_all_wires(),
             },
             config,
         })

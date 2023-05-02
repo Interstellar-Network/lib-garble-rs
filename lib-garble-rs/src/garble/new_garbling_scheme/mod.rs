@@ -145,7 +145,7 @@ struct Label1 {
 /// 7: Return e
 fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<(Label0, Label1)> {
     let mut e = vec![];
-    for input_wire in &circuit.inputs {
+    for input_wire in &circuit.wires()[0..circuit.n() as usize] {
         // TODO let lw0: [u8; KAPPA] = rng.gen();
         let lw0 = Label0 {
             bits: (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect(),

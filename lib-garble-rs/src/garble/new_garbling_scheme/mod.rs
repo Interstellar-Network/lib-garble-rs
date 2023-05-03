@@ -39,31 +39,34 @@ use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::Circuit;
+use crate::circuit::{Gate, GateInternal, GateType, WireRef};
 
 /// Kappa: κ in the paper
 /// This is the "computational security parameter" which is for example 128 bits
 const KAPPA: usize = 128;
 
-struct Block {
-    val: u128,
-}
+// struct Block {
+//     val: u128,
+// }
 
-impl Block {
-    fn random() -> Self {
-        // TODO proper random; or better use Scuttlebutt directly
-        Block { val: 42 }
-    }
-}
+// impl Block {
+//     fn random() -> Self {
+//         // TODO proper random; or better use Scuttlebutt directly
+//         Block { val: 42 }
+//     }
+// }
+
+type WireInternal = bool;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub(crate) struct Wire {
-    val: bool,
+    val: WireInternal,
 }
 
 /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
-struct K_labels_set {
-    value0: Block,
-    value1: Block,
+struct K_label {
+    value0: LabelBits,
+    value1: LabelBits,
 }
 
 /// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
@@ -71,25 +74,39 @@ struct K_labels_set {
 /// with the wire is denoted by {Kj }. In particular, Yao’s scheme and all subsequent
 /// optimizations decompose the circuit’s input into bits and each bit is assigned a
 /// label (See also [App17]).""
-fn f0_label_sampling(wire: Wire) -> K_labels_set {
-    K_labels_set {
-        value0: Block::random(),
-        value1: Block::random(),
+// fn f0_label_sampling(wire: Wire) -> K_labels_set {
+//     K_labels_set {
+//         value0: Block::random(),
+//         value1: Block::random(),
+//     }
+// }
+
+struct CompressedSet {
+    x00: LabelBits,
+    x01: LabelBits,
+    x10: LabelBits,
+    x11: LabelBits,
+}
+
+struct RandomOracle {}
+
+impl RandomOracle {
+    // TODO should probably be deterministic? or random?
+    // use some kind of hash?
+    fn random_oracle(&mut self, label_a: &LabelBits, label_b: &LabelBits) -> LabelBits {
+        // TODO!
+        vec![false; label_a.len()]
+    }
+
+    fn new() -> Self {
+        Self {}
     }
 }
 
-struct CompressedSet {
-    x00: Block,
-    x01: Block,
-    x10: Block,
-    x11: Block,
-}
-
-// TODO should probably be deterministic? or random?
-// use some kind of hash?
-fn random_oracle(label_a: &Block, label_b: &Block) -> Block {
-    todo!()
-}
+/// How to implement the "compress" function ("f1,0" in the papers)?
+/// Rust implementation of "compress" function ("f1,0") using ChaCha20Rng and rand crate
+/// Answer
+/// To implement the "compress" function (f1,0 in the papers), you can use a hash function that compresses its input into a fixed-size output. In this case, let's use the blake2 crate for the Blake2b hash function.
 
 /// "3.1 Garbling
 /// Key Extraction Similarly to the classical Yao’s garbled circuit, f1 first splits
@@ -103,36 +120,77 @@ fn random_oracle(label_a: &Block, label_b: &Block) -> Block {
 /// X01 = f1,0(KA0 , KB1 ) = RO0(KA0 , KB1 );
 /// X10 = f1,0(KA1 , KB0 ) = RO0(KA1 , KB0 );
 /// X11 = f1,0(KA1 , KB1 ) = RO0(KA1 , KB1 )."
-fn f1_0_compress(wire_a: K_labels_set, wire_b: K_labels_set) -> CompressedSet {
+fn f1_0_compress(
+    wire_a: &K_label,
+    wire_b: &K_label,
+    random_oracle: &mut RandomOracle,
+) -> CompressedSet {
     CompressedSet {
-        x00: random_oracle(&wire_a.value0, &wire_b.value0),
-        x01: random_oracle(&wire_a.value0, &wire_b.value1),
-        x10: random_oracle(&wire_a.value1, &wire_b.value0),
-        x11: random_oracle(&wire_a.value1, &wire_b.value1),
+        x00: random_oracle.random_oracle(&wire_a.value0, &wire_b.value0),
+        x01: random_oracle.random_oracle(&wire_a.value0, &wire_b.value1),
+        x10: random_oracle.random_oracle(&wire_a.value1, &wire_b.value0),
+        x11: random_oracle.random_oracle(&wire_a.value1, &wire_b.value1),
     }
 }
-
-struct Delta {}
 
 /// Compute the ∇ = f1.1 in the paper
 /// "Collapse.
 /// These four outputs of the random oracle are given to f1,1 to produce
 /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
-fn f1_1_collapse(compressed_set: CompressedSet) -> Delta {
+fn f1_1_collapse(compressed_set: CompressedSet) -> Vec<Delta> {
+    let delta = delta();
+
     todo!()
 }
 
+/// Represent the delta table
+// TODO this is probably dup with Wire and/or Block
+struct Delta {
+    pub(crate) x00: WireInternal,
+    pub(crate) x01: WireInternal,
+    pub(crate) x10: WireInternal,
+    pub(crate) x11: WireInternal,
+}
+
+/// "B Garbling Other Gates"
+fn delta() -> Vec<Delta> {
+    /// this will be the vector of X00 X01 X10 X11
+    /// 0000
+    /// 0001
+    /// 0010
+    /// ...
+    /// -> so 16 rows
+    let mut table = Vec::with_capacity(16);
+    for i in 0..2 {
+        for j in 0..2 {
+            for k in 0..2 {
+                for l in 0..2 {
+                    table.push(Delta {
+                        x00: i != 0,
+                        x01: j != 0,
+                        x10: k != 0,
+                        x11: l != 0,
+                    });
+                }
+            }
+        }
+    }
+
+    table
+}
+
+// TODO need to either remove "LabelBits" or "Block" struct
 type LabelBits = Vec<bool>;
 
-#[derive(PartialEq)]
-struct Label0 {
-    bits: LabelBits,
-}
+// #[derive(PartialEq)]
+// struct Label0 {
+//     bits: LabelBits,
+// }
 
-#[derive(PartialEq)]
-struct Label1 {
-    bits: LabelBits,
-}
+// #[derive(PartialEq)]
+// struct Label1 {
+//     bits: LabelBits,
+// }
 
 /// "Algorithm 3 Init(C, ℓ)"
 ///
@@ -143,21 +201,20 @@ struct Label1 {
 /// 5:      Set e[W ] = eW = (LW0 , LW1 )
 /// 6:  end for
 /// 7: Return e
-fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<(Label0, Label1)> {
+fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<K_label> {
     let mut e = vec![];
     for input_wire in &circuit.wires()[0..circuit.n() as usize] {
         // TODO let lw0: [u8; KAPPA] = rng.gen();
-        let lw0 = Label0 {
-            bits: (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect(),
-        };
-        let lw1 = Label1 {
-            bits: (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect(),
-        };
+        let lw0 = (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect();
+        let lw1 = (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect();
 
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
-        assert!(lw0.bits != lw1.bits, "LW0 and LW1 MUST NOT be the same!");
+        assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
 
-        e.push((lw0, lw1));
+        e.push(K_label {
+            value0: lw0,
+            value1: lw1,
+        });
     }
 
     assert_eq!(e.len(), circuit.inputs.len(), "wrong e length! [1]");
@@ -173,8 +230,39 @@ pub(crate) fn garble(circuit: Circuit) {
     let l_prime = 8 * l;
 
     let mut rng = ChaChaRng::from_entropy();
+    // TODO pass rng to RandomOracle
+    let mut random_oracle = RandomOracle::new();
 
     let e = init(&circuit, &mut rng);
+
+    for gate in &circuit.gates {
+        match &gate.internal {
+            GateInternal::Standard {
+                r#type,
+                input_a,
+                input_b,
+            } => {
+                // TODO how to handle unwrap() based on gate type?
+                let wire_a = &e[input_a.as_ref().unwrap().id];
+                let wire_b = &e[input_b.as_ref().unwrap().id];
+
+                let f10_res = f1_0_compress(wire_a, wire_b, &mut random_oracle);
+                let f11_res = f1_1_collapse(f10_res);
+
+                match r#type {
+                    GateType::INV => todo!(),
+                    GateType::XOR => todo!(),
+                    GateType::NAND => todo!(),
+                    GateType::AND => todo!(),
+                    // ite = If-Then-Else
+                    // we define BUF as "if input == 1 then input; else 0"
+                    GateType::BUF => todo!(),
+                    _ => todo!("unsupported gate type! [{:?}]", gate),
+                }
+            }
+            GateInternal::Constant { value } => todo!(),
+        };
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -300,6 +388,17 @@ fn binomial_num(n: u32, k: u32) -> num_bigint::BigInt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::garble::InterstellarCircuit;
+
+    #[test]
+    fn test_garble() {
+        let circ = InterstellarCircuit::parse_skcd(include_bytes!(
+            "../../../examples/data/adder.skcd.pb.bin"
+        ))
+        .unwrap();
+
+        garble(circ.circuit);
+    }
 
     #[cfg(feature = "key_length_search")]
     #[test]

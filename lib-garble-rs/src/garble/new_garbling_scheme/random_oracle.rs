@@ -12,10 +12,13 @@ pub(crate) struct RandomOracle {
 impl RandomOracle {
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
-    pub(crate) fn random_oracle(&self, label_a: &Block, label_b: &Block) -> Block {
+    pub(crate) fn random_oracle(&self, label_a: &Block, label_b: &Block, tweak: usize) -> Block {
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?
+        // TODO! how to properly pass "tweak"?
+        let tweak_bytes = tweak.to_le_bytes();
         let mut hasher = blake3::Hasher::new();
+        hasher.update(&tweak_bytes);
         hasher.update(b"bar");
         hasher.update(b"baz");
         let hash2 = hasher.finalize();
@@ -34,5 +37,34 @@ impl RandomOracle {
         Self {
             rng: ChaChaRng::from_entropy(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_random_oracle_same_blocks_different_tweaks_should_return_different_hashes() {
+        let block_a = Block::new_with([42, 0]);
+        let block_b = Block::new_with([43, 44]);
+
+        let random_oracle = RandomOracle::new();
+        let hash1 = random_oracle.random_oracle(&block_a, &block_b, 0);
+        let hash2 = random_oracle.random_oracle(&block_a, &block_b, 1);
+
+        assert_ne!(hash1, hash2, "returning hashes SHOULD NOT be equal!");
+    }
+
+    #[test]
+    fn test_random_oracle_same_blocks_same_tweaks_should_return_same_hashes() {
+        let block_a = Block::new_with([42, 0]);
+        let block_b = Block::new_with([43, 44]);
+
+        let random_oracle = RandomOracle::new();
+        let hash1 = random_oracle.random_oracle(&block_a, &block_b, 2);
+        let hash2 = random_oracle.random_oracle(&block_a, &block_b, 2);
+
+        assert_eq!(hash1, hash2, "returning hashes SHOULD be equal!");
     }
 }

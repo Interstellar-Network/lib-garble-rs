@@ -33,28 +33,17 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
-use rand::seq::SliceRandom;
-use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::Circuit;
 use crate::circuit::{Gate, GateInternal, GateType, WireRef};
 
-/// Kappa: κ in the paper
-/// This is the "computational security parameter" which is for example 128 bits
-const KAPPA: usize = 128;
+mod block;
+mod constant;
+mod random_oracle;
 
-// struct Block {
-//     val: u128,
-// }
-
-// impl Block {
-//     fn random() -> Self {
-//         // TODO proper random; or better use Scuttlebutt directly
-//         Block { val: 42 }
-//     }
-// }
+use block::Block;
+use random_oracle::RandomOracle;
 
 type WireInternal = bool;
 
@@ -65,8 +54,8 @@ pub(crate) struct Wire {
 
 /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
 struct K_label {
-    value0: LabelBits,
-    value1: LabelBits,
+    value0: Block,
+    value1: Block,
 }
 
 /// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
@@ -82,25 +71,10 @@ struct K_label {
 // }
 
 struct CompressedSet {
-    x00: LabelBits,
-    x01: LabelBits,
-    x10: LabelBits,
-    x11: LabelBits,
-}
-
-struct RandomOracle {}
-
-impl RandomOracle {
-    // TODO should probably be deterministic? or random?
-    // use some kind of hash?
-    fn random_oracle(&mut self, label_a: &LabelBits, label_b: &LabelBits) -> LabelBits {
-        // TODO!
-        vec![false; label_a.len()]
-    }
-
-    fn new() -> Self {
-        Self {}
-    }
+    x00: Block,
+    x01: Block,
+    x10: Block,
+    x11: Block,
 }
 
 /// How to implement the "compress" function ("f1,0" in the papers)?
@@ -179,19 +153,6 @@ fn delta() -> Vec<Delta> {
     table
 }
 
-// TODO need to either remove "LabelBits" or "Block" struct
-type LabelBits = Vec<bool>;
-
-// #[derive(PartialEq)]
-// struct Label0 {
-//     bits: LabelBits,
-// }
-
-// #[derive(PartialEq)]
-// struct Label1 {
-//     bits: LabelBits,
-// }
-
 /// "Algorithm 3 Init(C, ℓ)"
 ///
 /// 1: extract n from C and initialize e = []
@@ -201,12 +162,11 @@ type LabelBits = Vec<bool>;
 /// 5:      Set e[W ] = eW = (LW0 , LW1 )
 /// 6:  end for
 /// 7: Return e
-fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<K_label> {
+fn init(circuit: &Circuit, random_oracle: &mut RandomOracle) -> Vec<K_label> {
     let mut e = vec![];
     for input_wire in &circuit.wires()[0..circuit.n() as usize] {
-        // TODO let lw0: [u8; KAPPA] = rng.gen();
-        let lw0 = (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect();
-        let lw1 = (0..KAPPA).map(|_| rng.gen_bool(0.5f64)).collect();
+        let lw0 = random_oracle.new_random_block();
+        let lw1 = random_oracle.new_random_block();
 
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
@@ -225,15 +185,13 @@ fn init(circuit: &Circuit, rng: &mut ChaChaRng) -> Vec<K_label> {
 
 pub(crate) fn garble(circuit: Circuit) {
     // "External length parameter"
-    let l = KAPPA;
+    let l = constant::KAPPA;
     // "Internal length parameter"
     let l_prime = 8 * l;
 
-    let mut rng = ChaChaRng::from_entropy();
-    // TODO pass rng to RandomOracle
     let mut random_oracle = RandomOracle::new();
 
-    let e = init(&circuit, &mut rng);
+    let e = init(&circuit, &mut random_oracle);
 
     for gate in &circuit.gates {
         match &gate.internal {

@@ -12,6 +12,7 @@ pub(crate) struct RandomOracle {
 impl RandomOracle {
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
+    // TODO! should this instead a `l_prime` length Block (== 8*KAPPA)???
     pub(crate) fn random_oracle(&self, label_a: &Block, label_b: &Block, tweak: usize) -> Block {
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?

@@ -72,6 +72,19 @@ pub(crate) enum GateInternal {
     },
 }
 
+impl GateInternal {
+    pub(crate) fn get_type(&self) -> &GateType {
+        match self {
+            GateInternal::Standard {
+                r#type,
+                input_a,
+                input_b,
+            } => r#type,
+            GateInternal::Constant { value } => todo!(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Gate {
     pub(crate) internal: GateInternal,

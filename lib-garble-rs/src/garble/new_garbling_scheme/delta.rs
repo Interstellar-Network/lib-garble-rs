@@ -1,3 +1,4 @@
+use super::Block;
 use crate::garble::new_garbling_scheme::{Gate, GateInternal, GateType, WireInternal};
 
 /// Represent a ROW in the "delta table"
@@ -103,7 +104,7 @@ impl DeltaTable {
     /// other_vec[i] for all positions of "self" where self[i] = 1
     /// == other_vec & self
     /// == other_vec ◦ self
-    fn project_x00_delta(&self) -> Vec<WireInternal> {
+    pub(super) fn project_x00_delta(&self) -> Vec<WireInternal> {
         self.rows
             .iter()
             .map(|delta_row: &DeltaRow| delta_row.x00)

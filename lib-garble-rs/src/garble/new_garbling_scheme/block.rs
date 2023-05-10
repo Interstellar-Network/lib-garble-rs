@@ -12,13 +12,13 @@ pub(crate) struct Block {
 
 impl Block {
     // TODO should it instead be refactored into "new_random()"+moved to RandomOracle
-    pub(crate) fn new_with(initial_value: [u64; 2]) -> Self {
+    pub(super) fn new_with(initial_value: [u64; 2]) -> Self {
         Self {
             bits: MyBitArray::from(initial_value),
         }
     }
 
-    pub(crate) fn new_with2(initial_value: [u8; 16]) -> Self {
+    pub(super) fn new_with2(initial_value: [u8; 16]) -> Self {
         // TODO or use `from_be_bytes`? For the use case(which is creating new random blocks, it should not really matter)
         let words: [u64; 2] = [
             u64::from_le_bytes(initial_value[0..8].try_into().unwrap()),
@@ -28,6 +28,13 @@ impl Block {
         Self {
             bits: MyBitArray::from(words),
         }
+    }
+
+    pub(super) fn as_bytes(&self) -> &[u8] {
+        let slice: &[u64] = self.bits.as_raw_slice();
+        let ptr = slice.as_ptr() as *const u8;
+        let len = slice.len() * std::mem::size_of::<u64>();
+        unsafe { std::slice::from_raw_parts(ptr, len) }
     }
 }
 

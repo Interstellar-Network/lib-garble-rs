@@ -13,7 +13,7 @@ const WATERMARK_COLOR: [u8; 1] = [255u8];
 /// The given integer is NOT a valid 7 segments option[ie 0-9]
 #[derive(Debug, Snafu)]
 #[snafu(display("Can open read the .ttf"))]
-pub(crate) struct FontTtfErr {}
+pub(super) struct FontTtfErr {}
 
 /// Init a Font using the hardcoded .ttf from "data/"
 fn new_font<'a>() -> Result<Font<'a>, FontTtfErr> {

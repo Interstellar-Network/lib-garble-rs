@@ -71,7 +71,7 @@ impl InterstellarCircuit {
     /// WITH InvalidGateId if not yet present), the resulting Gates SHOULD
     /// be in topological(-ish) order.
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
+    pub(super) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf)
             .map_err(|err| CircuitParserError::DeserializerInternalError { err })?;

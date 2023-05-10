@@ -6,12 +6,12 @@ use crate::garble::new_garbling_scheme::Wire;
 use serde::{Deserialize, Serialize};
 
 pub type EvaluatorInput = u16;
-pub(crate) type GarblerInput = u16;
+pub(super) type GarblerInput = u16;
 
 /// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EncodedGarblerInputs {
-    pub(crate) wires: Vec<Wire>,
+    pub(super) wires: Vec<Wire>,
 }
 
 #[derive(Debug)]
@@ -29,18 +29,18 @@ pub enum GarblerError {
 pub struct GarbledCircuit {
     // TODO DO NOT Serialize the Encoder/MUST NOT be sent to the client-side b/c that probably leaks data
     // Instead we should just send the list of pair (0,1) for each EvaluatorInput only
-    // pub(crate) encoder: Encoder,
+    // pub(super) encoder: Encoder,
     pub config: SkcdConfig,
 }
 
 impl GarbledCircuit {
     /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
-    pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
+    pub(super) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
         todo!()
         // .map_err(|_e| GarblerError::GarblerError)
     }
 
-    pub(crate) fn num_evaluator_inputs(&self) -> u32 {
+    pub(super) fn num_evaluator_inputs(&self) -> u32 {
         let mut num_evaluator_inputs = 0;
         for skcd_input in &self.config.evaluator_inputs {
             num_evaluator_inputs += skcd_input.length;
@@ -49,7 +49,7 @@ impl GarbledCircuit {
         num_evaluator_inputs
     }
 
-    pub(crate) fn num_garbler_inputs(&self) -> u32 {
+    pub(super) fn num_garbler_inputs(&self) -> u32 {
         let mut num_garbler_inputs = 0;
         for skcd_input in &self.config.garbler_inputs {
             num_garbler_inputs += skcd_input.length;
@@ -59,7 +59,7 @@ impl GarbledCircuit {
     }
 
     // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
-    pub(crate) fn encode_garbler_inputs(
+    pub(super) fn encode_garbler_inputs(
         &self,
         garbler_inputs: &[GarblerInput],
     ) -> EncodedGarblerInputs {

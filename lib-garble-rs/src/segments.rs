@@ -22,8 +22,8 @@ enum SegmentsSevenKind {
 /// The given integer is NOT a valid 7 segments option[ie 0-9]
 #[derive(Debug, Snafu)]
 #[snafu(display("Can not convert number {} to SegmentsSevenKind", number))]
-pub(crate) struct SegmentsError {
-    pub(crate) number: u8,
+pub(super) struct SegmentsError {
+    pub(super) number: u8,
 }
 
 /// cf [`lib_garble`](https://github.com/Interstellar-Network/lib_garble/blob/main/src/packmsg/packmsg_utils.cpp#L26)
@@ -108,7 +108,7 @@ const MAP_DIGIT_TO7_SEGS: &[&[GarblerInput]] = &[
 /// 0u16, 1, 1, 1, 0, 1, 0, //
 /// // second digit: 7 segments: 2
 /// 1u16, 0, 1, 1, 1, 0, 1, //
-pub(crate) fn digits_to_segments_bits(digits: &[u8]) -> Result<Vec<GarblerInput>, SegmentsError> {
+pub(super) fn digits_to_segments_bits(digits: &[u8]) -> Result<Vec<GarblerInput>, SegmentsError> {
     // 7 BITS per digit input
     let mut res = Vec::with_capacity(digits.len() * 7);
 

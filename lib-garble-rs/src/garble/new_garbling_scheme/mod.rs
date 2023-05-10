@@ -175,6 +175,12 @@ pub(crate) fn garble(circuit: Circuit) {
                 let f10_res = f1_0_compress(wire_a, wire_b, gate);
                 let f11_res = f1_1_collapse(f10_res);
 
+                let s0 = f11_res.project_x00_delta();
+                let s1: Vec<WireInternal> = todo!();
+
+                let k0 = RandomOracle::random_oracle_1(&s0);
+                let k1 = RandomOracle::random_oracle_1(&s1);
+
                 match r#type {
                     GateType::INV => todo!(),
                     GateType::XOR => todo!(),

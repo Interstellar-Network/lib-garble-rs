@@ -182,14 +182,14 @@ pub fn prepare_evaluator_inputs(
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use crate::garble_skcd;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
     // input  i_bit2;
     // input  i_carry;
-    pub(crate) const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
+    pub(super) const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
         &[0, 0, 0],
         &[1, 0, 0],
         &[0, 1, 0],
@@ -202,7 +202,7 @@ pub(crate) mod tests {
 
     // output o_sum;
     // output o_carry;
-    pub(crate) const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
+    pub(super) const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
         &[0, 0],
         &[1, 0],
         &[1, 0],

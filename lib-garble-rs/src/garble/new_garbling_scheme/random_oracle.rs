@@ -13,7 +13,7 @@ impl RandomOracle {
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
     // TODO! should this instead a `l_prime` length Block (== 8*KAPPA)???
-    pub(crate) fn random_oracle(&self, label_a: &Block, label_b: &Block, tweak: usize) -> Block {
+    pub(crate) fn random_oracle_0(label_a: &Block, label_b: &Block, tweak: usize) -> Block {
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?
         // TODO! how to properly pass "tweak"?
@@ -50,9 +50,8 @@ mod tests {
         let block_a = Block::new_with([42, 0]);
         let block_b = Block::new_with([43, 44]);
 
-        let random_oracle = RandomOracle::new();
-        let hash1 = random_oracle.random_oracle(&block_a, &block_b, 0);
-        let hash2 = random_oracle.random_oracle(&block_a, &block_b, 1);
+        let hash1 = RandomOracle::random_oracle_0(&block_a, &block_b, 0);
+        let hash2 = RandomOracle::random_oracle_0(&block_a, &block_b, 1);
 
         assert_ne!(hash1, hash2, "returning hashes SHOULD NOT be equal!");
     }
@@ -62,9 +61,8 @@ mod tests {
         let block_a = Block::new_with([42, 0]);
         let block_b = Block::new_with([43, 44]);
 
-        let random_oracle = RandomOracle::new();
-        let hash1 = random_oracle.random_oracle(&block_a, &block_b, 2);
-        let hash2 = random_oracle.random_oracle(&block_a, &block_b, 2);
+        let hash1 = RandomOracle::random_oracle_0(&block_a, &block_b, 2);
+        let hash2 = RandomOracle::random_oracle_0(&block_a, &block_b, 2);
 
         assert_eq!(hash1, hash2, "returning hashes SHOULD be equal!");
     }

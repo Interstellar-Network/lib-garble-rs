@@ -101,18 +101,13 @@ struct CompressedSet {
 /// - gate: "The random oracle RO employed throughout the gate-by-gate
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
-fn f1_0_compress(
-    wire_a: &K_label,
-    wire_b: &K_label,
-    gate: &Gate,
-    random_oracle: &mut RandomOracle,
-) -> CompressedSet {
+fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedSet {
     let tweak = gate.output.id;
     CompressedSet {
-        x00: random_oracle.random_oracle(&wire_a.value0, &wire_b.value0, tweak),
-        x01: random_oracle.random_oracle(&wire_a.value0, &wire_b.value1, tweak),
-        x10: random_oracle.random_oracle(&wire_a.value1, &wire_b.value0, tweak),
-        x11: random_oracle.random_oracle(&wire_a.value1, &wire_b.value1, tweak),
+        x00: RandomOracle::random_oracle_0(&wire_a.value0, &wire_b.value0, tweak),
+        x01: RandomOracle::random_oracle_0(&wire_a.value0, &wire_b.value1, tweak),
+        x10: RandomOracle::random_oracle_0(&wire_a.value1, &wire_b.value0, tweak),
+        x11: RandomOracle::random_oracle_0(&wire_a.value1, &wire_b.value1, tweak),
     }
 }
 
@@ -177,7 +172,7 @@ pub(crate) fn garble(circuit: Circuit) {
                 let wire_a = &e[input_a.as_ref().unwrap().id];
                 let wire_b = &e[input_b.as_ref().unwrap().id];
 
-                let f10_res = f1_0_compress(wire_a, wire_b, gate, &mut random_oracle);
+                let f10_res = f1_0_compress(wire_a, wire_b, gate);
                 let f11_res = f1_1_collapse(f10_res);
 
                 match r#type {

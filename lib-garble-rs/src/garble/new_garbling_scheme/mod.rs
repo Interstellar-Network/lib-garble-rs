@@ -123,7 +123,7 @@ fn f1_0_compress(
 fn f1_1_collapse(compressed_set: CompressedSet) -> DeltaTable {
     let delta = DeltaTable::new_default();
 
-    todo!()
+    delta
 }
 
 /// "Algorithm 3 Init(C, ℓ)"

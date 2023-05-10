@@ -94,6 +94,24 @@ impl DeltaTable {
         self.rows[0].delta = true;
         self.rows[15].delta = true;
     }
+
+    /// In the papers:
+    /// A ◦ B = projection of A[i] for positions with B[i] = 1
+    /// also noted & as in: S0 = X00 & ∇
+    ///
+    /// Return:
+    /// other_vec[i] for all positions of "self" where self[i] = 1
+    /// == other_vec & self
+    /// == other_vec ◦ self
+    fn project_x00_delta(&self) -> Vec<WireInternal> {
+        self.rows
+            .iter()
+            .map(|delta_row: &DeltaRow| delta_row.x00)
+            .into_iter()
+            .zip(self.rows.iter().map(|delta_row| delta_row.get_delta()))
+            .map(|(x00, delta)| if delta { x00.clone() } else { false })
+            .collect()
+    }
 }
 
 /// Represent the truth table for a 2 inputs boolean gate
@@ -104,6 +122,7 @@ struct TruthTable {
 
 impl TruthTable {
     pub(self) fn new_from_gate(gate_type: &GateType) -> Self {
+        // TODO or instead of handling 1-input and constant gates here -> rewrite all of these in skcd_parser.rs?
         match gate_type {
             GateType::ZERO => todo!(),
             GateType::NOR => TruthTable {
@@ -112,6 +131,7 @@ impl TruthTable {
             GateType::AANB => todo!(),
             GateType::INVB => todo!(),
             GateType::NAAB => todo!(),
+            // TODO? NOR(A, A) inverts the input A.
             GateType::INV => todo!(),
             GateType::XOR => TruthTable {
                 truth_table: [false, true, true, false],
@@ -123,6 +143,7 @@ impl TruthTable {
                 truth_table: [false, false, false, true],
             },
             GateType::XNOR => todo!(),
+            // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
             GateType::BUF => todo!(),
             GateType::AONB => todo!(),
             GateType::BUFB => todo!(),
@@ -130,6 +151,7 @@ impl TruthTable {
             GateType::OR => TruthTable {
                 truth_table: [false, true, true, true],
             },
+            // TODO? NAND(A, 0) always outputs 1 since NAND outputs 0 only when both inputs are 1.
             GateType::ONE => todo!(),
         }
     }
@@ -195,5 +217,44 @@ mod tests {
         assert_eq!(delta_table.rows[6].get_delta(), true);
         assert_eq!(delta_table.rows[9].get_delta(), true);
         assert_eq!(delta_table.rows[15].get_delta(), true);
+    }
+
+    #[test]
+    fn test_project_x00_delta_all_1() {
+        let mut delta_table = DeltaTable::new_default();
+        for delta_row in delta_table.rows.iter_mut() {
+            delta_row.x00 = true;
+            delta_row.delta = true;
+        }
+
+        let res = delta_table.project_x00_delta();
+
+        assert!(res.iter().all(|&e| e));
+    }
+
+    #[test]
+    fn test_project_x00_delta_10() {
+        let mut delta_table = DeltaTable::new_default();
+        for delta_row in delta_table.rows.iter_mut() {
+            delta_row.x00 = true;
+            delta_row.delta = false;
+        }
+
+        let res = delta_table.project_x00_delta();
+
+        assert!(res.iter().all(|&e| !e));
+    }
+
+    #[test]
+    fn test_project_x00_delta_01() {
+        let mut delta_table = DeltaTable::new_default();
+        for delta_row in delta_table.rows.iter_mut() {
+            delta_row.x00 = false;
+            delta_row.delta = true;
+        }
+
+        let res = delta_table.project_x00_delta();
+
+        assert!(res.iter().all(|&e| !e));
     }
 }

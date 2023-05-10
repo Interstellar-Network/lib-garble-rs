@@ -80,7 +80,7 @@ impl DeltaTable {
     }
 
     /// "(iv) Set ∇ = 1 in the rows indexed by the vectors from Step (ii), as well as the first and last rows."
-    fn step4_set_for_gate(&mut self, gate: &Gate) {
+    pub(super) fn step4_set_for_gate(&mut self, gate: &Gate) {
         let truth_table = TruthTable::new_from_gate(gate.internal.get_type());
 
         // "Set ∇ = 1 in the rows indexed by the vectors from Step (ii)"

@@ -115,8 +115,10 @@ fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedS
 /// "Collapse.
 /// These four outputs of the random oracle are given to f1,1 to produce
 /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
-fn f1_1_collapse(compressed_set: CompressedSet) -> DeltaTable {
-    let delta = DeltaTable::new_default();
+fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> DeltaTable {
+    let mut delta = DeltaTable::new_default();
+
+    delta.step4_set_for_gate(gate);
 
     delta
 }
@@ -173,7 +175,7 @@ pub(crate) fn garble(circuit: Circuit) {
                 let wire_b = &e[input_b.as_ref().unwrap().id];
 
                 let f10_res = f1_0_compress(wire_a, wire_b, gate);
-                let f11_res = f1_1_collapse(f10_res);
+                let f11_res = f1_1_collapse(f10_res, gate);
 
                 let s0 = f11_res.project_x00_delta();
                 let s1: Vec<WireInternal> = todo!();

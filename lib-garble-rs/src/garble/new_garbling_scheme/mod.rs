@@ -43,7 +43,7 @@ mod constant;
 mod delta;
 mod random_oracle;
 
-use block::Block;
+use block::BlockL;
 use delta::DeltaTable;
 use random_oracle::RandomOracle;
 
@@ -56,8 +56,8 @@ pub(crate) struct Wire {
 
 /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
 struct K_label {
-    value0: Block,
-    value1: Block,
+    value0: BlockL,
+    value1: BlockL,
 }
 
 /// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
@@ -73,10 +73,10 @@ struct K_label {
 // }
 
 struct CompressedSet {
-    x00: Block,
-    x01: Block,
-    x10: Block,
-    x11: Block,
+    x00: BlockL,
+    x01: BlockL,
+    x10: BlockL,
+    x11: BlockL,
 }
 
 /// How to implement the "compress" function ("f1,0" in the papers)?
@@ -174,11 +174,11 @@ pub(crate) fn garble(circuit: Circuit) {
                 let wire_a = &e[input_a.as_ref().unwrap().id];
                 let wire_b = &e[input_b.as_ref().unwrap().id];
 
-                let f10_res = f1_0_compress(wire_a, wire_b, gate);
-                let f11_res = f1_1_collapse(f10_res, gate);
+                let compressed_set = f1_0_compress(wire_a, wire_b, gate);
+                let f11_res = f1_1_collapse(compressed_set, gate);
 
                 let s0 = f11_res.project_x00_delta();
-                let s1: Vec<WireInternal> = todo!();
+                let s1: Vec<WireInternal> = todo!() /*compressed_set.x01*/;
 
                 let k0 = RandomOracle::random_oracle_1(&s0);
                 let k1 = RandomOracle::random_oracle_1(&s1);

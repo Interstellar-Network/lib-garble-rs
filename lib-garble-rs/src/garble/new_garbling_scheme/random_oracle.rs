@@ -3,8 +3,8 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
-use crate::garble::new_garbling_scheme::constant::KAPPA;
-use crate::garble::new_garbling_scheme::Block;
+use super::block::{BlockL, BlockP, KAPPA_BYTES};
+use super::constant::{KAPPA, KAPPA_FACTOR};
 
 use super::WireInternal;
 
@@ -17,7 +17,7 @@ impl RandomOracle {
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
     // TODO! should this instead a `l_prime` length Block (== 8*KAPPA)???
-    pub(super) fn random_oracle_0(label_a: &Block, label_b: &Block, tweak: usize) -> Block {
+    pub(super) fn random_oracle_0(label_a: &BlockL, label_b: &BlockL, tweak: usize) -> BlockL {
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?
         // TODO! how to properly pass "tweak"?
@@ -28,14 +28,14 @@ impl RandomOracle {
         hasher.update(label_b.as_bytes());
         let hash2 = hasher.finalize();
         // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let hash2_bytes: [u8; 16] = hash2.as_bytes()[0..16].try_into().unwrap();
+        let hash2_bytes: [u8; KAPPA_BYTES] = hash2.as_bytes()[0..KAPPA_BYTES].try_into().unwrap();
 
-        Block::new_with2(hash2_bytes)
+        BlockL::new_with2(hash2_bytes)
     }
 
-    pub(super) fn new_random_block(&mut self) -> Block {
+    pub(super) fn new_random_block(&mut self) -> BlockL {
         let arr1: [u64; 2] = self.rng.gen();
-        Block::new_with(arr1)
+        BlockL::new_with(arr1)
     }
 
     pub(super) fn new() -> Self {
@@ -53,7 +53,7 @@ impl RandomOracle {
     /// Used to generate:
     /// KC0 = RO1(S0)
     /// KC1 = RO1(S1)
-    pub(super) fn random_oracle_1(sblock: &[WireInternal]) -> Block {
+    pub(super) fn random_oracle_1(sblock: &[WireInternal]) -> BlockP {
         // convert the &[bool] -> &[u8]
         let mut bv = bitvec![u8, Msb0;];
         for bit in sblock.into_iter() {
@@ -64,11 +64,12 @@ impl RandomOracle {
         // or maybe some MAC? cf `keyed_hash`?
         let mut hasher = blake3::Hasher::new();
         hasher.update(bv.as_raw_slice());
-        let hash2 = hasher.finalize();
-        // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let hash2_bytes: [u8; 16] = hash2.as_bytes()[0..16].try_into().unwrap();
+        let mut hash2 = hasher.finalize_xof();
+        // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
+        let mut hash2_bytes = [0u8; KAPPA_BYTES * KAPPA_FACTOR];
+        hash2.fill(&mut hash2_bytes);
 
-        Block::new_with2(hash2_bytes)
+        BlockP::new_with2(hash2_bytes)
     }
 }
 
@@ -78,8 +79,8 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_same_blocks_different_tweaks_should_return_different_hashes() {
-        let block_a = Block::new_with([42, 0]);
-        let block_b = Block::new_with([43, 44]);
+        let block_a = BlockL::new_with([42, 0]);
+        let block_b = BlockL::new_with([43, 44]);
 
         let hash1 = RandomOracle::random_oracle_0(&block_a, &block_b, 0);
         let hash2 = RandomOracle::random_oracle_0(&block_a, &block_b, 1);
@@ -89,8 +90,8 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_same_blocks_same_tweaks_should_return_same_hashes() {
-        let block_a = Block::new_with([42, 0]);
-        let block_b = Block::new_with([43, 44]);
+        let block_a = BlockL::new_with([42, 0]);
+        let block_b = BlockL::new_with([43, 44]);
 
         let hash1 = RandomOracle::random_oracle_0(&block_a, &block_b, 2);
         let hash2 = RandomOracle::random_oracle_0(&block_a, &block_b, 2);
@@ -100,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes() {
-        let block_a = Block::new_with([42, 0]);
-        let block_b = Block::new_with([43, 44]);
+        let block_a = BlockL::new_with([42, 0]);
+        let block_b = BlockL::new_with([43, 44]);
 
         let hash1 = RandomOracle::random_oracle_0(&block_a, &block_b, 2);
         let hash2 = RandomOracle::random_oracle_0(&block_b, &block_a, 2);

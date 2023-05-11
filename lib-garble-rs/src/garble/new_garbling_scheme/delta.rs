@@ -1,4 +1,3 @@
-use super::Block;
 use crate::garble::new_garbling_scheme::{Gate, GateInternal, GateType, WireInternal};
 
 /// Represent a ROW in the "delta table"

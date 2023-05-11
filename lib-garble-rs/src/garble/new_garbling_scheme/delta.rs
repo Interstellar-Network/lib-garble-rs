@@ -1,52 +1,74 @@
 use crate::garble::new_garbling_scheme::{Gate, GateInternal, GateType, WireInternal};
 
-/// Represent a ROW in the "delta table"
-/// X00 X01 X10 X11 ∇ S00 S01 S10 S11
-// TODO this is probably dup with Wire and/or Block
-#[derive(Debug, PartialEq)]
-struct DeltaRow {
-    x00: WireInternal,
-    x01: WireInternal,
-    x10: WireInternal,
-    x11: WireInternal,
-    delta: WireInternal,
-    s00: WireInternal,
-    s01: WireInternal,
-    s10: WireInternal,
-    s11: WireInternal,
-}
+mod delta_row {
+    use crate::garble::new_garbling_scheme::WireInternal;
 
-impl DeltaRow {
-    pub(self) fn new(
+    /// Represent a ROW in the "delta table"
+    /// X00 X01 X10 X11 ∇ S00 S01 S10 S11
+    // TODO this is probably dup with Wire and/or Block
+    #[derive(Debug, PartialEq, Default)]
+    pub(super) struct DeltaRow {
         x00: WireInternal,
         x01: WireInternal,
         x10: WireInternal,
         x11: WireInternal,
-    ) -> Self {
-        Self {
-            x00,
-            x01,
-            x10,
-            x11,
-            delta: false,
-            s00: false,
-            s01: false,
-            s10: false,
-            s11: false,
+        delta: WireInternal,
+        s00: WireInternal,
+        s01: WireInternal,
+        s10: WireInternal,
+        s11: WireInternal,
+    }
+
+    impl DeltaRow {
+        pub(super) fn new(
+            x00: WireInternal,
+            x01: WireInternal,
+            x10: WireInternal,
+            x11: WireInternal,
+        ) -> Self {
+            Self {
+                x00,
+                x01,
+                x10,
+                x11,
+                ..Default::default()
+            }
         }
-    }
 
-    pub(self) fn get_Xab(&self) -> [WireInternal; 4] {
-        [self.x00, self.x01, self.x10, self.x11]
-    }
+        pub(super) fn get_Xab(&self) -> [WireInternal; 4] {
+            [self.x00, self.x01, self.x10, self.x11]
+        }
 
-    pub(self) fn get_delta(&self) -> WireInternal {
-        self.delta
+        pub(super) fn get_delta(&self) -> WireInternal {
+            self.delta
+        }
+
+        pub(super) fn get_x00(&self) -> WireInternal {
+            self.x00
+        }
+
+        /// Both:
+        /// - set delta = true for the current DeltaRow
+        /// - AND "project" (x00,x01,x10,x11) -> (s00,s01,s10,s11)
+        ///   ie copy (x00,...) to (s00,...)
+        pub(super) fn set_delta_true(&mut self) {
+            self.delta = true;
+            self.s00 = self.x00;
+            self.s01 = self.x01;
+            self.s10 = self.x10;
+            self.s11 = self.x11;
+        }
+
+        #[cfg(test)]
+        pub(super) fn set_x00_delta(&mut self, x00: WireInternal, delta: WireInternal) {
+            self.x00 = x00;
+            self.delta = delta;
+        }
     }
 }
 
 pub(super) struct DeltaTable {
-    pub(self) rows: [DeltaRow; 16],
+    rows: [delta_row::DeltaRow; 16],
 }
 
 impl DeltaTable {
@@ -67,7 +89,12 @@ impl DeltaTable {
                 for x10 in 0..2 {
                     for x11 in 0..2 {
                         // "!= 0" is just to convert integer -> bool
-                        delta_rows.push(DeltaRow::new(x00 != 0, x01 != 0, x10 != 0, x11 != 0));
+                        delta_rows.push(delta_row::DeltaRow::new(
+                            x00 != 0,
+                            x01 != 0,
+                            x10 != 0,
+                            x11 != 0,
+                        ));
                     }
                 }
             }
@@ -87,12 +114,12 @@ impl DeltaTable {
             if row.get_Xab() == truth_table.truth_table
                 || row.get_Xab() == truth_table.get_complement()
             {
-                row.delta = true;
+                row.set_delta_true();
             }
         }
         // "as well as the first and last rows."
-        self.rows[0].delta = true;
-        self.rows[15].delta = true;
+        self.rows[0].set_delta_true();
+        self.rows[15].set_delta_true();
     }
 
     /// In the papers:
@@ -106,7 +133,7 @@ impl DeltaTable {
     pub(super) fn project_x00_delta(&self) -> Vec<WireInternal> {
         self.rows
             .iter()
-            .map(|delta_row: &DeltaRow| delta_row.x00)
+            .map(|delta_row: &delta_row::DeltaRow| delta_row.get_x00())
             .into_iter()
             .zip(self.rows.iter().map(|delta_row| delta_row.get_delta()))
             .map(|(x00, delta)| if delta { x00.clone() } else { false })
@@ -223,8 +250,7 @@ mod tests {
     fn test_project_x00_delta_all_1() {
         let mut delta_table = DeltaTable::new_default();
         for delta_row in delta_table.rows.iter_mut() {
-            delta_row.x00 = true;
-            delta_row.delta = true;
+            delta_row.set_x00_delta(true, true);
         }
 
         let res = delta_table.project_x00_delta();
@@ -236,8 +262,7 @@ mod tests {
     fn test_project_x00_delta_10() {
         let mut delta_table = DeltaTable::new_default();
         for delta_row in delta_table.rows.iter_mut() {
-            delta_row.x00 = true;
-            delta_row.delta = false;
+            delta_row.set_x00_delta(true, false);
         }
 
         let res = delta_table.project_x00_delta();
@@ -249,8 +274,7 @@ mod tests {
     fn test_project_x00_delta_01() {
         let mut delta_table = DeltaTable::new_default();
         for delta_row in delta_table.rows.iter_mut() {
-            delta_row.x00 = false;
-            delta_row.delta = true;
+            delta_row.set_x00_delta(false, true);
         }
 
         let res = delta_table.project_x00_delta();

@@ -177,20 +177,22 @@ pub(crate) fn garble(circuit: Circuit) {
                 let compressed_set = f1_0_compress(wire_a, wire_b, gate);
                 let f11_res = f1_1_collapse(compressed_set, gate);
 
+                // TODO is this ALWAYS project_x00_delta or should it depend on gate type?
+                // TODO how to generalize s1 formula for any gate type?
                 let s0 = f11_res.project_x00_delta();
-                let s1: Vec<WireInternal> = todo!() /*compressed_set.x01*/;
+                let s1 = f11_res.compute_s1();
 
                 let k0 = RandomOracle::random_oracle_1(&s0);
                 let k1 = RandomOracle::random_oracle_1(&s1);
 
                 match r#type {
-                    GateType::INV => todo!(),
+                    // GateType::INV => todo!(),
                     GateType::XOR => todo!(),
-                    GateType::NAND => todo!(),
+                    // GateType::NAND => todo!(),
                     GateType::AND => todo!(),
                     // ite = If-Then-Else
                     // we define BUF as "if input == 1 then input; else 0"
-                    GateType::BUF => todo!(),
+                    // GateType::BUF => todo!(),
                     _ => todo!("unsupported gate type! [{:?}]", gate),
                 }
             }

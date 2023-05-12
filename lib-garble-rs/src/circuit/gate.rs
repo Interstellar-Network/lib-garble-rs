@@ -18,31 +18,116 @@ pub(crate) struct WireRef {
 ///
 /// IMPORTANT: "ONE" and "ZERO" are special cases: they are mapped to GateInternal::Constant
 /// The rest is parsed as-is into a GateInternal::Standard
+/*
+
+Can you rewrite all logic gates (eg NAND, NOR, OR, etc) using only XOR and AND (and constant 0 and 1) ?
+Answer
+
+It is possible to rewrite all logic gates using only XOR and AND gates, along with constant 0 and 1. Although NAND and NOR gates are commonly referred to as universal gates because any digital circuit can be implemented using just one of these two gates geeksforgeeks.org, we can still derive other gates using XOR and AND gates. Let's take a look at the possible implementations:
+
+    NOT Gate
+
+    A NOT gate can be implemented using XOR gate and a constant 1:
+
+    NOT A = A XOR 1
+
+The truth table for this implementation is:
+
+A | NOT A
+---------
+0 |   1
+1 |   0
+
+OR Gate
+
+An OR gate can be derived using XOR and AND gates (electronics.stackexchange.com):
+
+A OR B = A XOR B XOR (A AND B)
+
+The truth table for this implementation is:
+
+A | B | A OR B
+---------------
+0 | 0 |   0
+0 | 1 |   1
+1 | 0 |   1
+1 | 1 |   1
+
+NAND Gate
+
+A NAND gate can be implemented using XOR, AND gates, and a constant 1:
+
+A NAND B = (A AND B) XOR 1
+
+The truth table for this implementation is:
+
+A | B | A NAND B
+----------------
+0 | 0 |   1
+0 | 1 |   1
+1 | 0 |   1
+1 | 1 |   0
+
+NOR Gate
+
+A NOR gate can be implemented using XOR, AND gates, and a constant 1:
+
+A NOR B = (A XOR B) AND (A XOR 1) AND (B XOR 1)
+
+The truth table for this implementation is:
+
+A | B | A NOR B
+---------------
+0 | 0 |   1
+0 | 1 |   0
+1 | 0 |   0
+1 | 1 |   0
+
+XNOR Gate
+
+An XNOR gate can be implemented using XOR and AND gates:
+
+A XNOR B = (A XOR B) XOR (A AND B)
+
+The truth table for this implementation is:
+
+A | B | A XNOR B
+----------------
+0 | 0 |   1
+0 | 1 |   0
+1 | 0 |   0
+1 | 1 |   1
+
+In summary, while NAND and NOR gates are commonly used as universal gates, it is possible to derive all logic gates using only XOR and AND gates, along with constant 0 and 1.
+
+
+TODO constant 0 and 1
+ */
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, Clone)]
 #[repr(i32)]
 pub(crate) enum GateType {
     ZERO = 0,
-    NOR = 1,
+    // NOR = 1,
     /// A-and-not-B
-    AANB = 2,
+    // AANB = 2,
     /// NOT B
-    INVB = 3,
+    // INVB = 3,
     /// not-A-and-B?
-    NAAB = 4,
+    // NAAB = 4,
     /// NOT A
     INV = 5,
     XOR = 6,
-    NAND = 7,
+    // NAND = 7,
     AND = 8,
-    XNOR = 9,
-    BUF = 10,
+    // XNOR = 9,
+    // BUF = 10,
     /// A-or-NOT-B?
-    AONB = 11,
-    BUFB = 12,
+    // AONB = 11,
+    // BUFB = 12,
     /// NOT-A-or-B?
-    NAOB = 13,
-    OR = 14,
+    // NAOB = 13,
+    // OR = 14,
     ONE = 15,
 }
 

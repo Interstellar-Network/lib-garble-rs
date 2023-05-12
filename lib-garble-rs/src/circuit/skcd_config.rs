@@ -1,6 +1,6 @@
+use hashbrown::HashMap;
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::circuit::WireRef;
 

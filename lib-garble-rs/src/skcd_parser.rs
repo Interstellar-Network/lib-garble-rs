@@ -3,9 +3,9 @@ use crate::circuit::{
     GateType, InterstellarCircuit, SkcdConfig, SkcdToWireRefConverter,
 };
 use crate::circuit::{Gate, GateInternal, WireRef};
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use core::convert::TryFrom;
+use core::convert::TryInto;
+use hashbrown::HashMap;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
@@ -167,26 +167,27 @@ impl InterstellarCircuit {
                 },
             );
 
-            let new_gate_internal = match skcd_gate.r#type.try_into() {
-                Ok(GateType::ZERO) => GateInternal::Constant { value: false },
-                Ok(GateType::ONE) => GateInternal::Constant { value: true },
-                Ok(GateType::INV) => GateInternal::Standard {
-                    r#type: GateType::INV,
-                    input_a: Some(x_ref?.clone()),
-                    input_b: None,
-                },
-                Ok(GateType::BUF) => GateInternal::Standard {
-                    r#type: GateType::BUF,
-                    input_a: Some(x_ref?.clone()),
-                    input_b: None,
-                },
-                Ok(skcd_gate_type) => GateInternal::Standard {
-                    r#type: skcd_gate_type,
-                    input_a: Some(x_ref?.clone()),
-                    input_b: Some(y_ref?.clone()),
-                },
-                _ => todo!(),
-            };
+            let new_gate_internal =
+                match interstellarpbskcd::SkcdGateType::from_i32(skcd_gate.r#type) {
+                    Some(interstellarpbskcd::SkcdGateType::Zero) => {
+                        GateInternal::Constant { value: false }
+                    }
+                    Some(interstellarpbskcd::SkcdGateType::One) => {
+                        GateInternal::Constant { value: true }
+                    }
+                    Some(interstellarpbskcd::SkcdGateType::Inv) => GateInternal::Standard {
+                        r#type: GateType::INV,
+                        input_a: Some(x_ref?.clone()),
+                        input_b: None,
+                    },
+                    Some(interstellarpbskcd::SkcdGateType::Buf) => todo!(),
+                    Some(skcd_gate_type) => GateInternal::Standard {
+                        r#type: (skcd_gate_type as i32).try_into().unwrap(),
+                        input_a: Some(x_ref?.clone()),
+                        input_b: Some(y_ref?.clone()),
+                    },
+                    _ => todo!(),
+                };
 
             skcd_to_wire_ref_converter.insert(&skcd_gate.o);
             gates.push(Gate {

@@ -1,7 +1,7 @@
 mod gate;
 mod skcd_config;
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub(crate) use gate::{Gate, GateInternal, GateType, WireRef};
 pub(crate) use skcd_config::{
@@ -131,21 +131,21 @@ impl InterstellarCircuit {
                             .expect("GateType::XOR missing input b!")
                             .clone(),
                     ),
-                    GateType::NAND => {
-                        // NAND is a AND, whose output is NOTed
-                        let and_output = circuit.and(
-                            bdd_map
-                                .get(&input_a.as_ref().unwrap().id)
-                                .expect("GateType::NAND missing input a!")
-                                .clone(),
-                            bdd_map
-                                .get(&input_b.as_ref().unwrap().id)
-                                .expect("GateType::NAND missing input b!")
-                                .clone(),
-                        );
+                    // GateType::NAND => {
+                    //     // NAND is a AND, whose output is NOTed
+                    //     let and_output = circuit.and(
+                    //         bdd_map
+                    //             .get(&input_a.as_ref().unwrap().id)
+                    //             .expect("GateType::NAND missing input a!")
+                    //             .clone(),
+                    //         bdd_map
+                    //             .get(&input_b.as_ref().unwrap().id)
+                    //             .expect("GateType::NAND missing input b!")
+                    //             .clone(),
+                    //     );
 
-                        circuit.not(and_output)
-                    }
+                    //     circuit.not(and_output)
+                    // }
                     GateType::AND => circuit.and(
                         bdd_map
                             .get(&input_a.as_ref().unwrap().id)
@@ -158,17 +158,17 @@ impl InterstellarCircuit {
                     ),
                     // ite = If-Then-Else
                     // we define BUF as "if input == 1 then input; else 0"
-                    GateType::BUF => circuit.ite(
-                        bdd_map
-                            .get(&input_a.as_ref().unwrap().id)
-                            .expect("GateType::BUF missing input a!")
-                            .clone(),
-                        bdd_map
-                            .get(&input_a.as_ref().unwrap().id)
-                            .expect("GateType::BUF missing input a!")
-                            .clone(),
-                        BDD_ZERO,
-                    ),
+                    // GateType::BUF => circuit.ite(
+                    //     bdd_map
+                    //         .get(&input_a.as_ref().unwrap().id)
+                    //         .expect("GateType::BUF missing input a!")
+                    //         .clone(),
+                    //     bdd_map
+                    //         .get(&input_a.as_ref().unwrap().id)
+                    //         .expect("GateType::BUF missing input a!")
+                    //         .clone(),
+                    //     BDD_ZERO,
+                    // ),
                     _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
                 GateInternal::Constant { value } => circuit.constant(value.clone()),

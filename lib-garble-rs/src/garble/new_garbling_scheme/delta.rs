@@ -1,4 +1,6 @@
 use crate::garble::new_garbling_scheme::{Gate, GateInternal, GateType, WireInternal};
+use hashbrown::HashMap;
+use itertools::Itertools;
 
 mod delta_row {
     use crate::garble::new_garbling_scheme::WireInternal;
@@ -13,6 +15,8 @@ mod delta_row {
         x10: WireInternal,
         x11: WireInternal,
         delta: WireInternal,
+        // NOTE: technically we DO NOT need to store these b/c they only depend
+        // on if delta is set, and x00,...
         s00: WireInternal,
         s01: WireInternal,
         s10: WireInternal,
@@ -47,6 +51,22 @@ mod delta_row {
             self.x00
         }
 
+        pub(super) fn get_s00(&self) -> WireInternal {
+            self.s00
+        }
+
+        pub(super) fn get_s01(&self) -> WireInternal {
+            self.s01
+        }
+
+        pub(super) fn get_s10(&self) -> WireInternal {
+            self.s10
+        }
+
+        pub(super) fn get_s11(&self) -> WireInternal {
+            self.s11
+        }
+
         /// Both:
         /// - set delta = true for the current DeltaRow
         /// - AND "project" (x00,x01,x10,x11) -> (s00,s01,s10,s11)
@@ -67,8 +87,27 @@ mod delta_row {
     }
 }
 
+fn vec_bool_to_u16(bits: &[bool]) -> u16 {
+    assert_eq!(
+        bits.len(),
+        16,
+        "The input Vec<bool> must have exactly 16 elements."
+    );
+    let mut value: u16 = 0;
+    for (index, &bit) in bits.iter().enumerate() {
+        if bit {
+            value |= 1 << index;
+        }
+    }
+    value
+}
+
 pub(super) struct DeltaTable {
+    /// Rows: 16 because we have 4 "bits": s00,s01,s10,s11
     rows: [delta_row::DeltaRow; 16],
+    /// We use this field mostly as a "is_ready" flag
+    /// It SHOULD be set by "step4_set_for_gate" to mark the table as ready for "compute_s1"
+    gate_type: Option<GateType>,
 }
 
 impl DeltaTable {
@@ -102,6 +141,7 @@ impl DeltaTable {
 
         Self {
             rows: delta_rows.try_into().unwrap(),
+            gate_type: None,
         }
     }
 
@@ -120,6 +160,8 @@ impl DeltaTable {
         // "as well as the first and last rows."
         self.rows[0].set_delta_true();
         self.rows[15].set_delta_true();
+
+        self.gate_type = Some(gate.internal.get_type().clone());
     }
 
     /// In the papers:
@@ -139,6 +181,45 @@ impl DeltaTable {
             .map(|(x00, delta)| if delta { x00.clone() } else { false })
             .collect()
     }
+
+    /// Compute "s1"
+    /// IMPORTANT: "step4_set_for_gate" SHOULD have been called before this!
+    pub(super) fn compute_s1(&self) -> Vec<WireInternal> {
+        assert!(
+            self.gate_type.is_some(),
+            "compute_s1 MUST be called AFTER step4_set_for_gate!"
+        );
+
+        // "the right side demonstrates how combining Xij [j]&∇ collapses into only two distinct values"
+        // Let's check!
+        let counts = {
+            let mut s00_col = vec![];
+            let mut s01_col = vec![];
+            let mut s10_col = vec![];
+            let mut s11_col = vec![];
+            for delta_row in self.rows.iter() {
+                s00_col.push(delta_row.get_s00());
+                s01_col.push(delta_row.get_s01());
+                s10_col.push(delta_row.get_s10());
+                s11_col.push(delta_row.get_s11());
+            }
+            let s_cols = vec![s00_col, s01_col, s10_col, s11_col];
+
+            let mut map_counts: HashMap<u16, usize> = HashMap::new();
+            let s_cols_u16: Vec<u16> = s_cols.iter().map(|s_col| vec_bool_to_u16(s_col)).collect();
+            for s_val_u16 in s_cols_u16 {
+                let mut values = map_counts.entry(s_val_u16).or_default();
+                *values += 1;
+            }
+            println!("compute_s1: counts: {:?}", map_counts);
+            // "only two distinct values"
+            assert_eq!(map_counts.len(), 2, "SHOULD only have 2 distinct values!");
+
+            map_counts
+        };
+
+        todo!()
+    }
 }
 
 /// Represent the truth table for a 2 inputs boolean gate
@@ -152,32 +233,32 @@ impl TruthTable {
         // TODO or instead of handling 1-input and constant gates here -> rewrite all of these in skcd_parser.rs?
         match gate_type {
             GateType::ZERO => todo!(),
-            GateType::NOR => TruthTable {
-                truth_table: [true, false, false, false],
-            },
-            GateType::AANB => todo!(),
-            GateType::INVB => todo!(),
-            GateType::NAAB => todo!(),
+            // GateType::NOR => TruthTable {
+            //     truth_table: [true, false, false, false],
+            // },
+            // GateType::AANB => todo!(),
+            // GateType::INVB => todo!(),
+            // GateType::NAAB => todo!(),
             // TODO? NOR(A, A) inverts the input A.
             GateType::INV => todo!(),
             GateType::XOR => TruthTable {
                 truth_table: [false, true, true, false],
             },
-            GateType::NAND => TruthTable {
-                truth_table: [true, true, true, false],
-            },
+            // GateType::NAND => TruthTable {
+            //     truth_table: [true, true, true, false],
+            // },
             GateType::AND => TruthTable {
                 truth_table: [false, false, false, true],
             },
-            GateType::XNOR => todo!(),
-            // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
-            GateType::BUF => todo!(),
-            GateType::AONB => todo!(),
-            GateType::BUFB => todo!(),
-            GateType::NAOB => todo!(),
-            GateType::OR => TruthTable {
-                truth_table: [false, true, true, true],
-            },
+            // GateType::XNOR => todo!(),
+            // // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
+            // GateType::BUF => todo!(),
+            // GateType::AONB => todo!(),
+            // GateType::BUFB => todo!(),
+            // GateType::NAOB => todo!(),
+            // GateType::OR => TruthTable {
+            //     truth_table: [false, true, true, true],
+            // },
             // TODO? NAND(A, 0) always outputs 1 since NAND outputs 0 only when both inputs are 1.
             GateType::ONE => todo!(),
         }
@@ -280,5 +361,25 @@ mod tests {
         let res = delta_table.project_x00_delta();
 
         assert!(res.iter().all(|&e| !e));
+    }
+
+    #[test]
+    fn test_compute_s1() {
+        let mut delta_table = DeltaTable::new_default();
+        let gate = Gate {
+            internal: GateInternal::Standard {
+                r#type: GateType::AND,
+                input_a: None,
+                input_b: None,
+            },
+            output: WireRef { id: 1 },
+        };
+        delta_table.step4_set_for_gate(&gate);
+        delta_table.compute_s1();
+
+        assert_eq!(delta_table.rows[0].get_delta(), true);
+        assert_eq!(delta_table.rows[1].get_delta(), true);
+        assert_eq!(delta_table.rows[14].get_delta(), true);
+        assert_eq!(delta_table.rows[15].get_delta(), true);
     }
 }

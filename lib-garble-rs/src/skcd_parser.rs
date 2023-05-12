@@ -169,18 +169,20 @@ impl InterstellarCircuit {
 
             let new_gate_internal =
                 match interstellarpbskcd::SkcdGateType::from_i32(skcd_gate.r#type) {
-                    Some(interstellarpbskcd::SkcdGateType::Zero) => {
-                        GateInternal::Constant { value: false }
-                    }
-                    Some(interstellarpbskcd::SkcdGateType::One) => {
-                        GateInternal::Constant { value: true }
-                    }
-                    Some(interstellarpbskcd::SkcdGateType::Inv) => GateInternal::Standard {
-                        r#type: GateType::INV,
-                        input_a: Some(x_ref?.clone()),
-                        input_b: None,
+                    // Some(interstellarpbskcd::SkcdGateType::Zero) => {
+                    //     GateInternal::Constant { value: false }
+                    // }
+                    // Some(interstellarpbskcd::SkcdGateType::One) => {
+                    //     GateInternal::Constant { value: true }
+                    // }
+                    Some(interstellarpbskcd::SkcdGateType::Nand) => {
+                        // NAND =
+                        GateInternal::Standard {
+                            r#type: GateType::AND,
+                            input_a: Some(x_ref?.clone()),
+                            input_b: Some(y_ref?.clone()),
+                        }
                     },
-                    Some(interstellarpbskcd::SkcdGateType::Buf) => todo!(),
                     Some(skcd_gate_type) => GateInternal::Standard {
                         r#type: (skcd_gate_type as i32).try_into().unwrap(),
                         input_a: Some(x_ref?.clone()),

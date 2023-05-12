@@ -107,28 +107,28 @@ TODO constant 0 and 1
 #[derive(Debug, TryFromPrimitive, Clone)]
 #[repr(i32)]
 pub(crate) enum GateType {
-    ZERO = 0,
+    // ZERO = 0,
     // NOR = 1,
-    /// A-and-not-B
+    // A-and-not-B
     // AANB = 2,
-    /// NOT B
+    // NOT B
     // INVB = 3,
-    /// not-A-and-B?
+    // not-A-and-B?
     // NAAB = 4,
-    /// NOT A
-    INV = 5,
+    // NOT A
+    // INV = 5,
     XOR = 6,
     // NAND = 7,
     AND = 8,
     // XNOR = 9,
     // BUF = 10,
-    /// A-or-NOT-B?
+    // A-or-NOT-B?
     // AONB = 11,
     // BUFB = 12,
-    /// NOT-A-or-B?
+    // NOT-A-or-B?
     // NAOB = 13,
     // OR = 14,
-    ONE = 15,
+    // ONE = 15,
 }
 
 // TODO use ?
@@ -152,9 +152,9 @@ pub(crate) enum GateInternal {
         input_a: Option<WireRef>,
         input_b: Option<WireRef>,
     },
-    Constant {
-        value: bool,
-    },
+    // Constant {
+    //     value: bool,
+    // },
 }
 
 impl GateInternal {
@@ -165,7 +165,8 @@ impl GateInternal {
                 input_a,
                 input_b,
             } => r#type,
-            GateInternal::Constant { value } => todo!(),
+            // TODO?
+            // GateInternal::Constant { value } => todo!(),
         }
     }
 }

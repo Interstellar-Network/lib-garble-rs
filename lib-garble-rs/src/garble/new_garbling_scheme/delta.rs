@@ -183,6 +183,9 @@ impl DeltaTable {
     }
 
     /// Compute "s1"
+    /// ie project the appropriate X0/X01/.. onto "delta" based on the current gate's truth table
+    /// or "delta table" in the paper
+    ///
     /// IMPORTANT: "step4_set_for_gate" SHOULD have been called before this!
     pub(super) fn compute_s1(&self) -> Vec<WireInternal> {
         assert!(
@@ -218,6 +221,14 @@ impl DeltaTable {
             map_counts
         };
 
+        let gate_type = self.gate_type.as_ref().unwrap();
+        match gate_type {
+            // GateType::ZERO => todo!(),
+            // GateType::INV => todo!(),
+            GateType::XOR => todo!(),
+            GateType::AND => todo!(),
+            // GateType::ONE => todo!(),
+        }
         todo!()
     }
 }
@@ -232,7 +243,7 @@ impl TruthTable {
     pub(self) fn new_from_gate(gate_type: &GateType) -> Self {
         // TODO or instead of handling 1-input and constant gates here -> rewrite all of these in skcd_parser.rs?
         match gate_type {
-            GateType::ZERO => todo!(),
+            // GateType::ZERO => todo!(),
             // GateType::NOR => TruthTable {
             //     truth_table: [true, false, false, false],
             // },
@@ -240,7 +251,7 @@ impl TruthTable {
             // GateType::INVB => todo!(),
             // GateType::NAAB => todo!(),
             // TODO? NOR(A, A) inverts the input A.
-            GateType::INV => todo!(),
+            // GateType::INV => todo!(),
             GateType::XOR => TruthTable {
                 truth_table: [false, true, true, false],
             },
@@ -260,7 +271,7 @@ impl TruthTable {
             //     truth_table: [false, true, true, true],
             // },
             // TODO? NAND(A, 0) always outputs 1 since NAND outputs 0 only when both inputs are 1.
-            GateType::ONE => todo!(),
+            // GateType::ONE => todo!(),
         }
     }
 

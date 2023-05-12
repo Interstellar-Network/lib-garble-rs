@@ -43,7 +43,7 @@ mod constant;
 mod delta;
 mod random_oracle;
 
-use block::BlockL;
+use block::{BlockL, BlockP};
 use delta::DeltaTable;
 use random_oracle::RandomOracle;
 
@@ -73,10 +73,10 @@ struct K_label {
 // }
 
 struct CompressedSet {
-    x00: BlockL,
-    x01: BlockL,
-    x10: BlockL,
-    x11: BlockL,
+    x00: BlockP,
+    x01: BlockP,
+    x10: BlockP,
+    x11: BlockP,
 }
 
 /// How to implement the "compress" function ("f1,0" in the papers)?
@@ -104,10 +104,10 @@ struct CompressedSet {
 fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedSet {
     let tweak = gate.output.id;
     CompressedSet {
-        x00: RandomOracle::random_oracle_0(&wire_a.value0, &wire_b.value0, tweak),
-        x01: RandomOracle::random_oracle_0(&wire_a.value0, &wire_b.value1, tweak),
-        x10: RandomOracle::random_oracle_0(&wire_a.value1, &wire_b.value0, tweak),
-        x11: RandomOracle::random_oracle_0(&wire_a.value1, &wire_b.value1, tweak),
+        x00: RandomOracle::random_oracle_g(&wire_a.value0, &wire_b.value0, tweak),
+        x01: RandomOracle::random_oracle_g(&wire_a.value0, &wire_b.value1, tweak),
+        x10: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value0, tweak),
+        x11: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value1, tweak),
     }
 }
 
@@ -195,8 +195,8 @@ pub(crate) fn garble(circuit: Circuit) {
                     // GateType::BUF => todo!(),
                     _ => todo!("unsupported gate type! [{:?}]", gate),
                 }
-            }
-            GateInternal::Constant { value } => todo!(),
+            } // TODO?
+              // GateInternal::Constant { value } => todo!(),
         };
     }
 }

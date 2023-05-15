@@ -87,13 +87,27 @@ impl CompressedSet {
     /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
     ///
     /// Return the specific BIT for each x00,x01,x10,x11
-    pub(super) fn get_bits_slice(&self, index: usize) -> (bool, bool, bool, bool) {
-        return (
-            self.x00.get_bit(index),
-            self.x01.get_bit(index),
-            self.x10.get_bit(index),
-            self.x11.get_bit(index),
-        );
+    pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
+        CompressedSetBitSlice {
+            x00: self.x00.get_bit(index),
+            x01: self.x01.get_bit(index),
+            x10: self.x10.get_bit(index),
+            x11: self.x11.get_bit(index),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub(super) struct CompressedSetBitSlice {
+    x00: WireInternal,
+    x01: WireInternal,
+    x10: WireInternal,
+    x11: WireInternal,
+}
+
+impl PartialEq<[WireInternal; 4]> for CompressedSetBitSlice {
+    fn eq(&self, other: &[WireInternal; 4]) -> bool {
+        self.x00 == other[0] && self.x01 == other[1] && self.x10 == other[2] && self.x11 == other[3]
     }
 }
 
@@ -133,18 +147,42 @@ fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedS
 /// "Collapse.
 /// These four outputs of the random oracle are given to f1,1 to produce
 /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
-fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> Delta {
-    let mut delta_table = DeltaTable::new_for_gate(gate);
+fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> (BlockP, BlockP, Delta) {
+    let delta_table = DeltaTable::new_for_gate(gate);
 
     // TODO is this ALWAYS project_x00_delta or should it depend on gate type?
     // TODO how to generalize s1 formula for any gate type?
     // let s0 = f11_res.project_x00_delta();
     // let s1 = f11_res.compute_s1();
 
-    Delta::new_from_delta_table(delta_table, &compressed_set)
+    let delta = Delta::new_from_delta_table(&delta_table, &compressed_set, gate);
+
+    // Following are after line 19: of "Algorithm 5 Gate"
+
+    // NOTE: both `CompressedSet`(randomly generated) and `Delta` are `BlockP`
+    // NOTE: `Delta` is technically a `BlockL` padded to a `BlockP`(?)
+    // TODO? but we want a `BlockL`
+    // TODO same issue with `l1`
+    let l0_full = BlockP::new_projection(&compressed_set.x00, delta.get_block());
+
+    let l1_full = match gate.internal.get_type() {
+        GateType::XOR => BlockP::new_projection(&compressed_set.x01, delta.get_block()),
+        GateType::AND => BlockP::new_projection(&compressed_set.x11, delta.get_block()),
+    };
+
+    (l0_full, l1_full, delta)
 }
 
-/// "Algorithm 3 Init(C, ℓ)"
+/// Initialize the `W` which is the set of wires:
+/// TODO? Does two things:
+/// - allocate the full `W` set with the correct number of wires
+/// - set the first wires == the input wires to random
+///
+/// See "Algorithm 4 Circuit" in https://eprint.iacr.org/2021/739.pdf
+/// up to 5:
+///
+/// See also:
+/// "Algorithm 3 Init(C, ℓ)" in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
 ///
 /// 1: extract n from C and initialize e = []
 /// 2:  for input wire W ∈ [n] do
@@ -153,36 +191,40 @@ fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> Delta {
 /// 5:      Set e[W ] = eW = (LW0 , LW1 )
 /// 6:  end for
 /// 7: Return e
-fn init(circuit: &Circuit, random_oracle: &mut RandomOracle) -> Vec<K_label> {
-    let mut e = vec![];
+fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> Vec<K_label> {
+    let mut w = vec![];
     for input_wire in &circuit.wires()[0..circuit.n() as usize] {
-        let lw0 = random_oracle.new_random_block();
-        let lw1 = random_oracle.new_random_block();
+        let lw0 = random_oracle.new_random_blockL();
+        let lw1 = random_oracle.new_random_blockL();
 
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
 
-        e.push(K_label {
+        w.push(K_label {
             value0: lw0,
             value1: lw1,
         });
     }
 
-    assert_eq!(e.len(), circuit.inputs.len(), "wrong e length! [1]");
-    assert_eq!(e.len(), circuit.n() as usize, "wrong e length! [2]");
+    assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
+    assert_eq!(w.len(), circuit.n() as usize, "wrong w length! [2]");
 
-    e
+    // w.extend((0..circuit.q()).iter(). )
+
+    // assert_eq!(w.len(), circuit.n() as usize + circuit.q(), "wrong w length! [3]");
+
+    // w
+
+    w
 }
 
 pub(crate) fn garble(circuit: Circuit) {
-    // "External length parameter"
-    let l = constant::KAPPA;
-    // "Internal length parameter"
-    let l_prime = 8 * l;
-
     let mut random_oracle = RandomOracle::new();
 
-    let e = init(&circuit, &mut random_oracle);
+    let mut w = init_w(&circuit, &mut random_oracle);
+
+    // "6: initialize F = [], D = []"
+    let mut f = Vec::with_capacity(circuit.gates.len());
 
     for gate in &circuit.gates {
         match &gate.internal {
@@ -192,25 +234,34 @@ pub(crate) fn garble(circuit: Circuit) {
                 input_b,
             } => {
                 // TODO how to handle unwrap() based on gate type?
-                let wire_a = &e[input_a.as_ref().unwrap().id];
-                let wire_b = &e[input_b.as_ref().unwrap().id];
+                let wire_a = &w[input_a.as_ref().unwrap().id];
+                let wire_b = &w[input_b.as_ref().unwrap().id];
 
                 let compressed_set = f1_0_compress(wire_a, wire_b, gate);
-                let f11_res = f1_1_collapse(compressed_set, gate);
+                let (l0, l1, delta) = f1_1_collapse(compressed_set, gate);
 
-                // let k0 = RandomOracle::random_oracle_1(&s0);
-                // let k1 = RandomOracle::random_oracle_1(&s1);
+                f.push(delta);
 
-                match r#type {
-                    // GateType::INV => todo!(),
-                    GateType::XOR => todo!(),
-                    // GateType::NAND => todo!(),
-                    GateType::AND => todo!(),
-                    // ite = If-Then-Else
-                    // we define BUF as "if input == 1 then input; else 0"
-                    // GateType::BUF => todo!(),
-                    _ => todo!("unsupported gate type! [{:?}]", gate),
-                }
+                // TODO what index should we use?
+                // w is init with [0,n], and as size [0,n+q]
+                // what about Gate's index? (== output)
+                w.push(K_label { value0: l0.into(), value1: l1.into() });
+
+                // TODO "12: if g is an output gate then"
+
+                // // let k0 = RandomOracle::random_oracle_1(&s0);
+                // // let k1 = RandomOracle::random_oracle_1(&s1);
+
+                // match r#type {
+                //     // GateType::INV => todo!(),
+                //     GateType::XOR => todo!(),
+                //     // GateType::NAND => todo!(),
+                //     GateType::AND => todo!(),
+                //     // ite = If-Then-Else
+                //     // we define BUF as "if input == 1 then input; else 0"
+                //     // GateType::BUF => todo!(),
+                //     _ => todo!("unsupported gate type! [{:?}]", gate),
+                // }
             } // TODO?
               // GateInternal::Constant { value } => todo!(),
         };

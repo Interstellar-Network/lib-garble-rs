@@ -175,16 +175,20 @@ impl InterstellarCircuit {
                     // Some(interstellarpbskcd::SkcdGateType::One) => {
                     //     GateInternal::Constant { value: true }
                     // }
-                    Some(interstellarpbskcd::SkcdGateType::Nand) => {
-                        // NAND =
-                        GateInternal::Standard {
-                            r#type: GateType::AND,
-                            input_a: Some(x_ref?.clone()),
-                            input_b: Some(y_ref?.clone()),
-                        }
-                    },
+                    // Some(interstellarpbskcd::SkcdGateType::Nand) => {
+                    //     // NAND =
+                    //     GateInternal::Standard {
+                    //         r#type: GateType::AND,
+                    //         input_a: Some(x_ref?.clone()),
+                    //         input_b: Some(y_ref?.clone()),
+                    //     }
+                    // }
                     Some(skcd_gate_type) => GateInternal::Standard {
-                        r#type: (skcd_gate_type as i32).try_into().unwrap(),
+                        r#type: (skcd_gate_type as i32).try_into().unwrap_or_else(
+                            |skcd_gate_type_i32| {
+                                panic!("Could not convert SKCD gate: {}", skcd_gate_type_i32)
+                            },
+                        ),
                         input_a: Some(x_ref?.clone()),
                         input_b: Some(y_ref?.clone()),
                     },

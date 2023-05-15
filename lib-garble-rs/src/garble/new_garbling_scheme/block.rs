@@ -2,7 +2,10 @@ use core::mem::size_of;
 
 use bitvec::prelude::*;
 
-use super::constant::{KAPPA, KAPPA_FACTOR};
+use super::{
+    constant::{KAPPA, KAPPA_FACTOR},
+    WireInternal,
+};
 
 // TODO u128? would it be faster?
 type BitsInternal = u64;
@@ -68,12 +71,44 @@ impl BlockP {
         }
     }
 
-    pub(super) fn get_bit(&self, index: usize) -> bool {
+    pub(super) fn new_zero() -> Self {
+        Self::new_with2([0; KAPPA_BYTES * KAPPA_FACTOR])
+    }
+
+    pub(super) fn get_bit(&self, index: usize) -> WireInternal {
         self.bits
             .get(index)
             .expect("get_bit: outside of range?")
             .as_ref()
             .to_owned()
+    }
+
+    /// Set the `index` to `true`
+    pub(super) fn set_bit(&mut self, index: usize) {
+        self.bits.set(index, true);
+    }
+
+    /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
+    pub(crate) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
+        let mut res = Self::new_zero();
+
+        for (idx, bit) in right.bits.iter().enumerate() {
+            if *bit {
+                res.bits.set(idx, left.bits[idx]);
+            }
+        }
+
+        res
+    }
+}
+
+impl From<BlockP> for BlockL {
+    /// Truncate a `BlockP` into a `BlockL`
+    // TODO is this needed? is there a better way to get L0/L1 from Delta and CompressedSet?
+    fn from(block_p: BlockP) -> Self {
+        let mut bits_l_array = MyBitArrayL::ZERO;
+        bits_l_array.copy_from_bitslice(block_p.bits.as_bitslice());
+        Self { bits: bits_l_array }
     }
 }
 

@@ -15,6 +15,12 @@ pub(crate) struct RandomOracle {
 impl RandomOracle {
     /// First Random Oracle = RO0
     /// ROg : {0, 1}nℓ → {0, 1}ℓ′ in https://eprint.iacr.org/2021/739.pdf
+    /// "The random oracle
+    /// RO takes as input the tweak g and two labels with total length 2ℓ, and outputs
+    /// an ℓ′-length string"
+    /// "The random oracle RO employed throughout the gate-by-gate
+    /// garbling process is tweakable: it takes as an additional input the gate index g so
+    /// that it behaves independently for each gate."
     ///
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
@@ -37,7 +43,7 @@ impl RandomOracle {
         BlockP::new_with2(hash2_bytes)
     }
 
-    pub(super) fn new_random_block(&mut self) -> BlockL {
+    pub(super) fn new_random_blockL(&mut self) -> BlockL {
         let arr1: [u64; 2] = self.rng.gen();
         BlockL::new_with(arr1)
     }
@@ -48,33 +54,33 @@ impl RandomOracle {
         }
     }
 
-    /// Second Random Oracle = RO1
-    /// "However, our second optimization shows that that this is unnecessary. Instead
-    /// of sampling new labels KC0 and KC1, we can derive them directly from the values
-    /// S0 and S1, even if the later have fewer than ` bits of entropy (as long as they
-    /// have κ bits of entropy)."
-    ///
-    /// Used to generate:
-    /// KC0 = RO1(S0)
-    /// KC1 = RO1(S1)
-    pub(super) fn random_oracle_1(sblock: &[WireInternal]) -> BlockP {
-        // convert the &[bool] -> &[u8]
-        let mut bv = bitvec![u8, Msb0;];
-        for bit in sblock.into_iter() {
-            bv.push(*bit);
-        }
+    // /// Second Random Oracle = RO1
+    // /// "However, our second optimization shows that that this is unnecessary. Instead
+    // /// of sampling new labels KC0 and KC1, we can derive them directly from the values
+    // /// S0 and S1, even if the later have fewer than ` bits of entropy (as long as they
+    // /// have κ bits of entropy)."
+    // ///
+    // /// Used to generate:
+    // /// KC0 = RO1(S0)
+    // /// KC1 = RO1(S1)
+    // pub(super) fn random_oracle_1(sblock: &[WireInternal]) -> BlockP {
+    //     // convert the &[bool] -> &[u8]
+    //     let mut bv = bitvec![u8, Msb0;];
+    //     for bit in sblock.into_iter() {
+    //         bv.push(*bit);
+    //     }
 
-        // TODO! which hash to use? sha2, sha256?
-        // or maybe some MAC? cf `keyed_hash`?
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(bv.as_raw_slice());
-        let mut hash2 = hasher.finalize_xof();
-        // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
-        let mut hash2_bytes = [0u8; KAPPA_BYTES * KAPPA_FACTOR];
-        hash2.fill(&mut hash2_bytes);
+    //     // TODO! which hash to use? sha2, sha256?
+    //     // or maybe some MAC? cf `keyed_hash`?
+    //     let mut hasher = blake3::Hasher::new();
+    //     hasher.update(bv.as_raw_slice());
+    //     let mut hash2 = hasher.finalize_xof();
+    //     // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
+    //     let mut hash2_bytes = [0u8; KAPPA_BYTES * KAPPA_FACTOR];
+    //     hash2.fill(&mut hash2_bytes);
 
-        BlockP::new_with2(hash2_bytes)
-    }
+    //     BlockP::new_with2(hash2_bytes)
+    // }
 }
 
 #[cfg(test)]
@@ -114,24 +120,24 @@ mod tests {
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
     }
 
-    #[test]
-    fn test_random_oracle_1_same_blocks_should_return_same_hashes() {
-        let block_a = vec![true; 16];
+    // #[test]
+    // fn test_random_oracle_1_same_blocks_should_return_same_hashes() {
+    //     let block_a = vec![true; 16];
 
-        let hash1 = RandomOracle::random_oracle_1(&block_a);
-        let hash2 = RandomOracle::random_oracle_1(&block_a);
+    //     let hash1 = RandomOracle::random_oracle_1(&block_a);
+    //     let hash2 = RandomOracle::random_oracle_1(&block_a);
 
-        assert!(hash1 == hash2, "returning hashes SHOULD be equal!");
-    }
+    //     assert!(hash1 == hash2, "returning hashes SHOULD be equal!");
+    // }
 
-    #[test]
-    fn test_random_oracle_1_different_blocks_should_return_different_hashes() {
-        let block_a = vec![true; 16];
-        let block_b = vec![false; 16];
+    // #[test]
+    // fn test_random_oracle_1_different_blocks_should_return_different_hashes() {
+    //     let block_a = vec![true; 16];
+    //     let block_b = vec![false; 16];
 
-        let hash1 = RandomOracle::random_oracle_1(&block_a);
-        let hash2 = RandomOracle::random_oracle_1(&block_b);
+    //     let hash1 = RandomOracle::random_oracle_1(&block_a);
+    //     let hash2 = RandomOracle::random_oracle_1(&block_b);
 
-        assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
-    }
+    //     assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
+    // }
 }

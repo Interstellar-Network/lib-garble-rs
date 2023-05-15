@@ -6,10 +6,10 @@ use crate::garble::new_garbling_scheme::{
 use hashbrown::HashMap;
 use itertools::Itertools;
 
-use super::{block::BlockP, CompressedSet};
+use super::{block::BlockP, CompressedSet, CompressedSetBitSlice};
 
 mod delta_row {
-    use crate::garble::new_garbling_scheme::WireInternal;
+    use crate::garble::new_garbling_scheme::{CompressedSetBitSlice, WireInternal};
 
     /// Represent a ROW in the "delta table"
     /// X00 X01 X10 X11 ∇ S00 S01 S10 S11
@@ -45,8 +45,13 @@ mod delta_row {
             }
         }
 
-        pub(super) fn get_Xab(&self) -> [WireInternal; 4] {
-            [self.x00, self.x01, self.x10, self.x11]
+        pub(super) fn get_Xab(&self) -> CompressedSetBitSlice {
+            CompressedSetBitSlice {
+                x00: self.x00,
+                x01: self.x01,
+                x10: self.x10,
+                x11: self.x11,
+            }
         }
 
         pub(super) fn get_delta(&self) -> WireInternal {
@@ -119,8 +124,9 @@ impl Delta {
     /// In https://eprint.iacr.org/2021/739.pdf
     /// this is the main loop of "Algorithm 5 Gate" up to line 17/18
     pub(super) fn new_from_delta_table(
-        delta_table: DeltaTable,
+        delta_table: &DeltaTable,
         compressed_set: &CompressedSet,
+        gate: &Gate,
     ) -> Self {
         assert!(
             delta_table.is_ready(),
@@ -128,13 +134,30 @@ impl Delta {
         );
 
         // "5: initialize ∇g ← 0ℓ′ and let j = 1"
-        let block = BlockP::new_with2([0; KAPPA_BYTES * KAPPA_FACTOR]);
+        // BUT!
+        // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
+        // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′) that
+        // encodes the gate functionality."
+        let mut delta_g_block = BlockP::new_zero();
 
+        let delta_slices = delta_table.get_delta_slices();
+
+        // TODO for performance; this should be rewrittten/vectorized?
         for j in 0..KAPPA * KAPPA_FACTOR {
             let slice = compressed_set.get_bits_slice(j);
+
+            if delta_slices.contains(&slice) {
+                delta_g_block.set_bit(j);
+            }
         }
 
-        Self { block: todo!() }
+        Self {
+            block: delta_g_block,
+        }
+    }
+
+    pub(super) fn get_block(&self) -> &BlockP {
+        &self.block
     }
 }
 
@@ -219,10 +242,16 @@ impl DeltaTable {
     /// Return the (x00,x01,x10,x11) values for which delta == 1
     /// eg for AND it will return {0000, 0001, 1110, 1111}
     /// and for XOR {0000, 1001, 0110, 1111}
+    /// For a standard gate, it SHOULD return 4 elements.
+    /// For non-binary one(if applicable) it should return only 2(the first and last row)?
     ///
     /// This is a helper for "Algorithm 5 Gate" line 8: and 10:
-    fn get_delta_slices(&self) {
-        self.rows.iter().filter(|row| row.get_delta())
+    fn get_delta_slices(&self) -> Vec<CompressedSetBitSlice> {
+        self.rows
+            .iter()
+            .filter(|row| row.get_delta())
+            .map(|delta_row| delta_row.get_Xab())
+            .collect()
     }
 
     // In the papers:
@@ -297,7 +326,7 @@ impl DeltaTable {
 /// Represent the truth table for a 2 inputs boolean gate
 /// ordered classically as: 00, 01, 10, 11
 struct TruthTable {
-    truth_table: [bool; 4],
+    truth_table: [WireInternal; 4],
 }
 
 impl TruthTable {
@@ -351,8 +380,16 @@ mod tests {
     use crate::garble::new_garbling_scheme::*;
     use crate::garble::InterstellarCircuit;
 
+    /// Not really a useful test
+    /// It only checks the "truth table" of the Xab cols is generated in order:
+    /// 0 0 0 0
+    /// 0 0 0 1
+    /// 0 0 1 0
+    /// 0 0 1 1
+    /// ...
+    /// 1 1 1 1
     #[test]
-    fn test_delta_Xab() {
+    fn test_delta_table_Xab() {
         // NOTE: for this we only care about the first 4 cols; so the GateType does not matter
         let gate = Gate {
             internal: GateInternal::Standard {
@@ -371,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delta_AND() {
+    fn test_delta_table_AND() {
         let gate = Gate {
             internal: GateInternal::Standard {
                 r#type: GateType::AND,
@@ -380,16 +417,25 @@ mod tests {
             },
             output: WireRef { id: 1 },
         };
-        let mut delta_table = DeltaTable::new_for_gate(&gate);
+        let delta_table = DeltaTable::new_for_gate(&gate);
 
         assert_eq!(delta_table.rows[0].get_delta(), true);
         assert_eq!(delta_table.rows[1].get_delta(), true);
         assert_eq!(delta_table.rows[14].get_delta(), true);
         assert_eq!(delta_table.rows[15].get_delta(), true);
+        assert_eq!(
+            delta_table
+                .rows
+                .iter()
+                .filter(|delta_row| !delta_row.get_delta())
+                .count(),
+            12,
+            "delta table: `false` rows count does not match!"
+        );
     }
 
     #[test]
-    fn test_delta_XOR() {
+    fn test_delta_table_XOR() {
         let gate = Gate {
             internal: GateInternal::Standard {
                 r#type: GateType::XOR,
@@ -398,13 +444,24 @@ mod tests {
             },
             output: WireRef { id: 1 },
         };
-        let mut delta_table = DeltaTable::new_for_gate(&gate);
+        let delta_table = DeltaTable::new_for_gate(&gate);
 
         assert_eq!(delta_table.rows[0].get_delta(), true);
         assert_eq!(delta_table.rows[6].get_delta(), true);
         assert_eq!(delta_table.rows[9].get_delta(), true);
         assert_eq!(delta_table.rows[15].get_delta(), true);
+        assert_eq!(
+            delta_table
+                .rows
+                .iter()
+                .filter(|delta_row| !delta_row.get_delta())
+                .count(),
+            12,
+            "delta table: `false` rows count does not match!"
+        );
     }
+
+    // TODO tests for `new_from_delta_table`
 
     // #[test]
     // fn test_project_x00_delta_all_1() {

@@ -47,6 +47,8 @@ use block::{BlockL, BlockP};
 use delta::DeltaTable;
 use random_oracle::RandomOracle;
 
+use self::delta::Delta;
+
 type WireInternal = bool;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -77,6 +79,22 @@ struct CompressedSet {
     x01: BlockP,
     x10: BlockP,
     x11: BlockP,
+}
+
+impl CompressedSet {
+    /// In https://eprint.iacr.org/2021/739.pdf this is a helper for
+    /// "Algorithm 5 Gate"
+    /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
+    ///
+    /// Return the specific BIT for each x00,x01,x10,x11
+    pub(super) fn get_bits_slice(&self, index: usize) -> (bool, bool, bool, bool) {
+        return (
+            self.x00.get_bit(index),
+            self.x01.get_bit(index),
+            self.x10.get_bit(index),
+            self.x11.get_bit(index),
+        );
+    }
 }
 
 /// How to implement the "compress" function ("f1,0" in the papers)?
@@ -115,12 +133,15 @@ fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedS
 /// "Collapse.
 /// These four outputs of the random oracle are given to f1,1 to produce
 /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
-fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> DeltaTable {
-    let mut delta = DeltaTable::new_default();
+fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> Delta {
+    let mut delta_table = DeltaTable::new_for_gate(gate);
 
-    delta.step4_set_for_gate(gate);
+    // TODO is this ALWAYS project_x00_delta or should it depend on gate type?
+    // TODO how to generalize s1 formula for any gate type?
+    // let s0 = f11_res.project_x00_delta();
+    // let s1 = f11_res.compute_s1();
 
-    delta
+    Delta::new_from_delta_table(delta_table, &compressed_set)
 }
 
 /// "Algorithm 3 Init(C, ℓ)"
@@ -177,13 +198,8 @@ pub(crate) fn garble(circuit: Circuit) {
                 let compressed_set = f1_0_compress(wire_a, wire_b, gate);
                 let f11_res = f1_1_collapse(compressed_set, gate);
 
-                // TODO is this ALWAYS project_x00_delta or should it depend on gate type?
-                // TODO how to generalize s1 formula for any gate type?
-                let s0 = f11_res.project_x00_delta();
-                let s1 = f11_res.compute_s1();
-
-                let k0 = RandomOracle::random_oracle_1(&s0);
-                let k1 = RandomOracle::random_oracle_1(&s1);
+                // let k0 = RandomOracle::random_oracle_1(&s0);
+                // let k1 = RandomOracle::random_oracle_1(&s1);
 
                 match r#type {
                     // GateType::INV => todo!(),

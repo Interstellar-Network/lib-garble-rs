@@ -67,6 +67,14 @@ impl BlockP {
             bits: MyBitArrayP::from(words),
         }
     }
+
+    pub(super) fn get_bit(&self, index: usize) -> bool {
+        self.bits
+            .get(index)
+            .expect("get_bit: outside of range?")
+            .as_ref()
+            .to_owned()
+    }
 }
 
 // struct Block {

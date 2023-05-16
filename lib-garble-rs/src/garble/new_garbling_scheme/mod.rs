@@ -243,6 +243,36 @@ fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> Vec<K_label> {
     w
 }
 
+/// In https://eprint.iacr.org/2021/739.pdf
+/// "Algorithm 6 DecodingInfo(D, ℓ)"
+fn decoding_info(
+    circuit_outputs: &[WireRef],
+    d_up: HashMap<&WireRef, (BlockL, BlockL)>,
+    random_oracle: &mut RandomOracle,
+) -> Vec<BlockL> {
+    let mut d = vec![];
+
+    // "2: for output wire j ∈ [m] do"
+    for output_wire in circuit_outputs {
+        // "extract Lj0, Lj1 ← D[j]"
+        let (lj0, lj1) = d_up.get(output_wire).expect("missing output in map!");
+
+        let mut dj = random_oracle.new_random_blockL();
+        loop {
+            if !random_oracle.random_oracle_prime(lj0, &dj)
+                && random_oracle.random_oracle_prime(lj1, &dj)
+            {
+                break;
+            }
+            dj = random_oracle.new_random_blockL();
+        }
+
+        d.push(dj);
+    }
+
+    d
+}
+
 pub(crate) fn garble(circuit: Circuit) {
     let mut random_oracle = RandomOracle::new();
 
@@ -250,7 +280,8 @@ pub(crate) fn garble(circuit: Circuit) {
 
     // "6: initialize F = [], D = []"
     let mut f = Vec::with_capacity(circuit.gates.len());
-    let mut d = HashMap::with_capacity(circuit.outputs.len());
+    let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> =
+        HashMap::with_capacity(circuit.outputs.len());
 
     for gate in circuit.gates.iter() {
         match &gate.internal {
@@ -275,7 +306,7 @@ pub(crate) fn garble(circuit: Circuit) {
 
                 // "12: if g is an output gate then"
                 if circuit.outputs.contains(&gate.output) {
-                    d.insert(&gate.output, (l0,l1));
+                    d_up.insert(&gate.output, (l0.into(),l1.into()));
                 }
 
                 // // let k0 = RandomOracle::random_oracle_1(&s0);
@@ -295,6 +326,8 @@ pub(crate) fn garble(circuit: Circuit) {
               // GateInternal::Constant { value } => todo!(),
         };
     }
+
+    todo!("call decoding_info()")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -430,6 +463,21 @@ mod tests {
         .unwrap();
 
         garble(circ.circuit);
+    }
+
+    #[test]
+    fn test_decoding_info() {
+        let circuit_outputs = vec![WireRef { id: 42 }];
+        let mut random_oracle = RandomOracle::new();
+        let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> = HashMap::new();
+        let l0 = random_oracle.new_random_blockL();
+        let l1 = random_oracle.new_random_blockL();
+        d_up.insert(&circuit_outputs[0], (l0.clone(), l1.clone()));
+
+        let d: Vec<BlockL> = decoding_info(&circuit_outputs, d_up, &mut random_oracle);
+        let dj = &d[0];
+        assert_eq!(random_oracle.random_oracle_prime(&l0, dj), false);
+        assert_eq!(random_oracle.random_oracle_prime(&l1, dj), true);
     }
 
     #[cfg(feature = "key_length_search")]

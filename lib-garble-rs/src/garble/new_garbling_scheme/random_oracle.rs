@@ -62,11 +62,28 @@ impl RandomOracle {
     /// property that, given output wire labels (Lj0, Lj1), it holds that RO′(Lj0, dj ) = 0
     /// and RO′(Lj1, dj ) = 1. Note that such a decoding will always yield some out-
     /// put even for arbitrary ℓ-bit strings that are not output labels.
-    /// The subroutineDecodingInfo(D) → d generates this decoding information given the output wirelabels set."
+    /// The subroutine DecodingInfo(D) → d generates this decoding information given the output wirelabels set."
     ///
     /// (2) RO′ : {0, 1}2ℓ → {0, 1}
-    pub(super) fn random_oracle_p(label_a: &BlockL, label_b: &BlockL, tweak: usize) -> WireValue {
-        todo!("random_oracle_p")
+    /// See also: "Algorithm 6 DecodingInfo(D, ℓ)"
+    ///
+    /// param:
+    /// - `L0` or `L1` Block for the current output Gate
+    pub(super) fn random_oracle_prime(&self, l0_l1: &BlockL, dj: &BlockL) -> bool {
+        // TODO(random_oracle) what should we use here???
+        // l0_l1.lsb(dj)
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(l0_l1.as_bytes());
+        hasher.update(dj.as_bytes());
+        // TODO! what do we do with a 256bits hash but a 128bits Block?
+        let mut hash2 = hasher.finalize();
+
+        // Extract the least significant bit from the hash
+        let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
+        // (last_byte & 1) => is a u8
+        // so Convert u8 -> bool
+        (last_byte & 1) == 1
     }
 
     // /// Second Random Oracle = RO1

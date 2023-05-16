@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use bitvec::prelude::*;
+use bitvec::{macros::internal::funty::Fundamental, prelude::*};
 
 use super::{
     constant::{KAPPA, KAPPA_FACTOR},
@@ -11,12 +11,12 @@ use super::{
 type BitsInternal = u64;
 pub(super) const KAPPA_BYTES: usize = KAPPA / size_of::<BitsInternal>();
 
-type MyBitArrayL = BitArr!(for KAPPA, in BitsInternal);
-type MyBitArrayP = BitArr!(for KAPPA * KAPPA_FACTOR, in BitsInternal);
+type MyBitArrayL = BitArr!(for KAPPA, in BitsInternal, Lsb0);
+type MyBitArrayP = BitArr!(for KAPPA * KAPPA_FACTOR, in BitsInternal, Lsb0);
 
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct BlockL {
     bits: MyBitArrayL,
 }

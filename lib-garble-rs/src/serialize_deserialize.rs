@@ -43,12 +43,13 @@ pub fn serialize_for_evaluator(
     garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
 ) -> Result<Vec<u8>, Error> {
-    if garb.num_garbler_inputs() as usize != encoded_garbler_inputs.wires.len() {
-        return Err(Error::SerializeForEvaluatorWrongInputsLength {
-            inputs_len: encoded_garbler_inputs.wires.len(),
-            expected_len: garb.num_garbler_inputs() as usize,
-        });
-    }
+    todo!();
+    // if garb.num_garbler_inputs() as usize != encoded_garbler_inputs.wires.len() {
+    //     return Err(Error::SerializeForEvaluatorWrongInputsLength {
+    //         inputs_len: encoded_garbler_inputs.wires.len(),
+    //         expected_len: garb.num_garbler_inputs() as usize,
+    //     });
+    // }
 
     let eval_garb = EvaluableGarbledCircuit {
         garb,

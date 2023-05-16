@@ -33,6 +33,7 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::Circuit;
@@ -49,11 +50,29 @@ use random_oracle::RandomOracle;
 
 use self::delta::Delta;
 
-type WireInternal = bool;
+/// Represent a Wire's value, so essentially ON/OFF <=> a boolean
+#[repr(transparent)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Default, Clone)]
+pub(super) struct WireValue {
+    value: bool,
+}
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub(crate) struct Wire {
-    val: WireInternal,
+impl PartialEq<bool> for WireValue {
+    fn eq(&self, other: &bool) -> bool {
+        &self.value == other
+    }
+}
+
+impl PartialEq<bool> for &WireValue {
+    fn eq(&self, other: &bool) -> bool {
+        &self.value == other
+    }
+}
+
+impl From<bool> for WireValue {
+    fn from(value: bool) -> Self {
+        Self { value }
+    }
 }
 
 /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
@@ -99,14 +118,20 @@ impl CompressedSet {
 
 #[derive(Debug, PartialEq)]
 pub(super) struct CompressedSetBitSlice {
-    x00: WireInternal,
-    x01: WireInternal,
-    x10: WireInternal,
-    x11: WireInternal,
+    x00: WireValue,
+    x01: WireValue,
+    x10: WireValue,
+    x11: WireValue,
 }
 
-impl PartialEq<[WireInternal; 4]> for CompressedSetBitSlice {
-    fn eq(&self, other: &[WireInternal; 4]) -> bool {
+impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
+    fn eq(&self, other: &[bool; 4]) -> bool {
+        self.x00 == other[0] && self.x01 == other[1] && self.x10 == other[2] && self.x11 == other[3]
+    }
+}
+
+impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
+    fn eq(&self, other: &[WireValue; 4]) -> bool {
         self.x00 == other[0] && self.x01 == other[1] && self.x10 == other[2] && self.x11 == other[3]
     }
 }
@@ -225,8 +250,9 @@ pub(crate) fn garble(circuit: Circuit) {
 
     // "6: initialize F = [], D = []"
     let mut f = Vec::with_capacity(circuit.gates.len());
+    let mut d = HashMap::with_capacity(circuit.outputs.len());
 
-    for gate in &circuit.gates {
+    for gate in circuit.gates.iter() {
         match &gate.internal {
             GateInternal::Standard {
                 r#type,
@@ -245,9 +271,12 @@ pub(crate) fn garble(circuit: Circuit) {
                 // TODO what index should we use?
                 // w is init with [0,n], and as size [0,n+q]
                 // what about Gate's index? (== output)
-                w.push(K_label { value0: l0.into(), value1: l1.into() });
+                w.push(K_label { value0: l0.clone().into(), value1: l1.clone().into() });
 
-                // TODO "12: if g is an output gate then"
+                // "12: if g is an output gate then"
+                if circuit.outputs.contains(&gate.output) {
+                    d.insert(&gate.output, (l0,l1));
+                }
 
                 // // let k0 = RandomOracle::random_oracle_1(&s0);
                 // // let k1 = RandomOracle::random_oracle_1(&s1);

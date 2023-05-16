@@ -4,7 +4,7 @@ use bitvec::prelude::*;
 
 use super::{
     constant::{KAPPA, KAPPA_FACTOR},
-    WireInternal,
+    WireValue,
 };
 
 // TODO u128? would it be faster?
@@ -23,7 +23,7 @@ pub(crate) struct BlockL {
 
 /// The "internal" Block,
 /// "a random string of length l'" (l' <=> 8 * l <=> 8 * KAPPA)
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct BlockP {
     bits: MyBitArrayP,
 }
@@ -75,12 +75,13 @@ impl BlockP {
         Self::new_with2([0; KAPPA_BYTES * KAPPA_FACTOR])
     }
 
-    pub(super) fn get_bit(&self, index: usize) -> WireInternal {
+    pub(super) fn get_bit(&self, index: usize) -> WireValue {
         self.bits
             .get(index)
             .expect("get_bit: outside of range?")
             .as_ref()
             .to_owned()
+            .into()
     }
 
     /// Set the `index` to `true`

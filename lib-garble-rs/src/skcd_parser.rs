@@ -5,7 +5,7 @@ use crate::circuit::{
 use crate::circuit::{Gate, GateInternal, WireRef};
 use core::convert::TryFrom;
 use core::convert::TryInto;
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
@@ -144,10 +144,10 @@ impl InterstellarCircuit {
         // -> the 2 CORRECT outputs to be set are: [8,11]
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
-        let mut outputs = Vec::with_capacity(skcd.outputs.len());
+        let mut outputs = HashSet::with_capacity(skcd.outputs.len());
         for skcd_output in skcd.outputs.iter() {
             skcd_to_wire_ref_converter.insert(skcd_output);
-            outputs.push(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
+            outputs.insert(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
         }
 
         // TODO(interstellar) how should we use skcd's a/b/go?

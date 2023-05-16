@@ -2,7 +2,6 @@ mod new_garbling_scheme;
 
 use crate::circuit::InterstellarCircuit;
 use crate::circuit::SkcdConfig;
-use crate::garble::new_garbling_scheme::Wire;
 use serde::{Deserialize, Serialize};
 
 pub type EvaluatorInput = u16;
@@ -11,7 +10,7 @@ pub(super) type GarblerInput = u16;
 /// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EncodedGarblerInputs {
-    pub(super) wires: Vec<Wire>,
+    // pub(super) wires: Vec<Wire>,
 }
 
 #[derive(Debug)]
@@ -69,7 +68,7 @@ impl GarbledCircuit {
             garbler_inputs.len(),
             "wrong garbler_inputs len!"
         );
-        EncodedGarblerInputs { wires: todo!() }
+        EncodedGarblerInputs {}
     }
 
     /// Eval using Fancy-Garbling's eval(or rather `eval_with_prealloc`)

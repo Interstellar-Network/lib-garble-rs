@@ -1,7 +1,7 @@
 mod gate;
 mod skcd_config;
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 
 pub(crate) use gate::{Gate, GateInternal, GateType, WireRef};
 pub(crate) use skcd_config::{
@@ -17,7 +17,7 @@ pub(crate) struct Circuit {
     pub(crate) num_garbler_inputs: u32,
     pub(crate) num_evaluator_inputs: u32,
     pub(crate) inputs: Vec<WireRef>,
-    pub(crate) outputs: Vec<WireRef>,
+    pub(crate) outputs: HashSet<WireRef>,
     pub(crate) gates: Vec<gate::Gate>,
     pub(crate) wires: Vec<WireRef>,
 }

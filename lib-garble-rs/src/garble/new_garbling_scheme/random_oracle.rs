@@ -6,7 +6,7 @@ use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use super::block::{BlockL, BlockP, KAPPA_BYTES};
 use super::constant::{KAPPA, KAPPA_FACTOR};
 
-use super::WireInternal;
+use super::WireValue;
 
 pub(crate) struct RandomOracle {
     rng: ChaChaRng,
@@ -54,6 +54,21 @@ impl RandomOracle {
         }
     }
 
+    ///
+    /// In: https://eprint.iacr.org/2021/739.pdf
+    /// "In our construction, we employ another
+    /// random oracle RO′ for this. In the subroutine that creates the decoding informa-
+    /// tion, for every output wire j, we sample an ℓ-bit string dj . This string has the
+    /// property that, given output wire labels (Lj0, Lj1), it holds that RO′(Lj0, dj ) = 0
+    /// and RO′(Lj1, dj ) = 1. Note that such a decoding will always yield some out-
+    /// put even for arbitrary ℓ-bit strings that are not output labels.
+    /// The subroutineDecodingInfo(D) → d generates this decoding information given the output wirelabels set."
+    ///
+    /// (2) RO′ : {0, 1}2ℓ → {0, 1}
+    pub(super) fn random_oracle_p(label_a: &BlockL, label_b: &BlockL, tweak: usize) -> WireValue {
+        todo!("random_oracle_p")
+    }
+
     // /// Second Random Oracle = RO1
     // /// "However, our second optimization shows that that this is unnecessary. Instead
     // /// of sampling new labels KC0 and KC1, we can derive them directly from the values
@@ -63,7 +78,7 @@ impl RandomOracle {
     // /// Used to generate:
     // /// KC0 = RO1(S0)
     // /// KC1 = RO1(S1)
-    // pub(super) fn random_oracle_1(sblock: &[WireInternal]) -> BlockP {
+    // pub(super) fn random_oracle_1(sblock: &[WireValue]) -> BlockP {
     //     // convert the &[bool] -> &[u8]
     //     let mut bv = bitvec![u8, Msb0;];
     //     for bit in sblock.into_iter() {

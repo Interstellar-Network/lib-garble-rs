@@ -4,7 +4,7 @@ use num_enum::TryFromPrimitive;
 /// - another Gate's inputs
 /// - a Gate's output
 /// - a Circuit's output
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub(crate) struct WireRef {
     pub(crate) id: usize,
 }

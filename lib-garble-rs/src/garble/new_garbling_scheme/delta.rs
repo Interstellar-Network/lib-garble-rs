@@ -1,7 +1,9 @@
+use core::array;
+
 use crate::garble::new_garbling_scheme::{
     block::KAPPA_BYTES,
     constant::{KAPPA, KAPPA_FACTOR},
-    random_oracle, Gate, GateInternal, GateType, WireInternal,
+    random_oracle, Gate, GateInternal, GateType, WireValue,
 };
 use hashbrown::HashMap;
 use itertools::Itertools;
@@ -9,33 +11,28 @@ use itertools::Itertools;
 use super::{block::BlockP, CompressedSet, CompressedSetBitSlice};
 
 mod delta_row {
-    use crate::garble::new_garbling_scheme::{CompressedSetBitSlice, WireInternal};
+    use crate::garble::new_garbling_scheme::{CompressedSetBitSlice, WireValue};
 
     /// Represent a ROW in the "delta table"
     /// X00 X01 X10 X11 ∇ S00 S01 S10 S11
     // TODO this is probably dup with Wire and/or Block
     #[derive(Debug, PartialEq, Default)]
     pub(super) struct DeltaRow {
-        x00: WireInternal,
-        x01: WireInternal,
-        x10: WireInternal,
-        x11: WireInternal,
-        delta: WireInternal,
+        x00: WireValue,
+        x01: WireValue,
+        x10: WireValue,
+        x11: WireValue,
+        delta: WireValue,
         // NOTE: technically we DO NOT need to store these b/c they only depend
         // on if delta is set, and x00,...
-        s00: WireInternal,
-        s01: WireInternal,
-        s10: WireInternal,
-        s11: WireInternal,
+        s00: WireValue,
+        s01: WireValue,
+        s10: WireValue,
+        s11: WireValue,
     }
 
     impl DeltaRow {
-        pub(super) fn new(
-            x00: WireInternal,
-            x01: WireInternal,
-            x10: WireInternal,
-            x11: WireInternal,
-        ) -> Self {
+        pub(super) fn new(x00: WireValue, x01: WireValue, x10: WireValue, x11: WireValue) -> Self {
             Self {
                 x00,
                 x01,
@@ -47,35 +44,35 @@ mod delta_row {
 
         pub(super) fn get_Xab(&self) -> CompressedSetBitSlice {
             CompressedSetBitSlice {
-                x00: self.x00,
-                x01: self.x01,
-                x10: self.x10,
-                x11: self.x11,
+                x00: self.x00.clone(),
+                x01: self.x01.clone(),
+                x10: self.x10.clone(),
+                x11: self.x11.clone(),
             }
         }
 
-        pub(super) fn get_delta(&self) -> WireInternal {
-            self.delta
+        pub(super) fn get_delta(&self) -> &WireValue {
+            &self.delta
         }
 
-        pub(super) fn get_x00(&self) -> WireInternal {
-            self.x00
+        pub(super) fn get_x00(&self) -> &WireValue {
+            &self.x00
         }
 
-        pub(super) fn get_s00(&self) -> WireInternal {
-            self.s00
+        pub(super) fn get_s00(&self) -> &WireValue {
+            &self.s00
         }
 
-        pub(super) fn get_s01(&self) -> WireInternal {
-            self.s01
+        pub(super) fn get_s01(&self) -> &WireValue {
+            &self.s01
         }
 
-        pub(super) fn get_s10(&self) -> WireInternal {
-            self.s10
+        pub(super) fn get_s10(&self) -> &WireValue {
+            &self.s10
         }
 
-        pub(super) fn get_s11(&self) -> WireInternal {
-            self.s11
+        pub(super) fn get_s11(&self) -> &WireValue {
+            &self.s11
         }
 
         /// Both:
@@ -83,15 +80,15 @@ mod delta_row {
         /// - AND "project" (x00,x01,x10,x11) -> (s00,s01,s10,s11)
         ///   ie copy (x00,...) to (s00,...)
         pub(super) fn set_delta_true(&mut self) {
-            self.delta = true;
-            self.s00 = self.x00;
-            self.s01 = self.x01;
-            self.s10 = self.x10;
-            self.s11 = self.x11;
+            self.delta.value = true;
+            self.s00 = self.x00.clone();
+            self.s01 = self.x01.clone();
+            self.s10 = self.x10.clone();
+            self.s11 = self.x11.clone();
         }
 
         #[cfg(test)]
-        pub(super) fn set_x00_delta(&mut self, x00: WireInternal, delta: WireInternal) {
+        pub(super) fn set_x00_delta(&mut self, x00: WireValue, delta: WireValue) {
             self.x00 = x00;
             self.delta = delta;
         }
@@ -194,10 +191,10 @@ impl DeltaTable {
                     for x11 in 0..2 {
                         // "!= 0" is just to convert integer -> bool
                         delta_rows.push(delta_row::DeltaRow::new(
-                            x00 != 0,
-                            x01 != 0,
-                            x10 != 0,
-                            x11 != 0,
+                            WireValue { value: x00 != 0 },
+                            WireValue { value: x01 != 0 },
+                            WireValue { value: x10 != 0 },
+                            WireValue { value: x11 != 0 },
                         ));
                     }
                 }
@@ -249,7 +246,7 @@ impl DeltaTable {
     fn get_delta_slices(&self) -> Vec<CompressedSetBitSlice> {
         self.rows
             .iter()
-            .filter(|row| row.get_delta())
+            .filter(|row| row.get_delta().value)
             .map(|delta_row| delta_row.get_Xab())
             .collect()
     }
@@ -262,7 +259,7 @@ impl DeltaTable {
     // other_vec[i] for all positions of "self" where self[i] = 1
     // == other_vec & self
     // == other_vec ◦ self
-    // fn project_x00_delta(&self) -> Vec<WireInternal> {
+    // fn project_x00_delta(&self) -> Vec<WireValue> {
     //     self.rows
     //         .iter()
     //         .map(|delta_row: &delta_row::DeltaRow| delta_row.get_x00())
@@ -277,7 +274,7 @@ impl DeltaTable {
     // or "delta table" in the paper
     //
     // IMPORTANT: "step4_set_for_gate" SHOULD have been called before this!
-    // fn compute_s1(&self) -> Vec<WireInternal> {
+    // fn compute_s1(&self) -> Vec<WireValue> {
     //     assert!(
     //         self.is_ready(),
     //         "compute_s1 MUST be called AFTER step4_set_for_gate!"
@@ -326,7 +323,7 @@ impl DeltaTable {
 /// Represent the truth table for a 2 inputs boolean gate
 /// ordered classically as: 00, 01, 10, 11
 struct TruthTable {
-    truth_table: [WireInternal; 4],
+    truth_table: [WireValue; 4],
 }
 
 impl TruthTable {
@@ -343,13 +340,23 @@ impl TruthTable {
             // TODO? NOR(A, A) inverts the input A.
             // GateType::INV => todo!(),
             GateType::XOR => TruthTable {
-                truth_table: [false, true, true, false],
+                truth_table: [
+                    WireValue { value: false },
+                    WireValue { value: true },
+                    WireValue { value: true },
+                    WireValue { value: false },
+                ],
             },
             // GateType::NAND => TruthTable {
             //     truth_table: [true, true, true, false],
             // },
             GateType::AND => TruthTable {
-                truth_table: [false, false, false, true],
+                truth_table: [
+                    WireValue { value: false },
+                    WireValue { value: false },
+                    WireValue { value: false },
+                    WireValue { value: true },
+                ],
             },
             // GateType::XNOR => todo!(),
             // // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
@@ -365,10 +372,15 @@ impl TruthTable {
         }
     }
 
-    pub(self) fn get_complement(&self) -> [bool; 4] {
-        let mut complement: [bool; 4] = [false; 4];
-        for (i, val) in self.truth_table.into_iter().enumerate() {
-            complement[i] = !val;
+    pub(self) fn get_complement(&self) -> [WireValue; 4] {
+        let mut complement = [
+            WireValue::default(),
+            WireValue::default(),
+            WireValue::default(),
+            WireValue::default(),
+        ];
+        for (i, val) in self.truth_table.iter().enumerate() {
+            complement[i].value = !val.value;
         }
         complement
     }
@@ -427,7 +439,7 @@ mod tests {
             delta_table
                 .rows
                 .iter()
-                .filter(|delta_row| !delta_row.get_delta())
+                .filter(|delta_row| !delta_row.get_delta().value)
                 .count(),
             12,
             "delta table: `false` rows count does not match!"
@@ -454,7 +466,7 @@ mod tests {
             delta_table
                 .rows
                 .iter()
-                .filter(|delta_row| !delta_row.get_delta())
+                .filter(|delta_row| !delta_row.get_delta().value)
                 .count(),
             12,
             "delta table: `false` rows count does not match!"

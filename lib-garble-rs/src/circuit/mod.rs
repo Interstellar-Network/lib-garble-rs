@@ -13,11 +13,14 @@ pub(crate) use skcd_config::{
 /// enumerated by the indices 1, . . . , n, and m output wires enumerated by n + q −
 /// m + 1, . . . , n + q, where q = |C| is the number Boolean gates. The output wire
 /// of gate j (also denoted by gj ) is n + j,"
+///
+/// NOTE: this is important, especially for the outputs to be in order!
+/// ie DO NOT use HashSet/HashMap etc in this struct!
 pub(crate) struct Circuit {
     pub(crate) num_garbler_inputs: u32,
     pub(crate) num_evaluator_inputs: u32,
     pub(crate) inputs: Vec<WireRef>,
-    pub(crate) outputs: HashSet<WireRef>,
+    pub(crate) outputs: Vec<WireRef>,
     pub(crate) gates: Vec<gate::Gate>,
     pub(crate) wires: Vec<WireRef>,
 }
@@ -131,21 +134,21 @@ impl InterstellarCircuit {
                             .expect("GateType::XOR missing input b!")
                             .clone(),
                     ),
-                    // GateType::NAND => {
-                    //     // NAND is a AND, whose output is NOTed
-                    //     let and_output = circuit.and(
-                    //         bdd_map
-                    //             .get(&input_a.as_ref().unwrap().id)
-                    //             .expect("GateType::NAND missing input a!")
-                    //             .clone(),
-                    //         bdd_map
-                    //             .get(&input_b.as_ref().unwrap().id)
-                    //             .expect("GateType::NAND missing input b!")
-                    //             .clone(),
-                    //     );
+                    GateType::NAND => {
+                        // NAND is a AND, whose output is NOTed
+                        let and_output = circuit.and(
+                            bdd_map
+                                .get(&input_a.as_ref().unwrap().id)
+                                .expect("GateType::NAND missing input a!")
+                                .clone(),
+                            bdd_map
+                                .get(&input_b.as_ref().unwrap().id)
+                                .expect("GateType::NAND missing input b!")
+                                .clone(),
+                        );
 
-                    //     circuit.not(and_output)
-                    // }
+                        circuit.not(and_output)
+                    }
                     GateType::AND => circuit.and(
                         bdd_map
                             .get(&input_a.as_ref().unwrap().id)

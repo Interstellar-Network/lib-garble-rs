@@ -118,7 +118,7 @@ pub(crate) enum GateType {
     // NOT A
     // INV = 5,
     XOR = 6,
-    // NAND = 7,
+    NAND = 7,
     AND = 8,
     // XNOR = 9,
     // BUF = 10,

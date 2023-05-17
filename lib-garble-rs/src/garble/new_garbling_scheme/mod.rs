@@ -33,7 +33,7 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::Circuit;
@@ -45,10 +45,7 @@ mod delta;
 mod random_oracle;
 
 use block::{BlockL, BlockP};
-use delta::DeltaTable;
 use random_oracle::RandomOracle;
-
-use self::delta::Delta;
 
 /// Represent a Wire's value, so essentially ON/OFF <=> a boolean
 #[repr(transparent)]
@@ -116,12 +113,23 @@ impl CompressedSet {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(super) struct CompressedSetBitSlice {
     x00: WireValue,
     x01: WireValue,
     x10: WireValue,
     x11: WireValue,
+}
+
+impl CompressedSetBitSlice {
+    pub(super) fn new_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
+        Self {
+            x00: x00.into(),
+            x01: x01.into(),
+            x10: x10.into(),
+            x11: x11.into(),
+        }
+    }
 }
 
 impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
@@ -166,36 +174,6 @@ fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedS
         x10: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value0, tweak),
         x11: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value1, tweak),
     }
-}
-
-/// Compute the ∇ = f1.1 in the paper
-/// "Collapse.
-/// These four outputs of the random oracle are given to f1,1 to produce
-/// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
-fn f1_1_collapse(compressed_set: CompressedSet, gate: &Gate) -> (BlockP, BlockP, Delta) {
-    let delta_table = DeltaTable::new_for_gate(gate);
-
-    // TODO is this ALWAYS project_x00_delta or should it depend on gate type?
-    // TODO how to generalize s1 formula for any gate type?
-    // let s0 = f11_res.project_x00_delta();
-    // let s1 = f11_res.compute_s1();
-
-    let delta = Delta::new_from_delta_table(&delta_table, &compressed_set, gate);
-
-    // Following are after line 19: of "Algorithm 5 Gate"
-
-    // NOTE: both `CompressedSet`(randomly generated) and `Delta` are `BlockP`
-    // NOTE: `Delta` is technically a `BlockL` padded to a `BlockP`(?)
-    // TODO? but we want a `BlockL`
-    // TODO same issue with `l1`
-    let l0_full = BlockP::new_projection(&compressed_set.x00, delta.get_block());
-
-    let l1_full = match gate.internal.get_type() {
-        GateType::XOR => BlockP::new_projection(&compressed_set.x01, delta.get_block()),
-        GateType::AND => BlockP::new_projection(&compressed_set.x11, delta.get_block()),
-    };
-
-    (l0_full, l1_full, delta)
 }
 
 /// Initialize the `W` which is the set of wires:
@@ -283,6 +261,8 @@ pub(crate) fn garble(circuit: Circuit) {
     let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> =
         HashMap::with_capacity(circuit.outputs.len());
 
+    let mut outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+
     for gate in circuit.gates.iter() {
         match &gate.internal {
             GateInternal::Standard {
@@ -295,7 +275,7 @@ pub(crate) fn garble(circuit: Circuit) {
                 let wire_b = &w[input_b.as_ref().unwrap().id];
 
                 let compressed_set = f1_0_compress(wire_a, wire_b, gate);
-                let (l0, l1, delta) = f1_1_collapse(compressed_set, gate);
+                let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.internal.get_type());
 
                 f.push(delta);
 
@@ -305,7 +285,7 @@ pub(crate) fn garble(circuit: Circuit) {
                 w.push(K_label { value0: l0.clone().into(), value1: l1.clone().into() });
 
                 // "12: if g is an output gate then"
-                if circuit.outputs.contains(&gate.output) {
+                if outputs_set.contains(&gate.output) {
                     d_up.insert(&gate.output, (l0.into(),l1.into()));
                 }
 

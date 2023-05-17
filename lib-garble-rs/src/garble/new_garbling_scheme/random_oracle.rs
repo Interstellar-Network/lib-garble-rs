@@ -22,10 +22,17 @@ impl RandomOracle {
     /// garbling process is tweakable: it takes as an additional input the gate index g so
     /// that it behaves independently for each gate."
     ///
+    /// param:
+    /// - `label_b` is optional; that way we use this RO for both binary and unary Gates
+    ///
     // TODO should probably be deterministic? or random?
     // use some kind of hash?
     // TODO! should this instead a `l_prime` length Block (== 8*KAPPA)???
-    pub(super) fn random_oracle_g(label_a: &BlockL, label_b: &BlockL, tweak: usize) -> BlockP {
+    pub(super) fn random_oracle_g(
+        label_a: &BlockL,
+        label_b: Option<&BlockL>,
+        tweak: usize,
+    ) -> BlockP {
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?
         // TODO! how to properly pass "tweak"?
@@ -33,7 +40,9 @@ impl RandomOracle {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&tweak_bytes);
         hasher.update(label_a.as_bytes());
-        hasher.update(label_b.as_bytes());
+        if let Some(label_b_block) = label_b {
+            hasher.update(label_b_block.as_bytes());
+        }
         // TODO! what do we do with a 256bits hash but a 128bits Block?
         let mut hash2 = hasher.finalize_xof();
         // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
@@ -124,8 +133,8 @@ mod tests {
         let block_a = BlockL::new_with([42, 0]);
         let block_b = BlockL::new_with([43, 44]);
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, &block_b, 0);
-        let hash2 = RandomOracle::random_oracle_g(&block_a, &block_b, 1);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 0);
+        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 1);
 
         assert_ne!(hash1, hash2, "returning hashes SHOULD NOT be equal!");
     }
@@ -135,8 +144,8 @@ mod tests {
         let block_a = BlockL::new_with([42, 0]);
         let block_b = BlockL::new_with([43, 44]);
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, &block_b, 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_a, &block_b, 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
+        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
 
         assert_eq!(hash1, hash2, "returning hashes SHOULD be equal!");
     }
@@ -146,8 +155,8 @@ mod tests {
         let block_a = BlockL::new_with([42, 0]);
         let block_b = BlockL::new_with([43, 44]);
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, &block_b, 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_b, &block_a, 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
+        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_a), 2);
 
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
     }

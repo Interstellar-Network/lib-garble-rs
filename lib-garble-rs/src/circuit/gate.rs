@@ -116,7 +116,7 @@ pub(crate) enum GateType {
     // not-A-and-B?
     // NAAB = 4,
     // NOT A
-    // INV = 5,
+    INV = 5,
     XOR = 6,
     NAND = 7,
     AND = 8,
@@ -152,12 +152,16 @@ pub(crate) enum GateInternal {
         input_a: Option<WireRef>,
         input_b: Option<WireRef>,
     },
-    // Constant {
-    //     value: bool,
-    // },
+    Unary {
+        r#type: GateType,
+        input_a: Option<WireRef>,
+    }, // Constant {
+       //     value: bool,
+       // },
 }
 
 impl GateInternal {
+    // TODO move to `impl Gate` directly; and remove `GateInternal`?
     pub(crate) fn get_type(&self) -> &GateType {
         match self {
             GateInternal::Standard {
@@ -165,6 +169,7 @@ impl GateInternal {
                 input_a,
                 input_b,
             } => r#type,
+            GateInternal::Unary { r#type, input_a } => r#type,
             // TODO?
             // GateInternal::Constant { value } => todo!(),
         }

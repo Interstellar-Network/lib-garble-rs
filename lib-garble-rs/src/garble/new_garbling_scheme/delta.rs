@@ -39,12 +39,14 @@ impl Delta {
         // the other 2 elements will depend on the truth table
         let truth_table = TruthTable::new_from_gate(gate_type);
         let mut delta_slices = vec![];
-        delta_slices.push(CompressedSetBitSlice::new_from_bool(
+        delta_slices.push(CompressedSetBitSlice::new_binary_gate_from_bool(
             false, false, false, false,
         ));
         delta_slices.push(truth_table.truth_table.clone());
         delta_slices.push(truth_table.get_complement());
-        delta_slices.push(CompressedSetBitSlice::new_from_bool(true, true, true, true));
+        delta_slices.push(CompressedSetBitSlice::new_binary_gate_from_bool(
+            true, true, true, true,
+        ));
 
         // TODO for performance; this should be rewrittten/vectorized?
         for j in 0..KAPPA * KAPPA_FACTOR {
@@ -442,6 +444,7 @@ impl TruthTable {
             GateType::AND => TruthTable {
                 truth_table: CompressedSetBitSlice::new_from_bool(false, false, false, true),
             },
+            GateType::INV => unimplemented!("TruthTable for unary gate GateType::INV"),
             // GateType::XNOR => todo!(),
             // // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
             // GateType::BUF => todo!(),

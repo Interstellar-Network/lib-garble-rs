@@ -118,12 +118,6 @@ impl InterstellarCircuit {
                     input_a,
                     input_b,
                 } => match r#type {
-                    // GateType::INV => circuit.not(
-                    //     bdd_map
-                    //         .get(&input_a.as_ref().unwrap().id)
-                    //         .expect("GateType::INV missing input!")
-                    //         .clone(),
-                    // ),
                     GateType::XOR => circuit.xor(
                         bdd_map
                             .get(&input_a.as_ref().unwrap().id)
@@ -173,6 +167,10 @@ impl InterstellarCircuit {
                     //     BDD_ZERO,
                     // ),
                     _ => todo!("unsupported gate type! [{:?}]", gate),
+                },
+                GateInternal::Unary { r#type, input_a } => match r#type {
+                    GateType::INV => todo!(),
+                    _ => unimplemented!("unimplemented GateInternal::Unary type! [{:?}]", gate),
                 },
                 // TODO?
                 // GateInternal::Constant { value } => circuit.constant(value.clone()),

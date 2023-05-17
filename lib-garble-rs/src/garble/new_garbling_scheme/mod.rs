@@ -90,11 +90,22 @@ struct K_label {
 //     }
 // }
 
+#[derive(Debug, PartialEq, Clone)]
+enum CompressedSetInternal {
+    BinaryGate {
+        x00: BlockP,
+        x01: BlockP,
+        x10: BlockP,
+        x11: BlockP,
+    },
+    UnaryGate {
+        x0: BlockP,
+        x1: BlockP,
+    },
+}
+
 struct CompressedSet {
-    x00: BlockP,
-    x01: BlockP,
-    x10: BlockP,
-    x11: BlockP,
+    internal: CompressedSetInternal,
 }
 
 impl CompressedSet {
@@ -105,29 +116,53 @@ impl CompressedSet {
     /// Return the specific BIT for each x00,x01,x10,x11
     pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
         CompressedSetBitSlice {
-            x00: self.x00.get_bit(index),
-            x01: self.x01.get_bit(index),
-            x10: self.x10.get_bit(index),
-            x11: self.x11.get_bit(index),
+            internal: CompressedSetInternal::BinaryGate {
+                x00: self.x00.get_bit(index),
+                x01: self.x01.get_bit(index),
+                x10: self.x10.get_bit(index),
+                x11: self.x11.get_bit(index),
+            },
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(super) struct CompressedSetBitSlice {
-    x00: WireValue,
-    x01: WireValue,
-    x10: WireValue,
-    x11: WireValue,
+pub(super) enum CompressedSetBitSliceInternal {
+    BinaryGate {
+        x00: WireValue,
+        x01: WireValue,
+        x10: WireValue,
+        x11: WireValue,
+    },
+    UnaryGate {
+        x0: WireValue,
+        x1: WireValue,
+    },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct CompressedSetBitSlice {
+    internal: CompressedSetBitSliceInternal,
 }
 
 impl CompressedSetBitSlice {
-    pub(super) fn new_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
+    pub(super) fn new_binary_gate_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
         Self {
-            x00: x00.into(),
-            x01: x01.into(),
-            x10: x10.into(),
-            x11: x11.into(),
+            internal: CompressedSetBitSliceInternal::BinaryGate {
+                x00: x00.into(),
+                x01: x01.into(),
+                x10: x10.into(),
+                x11: x11.into(),
+            },
+        }
+    }
+
+    pub(super) fn new_unary_gate_from_bool(x0: bool, x1: bool) -> Self {
+        Self {
+            internal: CompressedSetBitSliceInternal::UnaryGate {
+                x0: x0.into(),
+                x1: x1.into(),
+            },
         }
     }
 }
@@ -166,13 +201,33 @@ impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
 /// - gate: "The random oracle RO employed throughout the gate-by-gate
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
-fn f1_0_compress(wire_a: &K_label, wire_b: &K_label, gate: &Gate) -> CompressedSet {
+fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
     let tweak = gate.output.id;
-    CompressedSet {
-        x00: RandomOracle::random_oracle_g(&wire_a.value0, &wire_b.value0, tweak),
-        x01: RandomOracle::random_oracle_g(&wire_a.value0, &wire_b.value1, tweak),
-        x10: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value0, tweak),
-        x11: RandomOracle::random_oracle_g(&wire_a.value1, &wire_b.value1, tweak),
+
+    match gate.internal {
+        GateInternal::Standard {
+            r#type,
+            input_a,
+            input_b,
+        } => {
+            let wire_a: &K_label = &w[input_a.as_ref().unwrap().id];
+            let wire_b: &K_label = &w[input_b.as_ref().unwrap().id];
+
+            CompressedSet::BinaryGate {
+                x00: RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value0), tweak),
+                x01: RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value1), tweak),
+                x10: RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value0), tweak),
+                x11: RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value1), tweak),
+            }
+        }
+        GateInternal::Unary { r#type, input_a } => {
+            let wire_a: &K_label = &w[input_a.as_ref().unwrap().id];
+
+            CompressedSet::UnaryGate {
+                x0: RandomOracle::random_oracle_g(&wire_a.value0, None, tweak),
+                x1: RandomOracle::random_oracle_g(&wire_a.value1, None, tweak),
+            }
+        }
     }
 }
 
@@ -254,7 +309,7 @@ fn decoding_info(
 pub(crate) fn garble(circuit: Circuit) {
     let mut random_oracle = RandomOracle::new();
 
-    let mut w = init_w(&circuit, &mut random_oracle);
+    let mut w: Vec<K_label> = init_w(&circuit, &mut random_oracle);
 
     // "6: initialize F = [], D = []"
     let mut f = Vec::with_capacity(circuit.gates.len());
@@ -264,47 +319,39 @@ pub(crate) fn garble(circuit: Circuit) {
     let mut outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        match &gate.internal {
-            GateInternal::Standard {
-                r#type,
-                input_a,
-                input_b,
-            } => {
-                // TODO how to handle unwrap() based on gate type?
-                let wire_a = &w[input_a.as_ref().unwrap().id];
-                let wire_b = &w[input_b.as_ref().unwrap().id];
+        let compressed_set = f1_0_compress(&w, gate);
+        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.internal.get_type());
 
-                let compressed_set = f1_0_compress(wire_a, wire_b, gate);
-                let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.internal.get_type());
+        f.push(delta);
 
-                f.push(delta);
+        // TODO what index should we use?
+        // w is init with [0,n], and as size [0,n+q]
+        // what about Gate's index? (== output)
+        w.push(K_label {
+            value0: l0.clone().into(),
+            value1: l1.clone().into(),
+        });
 
-                // TODO what index should we use?
-                // w is init with [0,n], and as size [0,n+q]
-                // what about Gate's index? (== output)
-                w.push(K_label { value0: l0.clone().into(), value1: l1.clone().into() });
+        // "12: if g is an output gate then"
+        if outputs_set.contains(&gate.output) {
+            d_up.insert(&gate.output, (l0.into(), l1.into()));
+        }
 
-                // "12: if g is an output gate then"
-                if outputs_set.contains(&gate.output) {
-                    d_up.insert(&gate.output, (l0.into(),l1.into()));
-                }
+        // // let k0 = RandomOracle::random_oracle_1(&s0);
+        // // let k1 = RandomOracle::random_oracle_1(&s1);
 
-                // // let k0 = RandomOracle::random_oracle_1(&s0);
-                // // let k1 = RandomOracle::random_oracle_1(&s1);
-
-                // match r#type {
-                //     // GateType::INV => todo!(),
-                //     GateType::XOR => todo!(),
-                //     // GateType::NAND => todo!(),
-                //     GateType::AND => todo!(),
-                //     // ite = If-Then-Else
-                //     // we define BUF as "if input == 1 then input; else 0"
-                //     // GateType::BUF => todo!(),
-                //     _ => todo!("unsupported gate type! [{:?}]", gate),
-                // }
-            } // TODO?
-              // GateInternal::Constant { value } => todo!(),
-        };
+        // match r#type {
+        //     // GateType::INV => todo!(),
+        //     GateType::XOR => todo!(),
+        //     // GateType::NAND => todo!(),
+        //     GateType::AND => todo!(),
+        //     // ite = If-Then-Else
+        //     // we define BUF as "if input == 1 then input; else 0"
+        //     // GateType::BUF => todo!(),
+        //     _ => todo!("unsupported gate type! [{:?}]", gate),
+        // }
+        // TODO?
+        // GateInternal::Constant { value } => todo!(),
     }
 
     todo!("call decoding_info()")

@@ -5,7 +5,7 @@ use super::{
     constant::{KAPPA, KAPPA_FACTOR},
     CompressedSet, CompressedSetBitSlice, WireValue,
 };
-use crate::circuit::GateType;
+use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
 
 pub(super) struct Delta {
     block: BlockP,
@@ -68,18 +68,30 @@ impl Delta {
         // TODO? but we want a `BlockL`
         // TODO same issue with `l1`
         let (l0_full, l1_full) = match gate_type {
-            GateType::XOR => (
-                BlockP::new_projection(&compressed_set.x00, delta.get_block()),
-                BlockP::new_projection(&compressed_set.x01, delta.get_block()),
-            ),
-            GateType::AND => (
-                BlockP::new_projection(&compressed_set.x00, delta.get_block()),
-                BlockP::new_projection(&compressed_set.x11, delta.get_block()),
-            ),
-            GateType::NAND => (
-                BlockP::new_projection(&compressed_set.x01, delta.get_block()),
-                BlockP::new_projection(&compressed_set.x00, delta.get_block()),
-            ),
+            GateType::Binary {
+                r#type,
+                input_a,
+                input_b,
+            } => match r#type {
+                GateTypeBinary::XOR => (
+                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
+                ),
+                GateTypeBinary::AND => (
+                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(&compressed_set.get_x11(), delta.get_block()),
+                ),
+                GateTypeBinary::NAND => (
+                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
+                ),
+            },
+            GateType::Unary { r#type, input_a } => match r#type {
+                GateTypeUnary::INV => (
+                    BlockP::new_projection(&compressed_set.get_x1(), delta.get_block()),
+                    BlockP::new_projection(&compressed_set.get_x0(), delta.get_block()),
+                ),
+            },
         };
 
         (l0_full, l1_full, delta)
@@ -435,16 +447,32 @@ impl TruthTable {
             // GateType::NAAB => todo!(),
             // TODO? NOR(A, A) inverts the input A.
             // GateType::INV => todo!(),
-            GateType::XOR => TruthTable {
-                truth_table: CompressedSetBitSlice::new_from_bool(false, true, true, false),
+            GateType::Binary {
+                r#type,
+                input_a,
+                input_b,
+            } => match r#type {
+                GateTypeBinary::XOR => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                        false, true, true, false,
+                    ),
+                },
+                GateTypeBinary::NAND => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                        true, true, true, false,
+                    ),
+                },
+                GateTypeBinary::AND => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                        false, false, false, true,
+                    ),
+                },
             },
-            GateType::NAND => TruthTable {
-                truth_table: CompressedSetBitSlice::new_from_bool(true, true, true, false),
+            GateType::Unary { r#type, input_a } => match r#type {
+                GateTypeUnary::INV => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_unary_gate_from_bool(false, true),
+                },
             },
-            GateType::AND => TruthTable {
-                truth_table: CompressedSetBitSlice::new_from_bool(false, false, false, true),
-            },
-            GateType::INV => unimplemented!("TruthTable for unary gate GateType::INV"),
             // GateType::XNOR => todo!(),
             // // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
             // GateType::BUF => todo!(),
@@ -460,12 +488,16 @@ impl TruthTable {
     }
 
     pub(self) fn get_complement(&self) -> CompressedSetBitSlice {
-        CompressedSetBitSlice::new_from_bool(
-            !self.truth_table.x00.value,
-            !self.truth_table.x01.value,
-            !self.truth_table.x10.value,
-            !self.truth_table.x11.value,
-        )
+        match &self.truth_table.internal {
+            super::CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                CompressedSetBitSlice::new_binary_gate_from_bool(
+                    !x00.value, !x01.value, !x10.value, !x11.value,
+                )
+            }
+            super::CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+                CompressedSetBitSlice::new_unary_gate_from_bool(!x0.value, !x1.value)
+            }
+        }
     }
 }
 

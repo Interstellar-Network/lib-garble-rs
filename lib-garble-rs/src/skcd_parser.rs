@@ -1,8 +1,7 @@
 use crate::circuit::{
     Circuit, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
-    GateType, InterstellarCircuit, SkcdConfig, SkcdToWireRefConverter,
+    Gate, GateType, InterstellarCircuit, SkcdConfig, SkcdToWireRefConverter, WireRef,
 };
-use crate::circuit::{Gate, GateInternal, WireRef};
 use core::convert::TryFrom;
 use core::convert::TryInto;
 use hashbrown::{HashMap, HashSet};
@@ -50,6 +49,9 @@ pub enum CircuitParserError {
     /// This is a "sub-enum" of InvalidGateId
     OutputInvalidGateId {
         gate_id: String,
+    },
+    UnknownGateType {
+        gate_type: i32,
     },
 }
 
@@ -153,50 +155,25 @@ impl InterstellarCircuit {
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
         for skcd_gate in skcd.gates {
+            // But `output` MUST always be set; this is what we use as Gate ID
+            skcd_to_wire_ref_converter.insert(&skcd_gate.o);
+
             // **IMPORTANT** NOT ALL Gate to be built require x_ref and y_ref
             // so DO NOT unwrap here!
             // That would break the circuit building process!
-            let x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a).ok_or(
-                CircuitParserError::InvalidGateId {
-                    gate_id: skcd_gate.a,
-                },
-            );
-            let y_ref = skcd_to_wire_ref_converter.get(&skcd_gate.b).ok_or(
-                CircuitParserError::InvalidGateId {
-                    gate_id: skcd_gate.b,
-                },
-            );
+            let x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a);
+            let y_ref = skcd_to_wire_ref_converter.get(&skcd_gate.b);
 
-            let new_gate_internal =
-                match interstellarpbskcd::SkcdGateType::from_i32(skcd_gate.r#type) {
-                    // Some(interstellarpbskcd::SkcdGateType::Zero) => {
-                    //     GateInternal::Constant { value: false }
-                    // }
-                    // Some(interstellarpbskcd::SkcdGateType::One) => {
-                    //     GateInternal::Constant { value: true }
-                    // }
-                    Some(skcd_gate_type) => GateInternal::Standard {
-                        r#type: (skcd_gate_type as i32).try_into().unwrap_or_else(
-                            |skcd_gate_type_i32| {
-                                panic!("Could not convert SKCD gate: {}", skcd_gate_type_i32)
-                            },
-                        ),
-                        input_a: Some(x_ref?.clone()),
-                        input_b: Some(y_ref?.clone()),
+            gates.push(Gate::new_from_skcd_gate_type(
+                skcd_gate.r#type,
+                skcd_to_wire_ref_converter.get(&skcd_gate.o).ok_or(
+                    CircuitParserError::OutputInvalidGateId {
+                        gate_id: skcd_gate.o.clone(),
                     },
-                    _ => todo!(),
-                };
-
-            skcd_to_wire_ref_converter.insert(&skcd_gate.o);
-            gates.push(Gate {
-                internal: new_gate_internal,
-                output: skcd_to_wire_ref_converter
-                    .get(&skcd_gate.o)
-                    .ok_or(CircuitParserError::InvalidGateId {
-                        gate_id: skcd_gate.o,
-                    })?
-                    .clone(),
-            })
+                )?,
+                x_ref,
+                y_ref,
+            )?);
         }
 
         // config

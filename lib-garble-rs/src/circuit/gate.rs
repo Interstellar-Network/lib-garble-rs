@@ -1,5 +1,17 @@
 use num_enum::TryFromPrimitive;
 
+use crate::skcd_parser::CircuitParserError;
+
+// derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[allow(clippy::perf)]
+#[allow(clippy::pedantic)]
+mod interstellarpbskcd {
+    // TODO(interstellar) can we use prost-build(and prost-derive) in SGX env?
+    // include!(concat!(env!("OUT_DIR"), "/interstellarpbskcd.rs"));
+    include!("../../deps/protos/generated/rust/interstellarpbskcd.rs");
+}
+
 /// This is a "reference" to either:
 /// - another Gate's inputs
 /// - a Gate's output
@@ -106,17 +118,13 @@ TODO constant 0 and 1
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, TryFromPrimitive, Clone)]
 #[repr(i32)]
-pub(crate) enum GateType {
+pub(crate) enum GateTypeBinary {
     // ZERO = 0,
     // NOR = 1,
     // A-and-not-B
     // AANB = 2,
-    // NOT B
-    // INVB = 3,
     // not-A-and-B?
     // NAAB = 4,
-    // NOT A
-    INV = 5,
     XOR = 6,
     NAND = 7,
     AND = 8,
@@ -129,6 +137,17 @@ pub(crate) enum GateType {
     // NAOB = 13,
     // OR = 14,
     // ONE = 15,
+}
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, TryFromPrimitive, Clone)]
+#[repr(i32)]
+pub(crate) enum GateTypeUnary {
+    // NOT B
+    // INVB = 3,
+    // NOT A
+    INV = 5,
+    // BUF = 10,
 }
 
 // TODO use ?
@@ -146,39 +165,66 @@ pub(crate) enum GateType {
 ///
 /// NOTE: it SHOULD be optimized-out by Verilog/ABC but right now, we CAN have multiple ZERO and ONE gates in a Circuit!
 #[derive(Debug)]
-pub(crate) enum GateInternal {
-    Standard {
-        r#type: GateType,
-        input_a: Option<WireRef>,
-        input_b: Option<WireRef>,
+pub(crate) enum GateType {
+    Binary {
+        r#type: GateTypeBinary,
+        input_a: WireRef,
+        input_b: WireRef,
     },
     Unary {
-        r#type: GateType,
-        input_a: Option<WireRef>,
+        r#type: GateTypeUnary,
+        input_a: WireRef,
     }, // Constant {
        //     value: bool,
        // },
 }
 
-impl GateInternal {
-    // TODO move to `impl Gate` directly; and remove `GateInternal`?
-    pub(crate) fn get_type(&self) -> &GateType {
-        match self {
-            GateInternal::Standard {
-                r#type,
-                input_a,
-                input_b,
-            } => r#type,
-            GateInternal::Unary { r#type, input_a } => r#type,
-            // TODO?
-            // GateInternal::Constant { value } => todo!(),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct Gate {
-    pub(crate) internal: GateInternal,
+    internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx
-    pub(crate) output: WireRef,
+    output: WireRef,
+}
+
+impl Gate {
+    /// Called by `skcd_parser.rs`: build a new Gate based on a given `i32`
+    /// which is a Protobuf `interstellarpbskcd::SkcdGateType`
+    pub(crate) fn new_from_skcd_gate_type(
+        skcd_gate_type_i32: i32,
+        output: &WireRef,
+        input_a: Option<&WireRef>,
+        input_b: Option<&WireRef>,
+    ) -> Result<Self, CircuitParserError> {
+        let skcd_gate_type_res = interstellarpbskcd::SkcdGateType::from_i32(skcd_gate_type_i32);
+
+        let internal = match skcd_gate_type_res {
+            Some(skcd_gate_type) => match skcd_gate_type {
+                interstellarpbskcd::SkcdGateType::Inv => GateType::Unary {
+                    r#type: GateTypeUnary::INV,
+                    input_a: input_a.unwrap().clone(),
+                },
+            },
+            None => Err(CircuitParserError::UnknownGateType {
+                gate_type: skcd_gate_type_i32,
+            }),
+        };
+
+        Ok(Self {
+            internal,
+            output: output.clone(),
+        })
+    }
+
+    // TODO move to `impl Gate` directly; and remove `GateInternal`?
+    pub(crate) fn get_type(&self) -> &GateType {
+        &self.internal
+    }
+
+    pub(crate) fn get_id(&self) -> usize {
+        self.output.id
+    }
+
+    pub(crate) fn get_output(&self) -> &WireRef {
+        &self.output
+    }
 }

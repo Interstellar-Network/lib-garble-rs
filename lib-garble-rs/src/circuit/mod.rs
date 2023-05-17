@@ -3,7 +3,7 @@ mod skcd_config;
 
 use hashbrown::{HashMap, HashSet};
 
-pub(crate) use gate::{Gate, GateInternal, GateType, WireRef};
+pub(crate) use gate::{Gate, GateType, GateTypeBinary, GateTypeUnary, WireRef};
 pub(crate) use skcd_config::{
     DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
     SkcdConfig, SkcdToWireRefConverter,
@@ -112,44 +112,44 @@ impl InterstellarCircuit {
         // For how to match blif/skcd gates into mcircuit's Operation
         // WARNING: apparently Operation::XXX is (OUTPUT, INPUT1, etc)! OUTPUT IS FIRST!
         for gate in &self.circuit.gates {
-            let bdd_gate: BDDFunc = match &gate.internal {
-                GateInternal::Standard {
+            let bdd_gate: BDDFunc = match gate.get_type() {
+                GateType::Binary {
                     r#type,
                     input_a,
                     input_b,
                 } => match r#type {
-                    GateType::XOR => circuit.xor(
+                    GateTypeBinary::XOR => circuit.xor(
                         bdd_map
-                            .get(&input_a.as_ref().unwrap().id)
+                            .get(&input_a.id)
                             .expect("GateType::XOR missing input a!")
                             .clone(),
                         bdd_map
-                            .get(&input_b.as_ref().unwrap().id)
+                            .get(&input_b.id)
                             .expect("GateType::XOR missing input b!")
                             .clone(),
                     ),
-                    GateType::NAND => {
+                    GateTypeBinary::NAND => {
                         // NAND is a AND, whose output is NOTed
                         let and_output = circuit.and(
                             bdd_map
-                                .get(&input_a.as_ref().unwrap().id)
+                                .get(&input_a.id)
                                 .expect("GateType::NAND missing input a!")
                                 .clone(),
                             bdd_map
-                                .get(&input_b.as_ref().unwrap().id)
+                                .get(&input_b.id)
                                 .expect("GateType::NAND missing input b!")
                                 .clone(),
                         );
 
                         circuit.not(and_output)
                     }
-                    GateType::AND => circuit.and(
+                    GateTypeBinary::AND => circuit.and(
                         bdd_map
-                            .get(&input_a.as_ref().unwrap().id)
+                            .get(&input_a.id)
                             .expect("GateType::AND missing input a!")
                             .clone(),
                         bdd_map
-                            .get(&input_b.as_ref().unwrap().id)
+                            .get(&input_b.id)
                             .expect("GateType::AND missing input b!")
                             .clone(),
                     ),
@@ -166,22 +166,22 @@ impl InterstellarCircuit {
                     //         .clone(),
                     //     BDD_ZERO,
                     // ),
-                    _ => todo!("unsupported gate type! [{:?}]", gate),
+                    // _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
-                GateInternal::Unary { r#type, input_a } => match r#type {
-                    GateType::INV => todo!(),
-                    _ => unimplemented!("unimplemented GateInternal::Unary type! [{:?}]", gate),
+                GateType::Unary { r#type, input_a } => match r#type {
+                    GateTypeUnary::INV => todo!(),
+                    _ => unimplemented!("unimplemented GateType::Unary type! [{:?}]", gate),
                 },
                 // TODO?
-                // GateInternal::Constant { value } => circuit.constant(value.clone()),
+                // GateType::Constant { value } => circuit.constant(value.clone()),
             };
 
-            bdd_map.insert(gate.output.id, bdd_gate);
+            bdd_map.insert(gate.get_output().id, bdd_gate);
         }
 
         ////////////////////////////////////////////////////////////////////////
 
-        let mut circuit = circuit.clone();
+        let circuit = circuit.clone();
 
         // cf boolean_expression examples/tests for how the evaluation works
         // https://github.com/cfallin/boolean_expression/blob/795b89567e05f54907b89453bdd481d0b01f0c93/src/bdd.rs#L1071

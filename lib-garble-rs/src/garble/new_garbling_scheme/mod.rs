@@ -36,8 +36,7 @@
 use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::Circuit;
-use crate::circuit::{Gate, GateInternal, GateType, WireRef};
+use crate::circuit::{Circuit, Gate, GateType, WireRef};
 
 mod block;
 mod constant;
@@ -109,19 +108,93 @@ struct CompressedSet {
 }
 
 impl CompressedSet {
+    pub(crate) fn new_binary(x00: BlockP, x01: BlockP, x10: BlockP, x11: BlockP) -> Self {
+        Self {
+            internal: CompressedSetInternal::BinaryGate { x00, x01, x10, x11 },
+        }
+    }
+
+    pub(crate) fn new_unary(x0: BlockP, x1: BlockP) -> Self {
+        Self {
+            internal: CompressedSetInternal::UnaryGate { x0, x1 },
+        }
+    }
+
     /// In https://eprint.iacr.org/2021/739.pdf this is a helper for
     /// "Algorithm 5 Gate"
     /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
     ///
     /// Return the specific BIT for each x00,x01,x10,x11
     pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
-        CompressedSetBitSlice {
-            internal: CompressedSetInternal::BinaryGate {
-                x00: self.x00.get_bit(index),
-                x01: self.x01.get_bit(index),
-                x10: self.x10.get_bit(index),
-                x11: self.x11.get_bit(index),
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => CompressedSetBitSlice {
+                internal: CompressedSetBitSliceInternal::BinaryGate {
+                    x00: x00.get_bit(index),
+                    x01: x01.get_bit(index),
+                    x10: x10.get_bit(index),
+                    x11: x11.get_bit(index),
+                },
             },
+            CompressedSetInternal::UnaryGate { x0, x1 } => CompressedSetBitSlice {
+                internal: CompressedSetBitSliceInternal::UnaryGate {
+                    x0: x0.get_bit(index),
+                    x1: x1.get_bit(index),
+                },
+            },
+        }
+    }
+
+    pub(super) fn get_x00(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x00,
+            CompressedSetInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("CompressedSetInternal::UnaryGate")
+            }
+        }
+    }
+
+    pub(super) fn get_x01(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x01,
+            CompressedSetInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("CompressedSetInternal::UnaryGate")
+            }
+        }
+    }
+
+    pub(super) fn get_x10(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x10,
+            CompressedSetInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("CompressedSetInternal::UnaryGate")
+            }
+        }
+    }
+
+    pub(super) fn get_x11(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x11,
+            CompressedSetInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("CompressedSetInternal::UnaryGate")
+            }
+        }
+    }
+
+    pub(super) fn get_x0(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => {
+                unimplemented!("CompressedSetInternal::BinaryGate")
+            }
+            CompressedSetInternal::UnaryGate { x0, x1 } => x0,
+        }
+    }
+
+    pub(super) fn get_x1(&self) -> &BlockP {
+        match &self.internal {
+            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => {
+                unimplemented!("CompressedSetInternal::BinaryGate")
+            }
+            CompressedSetInternal::UnaryGate { x0, x1 } => x1,
         }
     }
 }
@@ -169,13 +242,51 @@ impl CompressedSetBitSlice {
 
 impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
     fn eq(&self, other: &[bool; 4]) -> bool {
-        self.x00 == other[0] && self.x01 == other[1] && self.x10 == other[2] && self.x11 == other[3]
+        match &self.internal {
+            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                x00 == other[0] && x01 == other[1] && x10 == other[2] && x11 == other[3]
+            }
+            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("PartialEq<[bool; 4]> for UnaryGate")
+            }
+        }
+    }
+}
+
+impl PartialEq<[bool; 2]> for CompressedSetBitSlice {
+    fn eq(&self, other: &[bool; 2]) -> bool {
+        match &self.internal {
+            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                unimplemented!("PartialEq<[bool; 4]> for BinaryGate")
+            }
+            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => x0 == other[2] && x1 == other[1],
+        }
     }
 }
 
 impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
     fn eq(&self, other: &[WireValue; 4]) -> bool {
-        self.x00 == other[0] && self.x01 == other[1] && self.x10 == other[2] && self.x11 == other[3]
+        match &self.internal {
+            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                x00 == &other[0] && x01 == &other[1] && x10 == &other[2] && x11 == &other[3]
+            }
+            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+                unimplemented!("PartialEq<[WireValue; 4]> for UnaryGate")
+            }
+        }
+    }
+}
+
+impl PartialEq<[WireValue; 2]> for CompressedSetBitSlice {
+    fn eq(&self, other: &[WireValue; 2]) -> bool {
+        match &self.internal {
+            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                unimplemented!("PartialEq<[WireValue; 4]> for BinaryGate")
+            }
+            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+                x0 == &other[2] && x1 == &other[1]
+            }
+        }
     }
 }
 
@@ -202,31 +313,31 @@ impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
-    let tweak = gate.output.id;
+    let tweak = gate.get_id();
 
-    match gate.internal {
-        GateInternal::Standard {
+    match gate.get_type() {
+        GateType::Binary {
             r#type,
             input_a,
             input_b,
         } => {
-            let wire_a: &K_label = &w[input_a.as_ref().unwrap().id];
-            let wire_b: &K_label = &w[input_b.as_ref().unwrap().id];
+            let wire_a: &K_label = &w[input_a.id];
+            let wire_b: &K_label = &w[input_b.id];
 
-            CompressedSet::BinaryGate {
-                x00: RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value0), tweak),
-                x01: RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value1), tweak),
-                x10: RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value0), tweak),
-                x11: RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value1), tweak),
-            }
+            CompressedSet::new_binary(
+                RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value0), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value1), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value0), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value1), tweak),
+            )
         }
-        GateInternal::Unary { r#type, input_a } => {
-            let wire_a: &K_label = &w[input_a.as_ref().unwrap().id];
+        GateType::Unary { r#type, input_a } => {
+            let wire_a: &K_label = &w[input_a.id];
 
-            CompressedSet::UnaryGate {
-                x0: RandomOracle::random_oracle_g(&wire_a.value0, None, tweak),
-                x1: RandomOracle::random_oracle_g(&wire_a.value1, None, tweak),
-            }
+            CompressedSet::new_unary(
+                RandomOracle::random_oracle_g(&wire_a.value0, None, tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1, None, tweak),
+            )
         }
     }
 }
@@ -316,11 +427,11 @@ pub(crate) fn garble(circuit: Circuit) {
     let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> =
         HashMap::with_capacity(circuit.outputs.len());
 
-    let mut outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+    let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
         let compressed_set = f1_0_compress(&w, gate);
-        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.internal.get_type());
+        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type());
 
         f.push(delta);
 
@@ -333,8 +444,8 @@ pub(crate) fn garble(circuit: Circuit) {
         });
 
         // "12: if g is an output gate then"
-        if outputs_set.contains(&gate.output) {
-            d_up.insert(&gate.output, (l0.into(), l1.into()));
+        if outputs_set.contains(gate.get_output()) {
+            d_up.insert(gate.get_output(), (l0.into(), l1.into()));
         }
 
         // // let k0 = RandomOracle::random_oracle_1(&s0);

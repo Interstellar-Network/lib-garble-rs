@@ -33,7 +33,7 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
-use hashbrown::{HashMap, HashSet};
+use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::{Circuit, Gate, GateType, WireRef};
@@ -45,6 +45,8 @@ mod random_oracle;
 
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
+
+use super::GarblerError;
 
 /// Represent a Wire's value, so essentially ON/OFF <=> a boolean
 #[repr(transparent)]
@@ -312,7 +314,7 @@ impl PartialEq<[WireValue; 2]> for CompressedSetBitSlice {
 /// - gate: "The random oracle RO employed throughout the gate-by-gate
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
-fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
+fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -321,8 +323,8 @@ fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
             input_a,
             input_b,
         } => {
-            let wire_a: &K_label = &w[input_a.id];
-            let wire_b: &K_label = &w[input_b.id];
+            let wire_a: &K_label = &w[&input_a.id];
+            let wire_b: &K_label = &w[&input_b.id];
 
             CompressedSet::new_binary(
                 RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value0), tweak),
@@ -332,7 +334,7 @@ fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
             )
         }
         GateType::Unary { r#type, input_a } => {
-            let wire_a: &K_label = &w[input_a.id];
+            let wire_a: &K_label = &w[&input_a.id];
 
             CompressedSet::new_unary(
                 RandomOracle::random_oracle_g(&wire_a.value0, None, tweak),
@@ -360,19 +362,36 @@ fn f1_0_compress(w: &[K_label], gate: &Gate) -> CompressedSet {
 /// 5:      Set e[W ] = eW = (LW0 , LW1 )
 /// 6:  end for
 /// 7: Return e
-fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> Vec<K_label> {
-    let mut w = vec![];
-    for input_wire in &circuit.wires()[0..circuit.n() as usize] {
+///
+/// return: contrary to the papers it returns a HashMap instead of a Vec in topological order
+/// b/c in `fn garble` when looping on `circuit.gates` the gate.id is NOT guaranteed to be in order!
+/// eg
+/// - circuits inputs: *should* indeed usually be in order => for instance 0..2
+/// - BUT the first "Gate ID" could be eg 5
+/// - which means the second iteration of the loop would not work without a hashmap
+///
+fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> HashMap<usize, K_label> {
+    let mut w = HashMap::with_capacity(circuit.n() as usize);
+    for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
+        // CHECK: the Wires MUST be iterated in topological order!
+        assert_eq!(
+            input_wire.id, idx,
+            "Wires MUST be iterated in topological order!"
+        );
+
         let lw0 = random_oracle.new_random_blockL();
         let lw1 = random_oracle.new_random_blockL();
 
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
 
-        w.push(K_label {
-            value0: lw0,
-            value1: lw1,
-        });
+        w.insert(
+            input_wire.id,
+            K_label {
+                value0: lw0,
+                value1: lw1,
+            },
+        );
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -417,10 +436,10 @@ fn decoding_info(
     d
 }
 
-pub(crate) fn garble(circuit: Circuit) {
+pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
-    let mut w: Vec<K_label> = init_w(&circuit, &mut random_oracle);
+    let mut w = init_w(&circuit, &mut random_oracle);
 
     // "6: initialize F = [], D = []"
     let mut f = Vec::with_capacity(circuit.gates.len());
@@ -438,10 +457,17 @@ pub(crate) fn garble(circuit: Circuit) {
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
-        w.push(K_label {
-            value0: l0.clone().into(),
-            value1: l1.clone().into(),
-        });
+        match w.try_insert(
+            gate.get_id(),
+            K_label {
+                value0: l0.clone().into(),
+                value1: l1.clone().into(),
+            },
+        ) {
+            Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
+            // The key WAS NOT already present; everything is fine
+            _ => Ok(()),
+        };
 
         // "12: if g is an output gate then"
         if outputs_set.contains(gate.get_output()) {

@@ -20,7 +20,10 @@ pub enum InterstellarEvaluatorError {
 
 #[derive(Debug)]
 pub enum GarblerError {
-    GarblerError,
+    /// During `fn garble`, when looping on the Gates in order,
+    /// they SHOULD be processed in topological order.
+    /// ie if a Gate is used as input for other Gates, it SHOULD be processed before them!
+    GateIdOutputMismatch,
 }
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]

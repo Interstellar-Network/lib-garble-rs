@@ -108,7 +108,7 @@ impl From<BlockP> for BlockL {
     // TODO is this needed? is there a better way to get L0/L1 from Delta and CompressedSet?
     fn from(block_p: BlockP) -> Self {
         let mut bits_l_array = MyBitArrayL::ZERO;
-        bits_l_array.copy_from_bitslice(block_p.bits.as_bitslice());
+        bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
         Self { bits: bits_l_array }
     }
 }

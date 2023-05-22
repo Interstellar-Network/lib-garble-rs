@@ -199,15 +199,33 @@ impl Gate {
 
         let internal = match skcd_gate_type_res {
             Some(skcd_gate_type) => match skcd_gate_type {
-                interstellarpbskcd::SkcdGateType::Inv => GateType::Unary {
+                interstellarpbskcd::SkcdGateType::Inv => Ok(GateType::Unary {
                     r#type: GateTypeUnary::INV,
                     input_a: input_a.unwrap().clone(),
-                },
+                }),
+                interstellarpbskcd::SkcdGateType::Xor => Ok(GateType::Binary {
+                    r#type: GateTypeBinary::XOR,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                interstellarpbskcd::SkcdGateType::Nand => Ok(GateType::Binary {
+                    r#type: GateTypeBinary::NAND,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                interstellarpbskcd::SkcdGateType::And => Ok(GateType::Binary {
+                    r#type: GateTypeBinary::AND,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                _ => Err(CircuitParserError::UnknownGateType {
+                    gate_type: skcd_gate_type_i32,
+                }),
             },
             None => Err(CircuitParserError::UnknownGateType {
                 gate_type: skcd_gate_type_i32,
             }),
-        };
+        }?;
 
         Ok(Self {
             internal,

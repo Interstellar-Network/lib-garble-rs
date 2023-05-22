@@ -179,8 +179,12 @@ impl InterstellarCircuit {
                     // _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
                 GateType::Unary { r#type, input_a } => match r#type {
-                    GateTypeUnary::INV => todo!(),
-                    _ => unimplemented!("unimplemented GateType::Unary type! [{:?}]", gate),
+                    GateTypeUnary::INV => circuit.not(
+                        bdd_map
+                            .get(&input_a.id)
+                            .expect("GateType::NOT missing input a!")
+                            .clone(),
+                    ),
                 },
                 // TODO?
                 // GateType::Constant { value } => circuit.constant(value.clone()),

@@ -135,7 +135,7 @@ pub(crate) enum GateTypeBinary {
     // BUFB = 12,
     // NOT-A-or-B?
     // NAOB = 13,
-    // OR = 14,
+    OR = 14,
     // ONE = 15,
 }
 
@@ -215,6 +215,11 @@ impl Gate {
                 }),
                 interstellarpbskcd::SkcdGateType::And => Ok(GateType::Binary {
                     r#type: GateTypeBinary::AND,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                interstellarpbskcd::SkcdGateType::Or => Ok(GateType::Binary {
+                    r#type: GateTypeBinary::OR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),

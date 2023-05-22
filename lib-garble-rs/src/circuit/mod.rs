@@ -153,6 +153,16 @@ impl InterstellarCircuit {
                             .expect("GateType::AND missing input b!")
                             .clone(),
                     ),
+                    GateTypeBinary::OR => circuit.or(
+                        bdd_map
+                            .get(&input_a.id)
+                            .expect("GateType::OR missing input a!")
+                            .clone(),
+                        bdd_map
+                            .get(&input_b.id)
+                            .expect("GateType::OR missing input b!")
+                            .clone(),
+                    ),
                     // ite = If-Then-Else
                     // we define BUF as "if input == 1 then input; else 0"
                     // GateType::BUF => circuit.ite(

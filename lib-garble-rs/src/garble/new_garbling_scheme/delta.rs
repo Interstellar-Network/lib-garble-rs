@@ -85,6 +85,10 @@ impl Delta {
                     BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
                     BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
                 ),
+                GateTypeBinary::OR => (
+                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
+                ),
             },
             GateType::Unary { r#type, input_a } => match r#type {
                 GateTypeUnary::INV => (
@@ -465,6 +469,11 @@ impl TruthTable {
                 GateTypeBinary::AND => TruthTable {
                     truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
                         false, false, false, true,
+                    ),
+                },
+                GateTypeBinary::OR => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                        false, true, true, true,
                     ),
                 },
             },

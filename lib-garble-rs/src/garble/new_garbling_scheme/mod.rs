@@ -406,13 +406,17 @@ fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> HashMap<usize,
     w
 }
 
+struct DecodedInfo {
+    d: Vec<BlockL>,
+}
+
 /// In https://eprint.iacr.org/2021/739.pdf
 /// "Algorithm 6 DecodingInfo(D, ℓ)"
 fn decoding_info(
     circuit_outputs: &[WireRef],
     d_up: HashMap<&WireRef, (BlockL, BlockL)>,
     random_oracle: &mut RandomOracle,
-) -> Vec<BlockL> {
+) -> DecodedInfo {
     let mut d = vec![];
 
     // "2: for output wire j ∈ [m] do"
@@ -433,17 +437,41 @@ fn decoding_info(
         d.push(dj);
     }
 
-    d
+    DecodedInfo { d }
 }
 
-pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
+/// Noted `F` in the paper
+struct F {
+    /// One per Gate
+    f: Vec<delta::Delta>,
+}
+
+struct GarbledCircuit<'a> {
+    f: F,
+    /// Noted `D` in the paper
+    deltas: HashMap<&'a Gate, (BlockL, BlockL)>,
+    /// For now at least we transfer ownership of the underlying clear Circuit
+    /// b/c deltas's keys(ie Gate) are reference to the Circuit's
+    circuit: &'a Circuit,
+}
+
+/// Garble
+///
+/// In https://eprint.iacr.org/2021/739.pdf
+/// Algorithm 4 Circuit(e, C, ℓ, ℓ′)
+///
+/// [...]
+/// 16: Return (F, D)
+///
+fn garble_circuit<'a>(circuit: &'a Circuit) -> Result<GarbledCircuit<'a>, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
     let mut w = init_w(&circuit, &mut random_oracle);
 
     // "6: initialize F = [], D = []"
-    let mut f = Vec::with_capacity(circuit.gates.len());
-    let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> =
+    let mut f: Vec<delta::Delta> = Vec::with_capacity(circuit.gates.len());
+    // also noted as: ∇g
+    let mut deltas: HashMap<&Gate, (BlockL, BlockL)> =
         HashMap::with_capacity(circuit.outputs.len());
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
@@ -471,7 +499,7 @@ pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
 
         // "12: if g is an output gate then"
         if outputs_set.contains(gate.get_output()) {
-            d_up.insert(gate.get_output(), (l0.into(), l1.into()));
+            deltas.insert(gate, (l0.into(), l1.into()));
         }
 
         // // let k0 = RandomOracle::random_oracle_1(&s0);
@@ -491,7 +519,71 @@ pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
         // GateInternal::Constant { value } => todo!(),
     }
 
-    todo!("call decoding_info()")
+    Ok(GarbledCircuit {
+        f: F { f },
+        deltas,
+        circuit,
+    })
+}
+
+// TODO? how to group the garble part vs eval vs decoding?
+pub(crate) fn garble(circuit: Circuit) {
+    garble_circuit(&circuit);
+
+    todo!("garble")
+}
+
+/// Noted `X`
+struct EncodedInfo {
+    x: HashMap<usize, K_label>,
+}
+
+/// Encoding
+///
+/// In https://eprint.iacr.org/2021/739.pdf "Algorithm 7"
+///
+/// 1: procedure En(e, x)
+/// 2: initialize X = []
+/// 3: for every j ∈ [n] do
+/// 4:  set X[j] = Ljxj = ej [xj ]
+/// 5: end for
+/// 6: Return X
+/// 7: end procedure
+///
+///
+/// In https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// Algorithm 4 Algorithm En(e, x)
+///
+/// 1: for every j ∈ [n] do
+/// 2:  output Kjxj = ej [xj ]
+/// 3: end for
+fn encoding(circuit: &Circuit) -> EncodedInfo {
+    todo!()
+}
+
+/// Noted `Y` in the paper
+struct EvaluateResult {}
+
+///
+/// In Algorithm 7 "Algorithms to Evaluate the Garbling"
+/// 9: procedure Ev(F, X)
+/// [...]
+/// 18: Return Y
+/// 19: end procedure
+///
+fn evaluate(f: &F, encoded_info: &EncodedInfo) -> EvaluateResult {
+    todo!()
+}
+
+///
+/// In Algorithm 7 "Algorithms to Evaluate the Garbling"
+/// 21: procedure De(Y, d)
+/// [...]
+/// 26: Return y
+/// 27: end procedure
+///
+fn decoding(evaluate_result: &EvaluateResult, decoded_info: DecodedInfo) {
+    todo!()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -638,8 +730,8 @@ mod tests {
         let l1 = random_oracle.new_random_blockL();
         d_up.insert(&circuit_outputs[0], (l0.clone(), l1.clone()));
 
-        let d: Vec<BlockL> = decoding_info(&circuit_outputs, d_up, &mut random_oracle);
-        let dj = &d[0];
+        let d = decoding_info(&circuit_outputs, d_up, &mut random_oracle);
+        let dj = &d.d[0];
         assert_eq!(random_oracle.random_oracle_prime(&l0, dj), false);
         assert_eq!(random_oracle.random_oracle_prime(&l1, dj), true);
     }

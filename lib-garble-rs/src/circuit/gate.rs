@@ -116,7 +116,7 @@ In summary, while NAND and NOR gates are commonly used as universal gates, it is
 TODO constant 0 and 1
  */
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, TryFromPrimitive, Clone)]
+#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub(crate) enum GateTypeBinary {
     // ZERO = 0,
@@ -140,7 +140,7 @@ pub(crate) enum GateTypeBinary {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, TryFromPrimitive, Clone)]
+#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub(crate) enum GateTypeUnary {
     // NOT B
@@ -164,7 +164,7 @@ pub(crate) enum GateTypeUnary {
 /// Which means Constant type only has an output and NO input.
 ///
 /// NOTE: it SHOULD be optimized-out by Verilog/ABC but right now, we CAN have multiple ZERO and ONE gates in a Circuit!
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) enum GateType {
     Binary {
         r#type: GateTypeBinary,
@@ -179,7 +179,7 @@ pub(crate) enum GateType {
        // },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Gate {
     internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx

@@ -89,10 +89,22 @@ impl RandomOracle {
         let mut hash2 = hasher.finalize();
 
         // Extract the least significant bit from the hash
-        let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
+        // let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
+        // FAIL: the internal buffer is 64 bytes, but at this point only 16+16 are filled
+        // so it always extracts a 0? --> NO! random-ish byte, but clearly when masking with `& 1` after
+        // this is NOT random at all; mostly a true as a result!
+        let last_byte = hash2.as_bytes()[hash2.as_bytes().len() / 2];
+
         // (last_byte & 1) => is a u8
         // so Convert u8 -> bool
-        (last_byte & 1) == 1
+        // (last_byte >> 8) & 1
+        // (1 << 8) & last_byte
+
+        let bits = hash2.as_bytes().view_bits::<Lsb0>();
+        let x = *bits.last().unwrap();
+
+        // println!("random_oracle_prime: {:?}", x);
+        x
     }
 
     // /// Second Random Oracle = RO1
@@ -159,6 +171,42 @@ mod tests {
         let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_a), 2);
 
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
+    }
+
+    #[test]
+    fn test_random_oracle_prime_distribution_1() {
+        let mut random_oracle = RandomOracle::new();
+
+        let mut results = vec![];
+        let lj0 = random_oracle.new_random_blockL();
+
+        for i in 0..1000 {
+            let dj = random_oracle.new_random_blockL();
+            let a = !random_oracle.random_oracle_prime(&lj0, &dj);
+            results.push(a);
+        }
+
+        let count_true = results.iter().filter(|&n| *n).count();
+        let count_false = results.iter().filter(|&n| !*n).count();
+        assert!(count_true.abs_diff(count_false) < 100, "bad distribution!");
+    }
+
+    #[test]
+    fn test_random_oracle_prime_distribution_2() {
+        let mut random_oracle = RandomOracle::new();
+
+        let mut results = vec![];
+        let dj = random_oracle.new_random_blockL();
+
+        for i in 0..1000 {
+            let lj0 = random_oracle.new_random_blockL();
+            let a = !random_oracle.random_oracle_prime(&lj0, &dj);
+            results.push(a);
+        }
+
+        let count_true = results.iter().filter(|&n| *n).count();
+        let count_false = results.iter().filter(|&n| !*n).count();
+        assert!(count_true.abs_diff(count_false) < 100, "bad distribution!");
     }
 
     // #[test]

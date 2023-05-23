@@ -44,6 +44,7 @@ mod delta;
 mod random_oracle;
 
 use block::{BlockL, BlockP};
+use k_label::K_label;
 use random_oracle::RandomOracle;
 
 use super::GarblerError;
@@ -73,10 +74,32 @@ impl From<bool> for WireValue {
     }
 }
 
-/// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
-struct K_label {
-    value0: BlockL,
-    value1: BlockL,
+mod k_label {
+    use super::block::BlockL;
+
+    /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
+    pub(super) struct K_label {
+        value0: BlockL,
+        value1: BlockL,
+    }
+
+    impl K_label {
+        /// Create a new `K_label`
+        ///
+        /// `value0` and `value1` MUST be different!
+        pub(super) fn new(value0: BlockL, value1: BlockL) -> Self {
+            assert!(value0 != value1, "`value0` and `value1` MUST be different!");
+            Self { value0, value1 }
+        }
+
+        pub(super) fn value0(&self) -> &BlockL {
+            &self.value0
+        }
+
+        pub(super) fn value1(&self) -> &BlockL {
+            &self.value1
+        }
+    }
 }
 
 /// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
@@ -109,14 +132,25 @@ struct CompressedSet {
     internal: CompressedSetInternal,
 }
 
+fn assert_four_different(a: &BlockP, b: &BlockP, c: &BlockP, d: &BlockP) {
+    assert_ne!(a, b, "a and b are equal");
+    assert_ne!(a, c, "a and c are equal");
+    assert_ne!(a, d, "a and d are equal");
+    assert_ne!(b, c, "b and c are equal");
+    assert_ne!(b, d, "b and d are equal");
+    assert_ne!(c, d, "c and d are equal");
+}
+
 impl CompressedSet {
     pub(crate) fn new_binary(x00: BlockP, x01: BlockP, x10: BlockP, x11: BlockP) -> Self {
+        assert_four_different(&x00, &x01, &x10, &x11);
         Self {
             internal: CompressedSetInternal::BinaryGate { x00, x01, x10, x11 },
         }
     }
 
     pub(crate) fn new_unary(x0: BlockP, x1: BlockP) -> Self {
+        assert_ne!(&x0, &x1, "a and b are equal");
         Self {
             internal: CompressedSetInternal::UnaryGate { x0, x1 },
         }
@@ -242,55 +276,56 @@ impl CompressedSetBitSlice {
     }
 }
 
-impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
-    fn eq(&self, other: &[bool; 4]) -> bool {
-        match &self.internal {
-            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-                x00 == other[0] && x01 == other[1] && x10 == other[2] && x11 == other[3]
-            }
-            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("PartialEq<[bool; 4]> for UnaryGate")
-            }
-        }
-    }
-}
+// TOREMOVE cleanup below
+// impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
+//     fn eq(&self, other: &[bool; 4]) -> bool {
+//         match &self.internal {
+//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+//                 x00 == other[0] && x01 == other[1] && x10 == other[2] && x11 == other[3]
+//             }
+//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+//                 unimplemented!("PartialEq<[bool; 4]> for UnaryGate")
+//             }
+//         }
+//     }
+// }
 
-impl PartialEq<[bool; 2]> for CompressedSetBitSlice {
-    fn eq(&self, other: &[bool; 2]) -> bool {
-        match &self.internal {
-            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-                unimplemented!("PartialEq<[bool; 4]> for BinaryGate")
-            }
-            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => x0 == other[2] && x1 == other[1],
-        }
-    }
-}
+// impl PartialEq<[bool; 2]> for CompressedSetBitSlice {
+//     fn eq(&self, other: &[bool; 2]) -> bool {
+//         match &self.internal {
+//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+//                 unimplemented!("PartialEq<[bool; 4]> for BinaryGate")
+//             }
+//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => x0 == other[0] && x1 == other[1],
+//         }
+//     }
+// }
 
-impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
-    fn eq(&self, other: &[WireValue; 4]) -> bool {
-        match &self.internal {
-            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-                x00 == &other[0] && x01 == &other[1] && x10 == &other[2] && x11 == &other[3]
-            }
-            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("PartialEq<[WireValue; 4]> for UnaryGate")
-            }
-        }
-    }
-}
+// impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
+//     fn eq(&self, other: &[WireValue; 4]) -> bool {
+//         match &self.internal {
+//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+//                 x00 == &other[0] && x01 == &other[1] && x10 == &other[2] && x11 == &other[3]
+//             }
+//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+//                 unimplemented!("PartialEq<[WireValue; 4]> for UnaryGate")
+//             }
+//         }
+//     }
+// }
 
-impl PartialEq<[WireValue; 2]> for CompressedSetBitSlice {
-    fn eq(&self, other: &[WireValue; 2]) -> bool {
-        match &self.internal {
-            CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-                unimplemented!("PartialEq<[WireValue; 4]> for BinaryGate")
-            }
-            CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-                x0 == &other[2] && x1 == &other[1]
-            }
-        }
-    }
-}
+// impl PartialEq<[WireValue; 2]> for CompressedSetBitSlice {
+//     fn eq(&self, other: &[WireValue; 2]) -> bool {
+//         match &self.internal {
+//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+//                 unimplemented!("PartialEq<[WireValue; 4]> for BinaryGate")
+//             }
+//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+//                 x0 == &other[0] && x1 == &other[1]
+//             }
+//         }
+//     }
+// }
 
 /// How to implement the "compress" function ("f1,0" in the papers)?
 /// Rust implementation of "compress" function ("f1,0") using ChaCha20Rng and rand crate
@@ -327,27 +362,37 @@ fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
             let wire_b: &K_label = &w[&input_b.id];
 
             CompressedSet::new_binary(
-                RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value0), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value0, Some(&wire_b.value1), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value0), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1, Some(&wire_b.value1), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value1()), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value0()), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value1()), tweak),
             )
         }
         GateType::Unary { r#type, input_a } => {
             let wire_a: &K_label = &w[&input_a.id];
 
             CompressedSet::new_unary(
-                RandomOracle::random_oracle_g(&wire_a.value0, None, tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1, None, tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
+                RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak),
             )
         }
     }
+}
+
+/// "input encoding set e."
+struct InputEncodingSet {
+    e: HashMap<usize, K_label>,
 }
 
 /// Initialize the `W` which is the set of wires:
 /// TODO? Does two things:
 /// - allocate the full `W` set with the correct number of wires
 /// - set the first wires == the input wires to random
+///
+/// First part of the sequence:
+/// (1) Init(C) → e;
+/// (2) Circuit(C, e) = (F, D);
+/// (3) DecodingInfo(D) → d
 ///
 /// See "Algorithm 4 Circuit" in https://eprint.iacr.org/2021/739.pdf
 /// up to 5:
@@ -370,7 +415,7 @@ fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
 /// - BUT the first "Gate ID" could be eg 5
 /// - which means the second iteration of the loop would not work without a hashmap
 ///
-fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> HashMap<usize, K_label> {
+fn init_circuit(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n() as usize);
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
@@ -385,13 +430,7 @@ fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> HashMap<usize,
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
 
-        w.insert(
-            input_wire.id,
-            K_label {
-                value0: lw0,
-                value1: lw1,
-            },
-        );
+        w.insert(input_wire.id, K_label::new(lw0, lw1));
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -403,18 +442,26 @@ fn init_w(circuit: &Circuit, random_oracle: &mut RandomOracle) -> HashMap<usize,
 
     // w
 
-    w
+    InputEncodingSet { e: w }
 }
 
+/// Noted `d` in the paper
+///
 struct DecodedInfo {
     d: Vec<BlockL>,
 }
 
 /// In https://eprint.iacr.org/2021/739.pdf
 /// "Algorithm 6 DecodingInfo(D, ℓ)"
-fn decoding_info(
+///
+/// Last part of the sequence:
+/// (1) Init(C) → e;
+/// (2) Circuit(C, e) = (F, D);
+/// (3) DecodingInfo(D) → d
+///
+fn decoding_info<'a>(
     circuit_outputs: &[WireRef],
-    d_up: HashMap<&WireRef, (BlockL, BlockL)>,
+    d_up: &D<'a>,
     random_oracle: &mut RandomOracle,
 ) -> DecodedInfo {
     let mut d = vec![];
@@ -422,13 +469,13 @@ fn decoding_info(
     // "2: for output wire j ∈ [m] do"
     for output_wire in circuit_outputs {
         // "extract Lj0, Lj1 ← D[j]"
-        let (lj0, lj1) = d_up.get(output_wire).expect("missing output in map!");
+        let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
 
         let mut dj = random_oracle.new_random_blockL();
         loop {
-            if !random_oracle.random_oracle_prime(lj0, &dj)
-                && random_oracle.random_oracle_prime(lj1, &dj)
-            {
+            let a = !random_oracle.random_oracle_prime(lj0, &dj);
+            let b = random_oracle.random_oracle_prime(lj1, &dj);
+            if a && b {
                 break;
             }
             dj = random_oracle.new_random_blockL();
@@ -446,10 +493,14 @@ struct F {
     f: Vec<delta::Delta>,
 }
 
+/// Noted `D` in the paper
+struct D<'a> {
+    d: HashMap<&'a WireRef, (BlockL, BlockL)>,
+}
+
 struct GarbledCircuit<'a> {
     f: F,
-    /// Noted `D` in the paper
-    deltas: HashMap<&'a Gate, (BlockL, BlockL)>,
+    d: D<'a>,
     /// For now at least we transfer ownership of the underlying clear Circuit
     /// b/c deltas's keys(ie Gate) are reference to the Circuit's
     circuit: &'a Circuit,
@@ -463,21 +514,25 @@ struct GarbledCircuit<'a> {
 /// [...]
 /// 16: Return (F, D)
 ///
-fn garble_circuit<'a>(circuit: &'a Circuit) -> Result<GarbledCircuit<'a>, GarblerError> {
-    let mut random_oracle = RandomOracle::new();
-
-    let mut w = init_w(&circuit, &mut random_oracle);
-
+/// Second part of the sequence:
+/// (1) Init(C) → e;
+/// (2) Circuit(C, e) = (F, D);
+/// (3) DecodingInfo(D) → d
+///
+fn garble_circuit<'a>(
+    circuit: &'a Circuit,
+    e: &mut InputEncodingSet,
+) -> Result<GarbledCircuit<'a>, GarblerError> {
     // "6: initialize F = [], D = []"
     let mut f: Vec<delta::Delta> = Vec::with_capacity(circuit.gates.len());
     // also noted as: ∇g
-    let mut deltas: HashMap<&Gate, (BlockL, BlockL)> =
+    let mut deltas: HashMap<&WireRef, (BlockL, BlockL)> =
         HashMap::with_capacity(circuit.outputs.len());
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        let compressed_set = f1_0_compress(&w, gate);
+        let compressed_set = f1_0_compress(&e.e, gate);
         let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type());
 
         f.push(delta);
@@ -485,12 +540,9 @@ fn garble_circuit<'a>(circuit: &'a Circuit) -> Result<GarbledCircuit<'a>, Garble
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
-        match w.try_insert(
+        match e.e.try_insert(
             gate.get_id(),
-            K_label {
-                value0: l0.clone().into(),
-                value1: l1.clone().into(),
-            },
+            K_label::new(l0.clone().into(), l1.clone().into()),
         ) {
             Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
             // The key WAS NOT already present; everything is fine
@@ -498,8 +550,8 @@ fn garble_circuit<'a>(circuit: &'a Circuit) -> Result<GarbledCircuit<'a>, Garble
         };
 
         // "12: if g is an output gate then"
-        if outputs_set.contains(gate.get_output()) {
-            deltas.insert(gate, (l0.into(), l1.into()));
+        if let Some(wire_output) = outputs_set.get(gate.get_output()) {
+            deltas.insert(wire_output, (l0.into(), l1.into()));
         }
 
         // // let k0 = RandomOracle::random_oracle_1(&s0);
@@ -519,18 +571,31 @@ fn garble_circuit<'a>(circuit: &'a Circuit) -> Result<GarbledCircuit<'a>, Garble
         // GateInternal::Constant { value } => todo!(),
     }
 
+    println!("garble_circuit: deltas: {deltas:?}");
+
     Ok(GarbledCircuit {
         f: F { f },
-        deltas,
+        d: D { d: deltas },
         circuit,
     })
 }
 
+/// Grouping of all of the sequence:
+/// (1) Init(C) → e;
+/// (2) Circuit(C, e) = (F, D);
+/// (3) DecodingInfo(D) → d
+///
 // TODO? how to group the garble part vs eval vs decoding?
-pub(crate) fn garble(circuit: Circuit) {
-    garble_circuit(&circuit);
+pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
+    let mut random_oracle = RandomOracle::new();
 
-    todo!("garble")
+    let mut e = init_circuit(&circuit, &mut random_oracle);
+
+    let garbled_circuit = garble_circuit(&circuit, &mut e)?;
+
+    decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
+
+    todo!()
 }
 
 /// Noted `X`
@@ -730,7 +795,9 @@ mod tests {
         let l1 = random_oracle.new_random_blockL();
         d_up.insert(&circuit_outputs[0], (l0.clone(), l1.clone()));
 
-        let d = decoding_info(&circuit_outputs, d_up, &mut random_oracle);
+        let d = D { d: d_up };
+
+        let d = decoding_info(&circuit_outputs, &d, &mut random_oracle);
         let dj = &d.d[0];
         assert_eq!(random_oracle.random_oracle_prime(&l0, dj), false);
         assert_eq!(random_oracle.random_oracle_prime(&l1, dj), true);

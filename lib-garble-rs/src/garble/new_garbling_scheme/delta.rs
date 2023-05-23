@@ -74,26 +74,29 @@ impl Delta {
                 input_b,
             } => match r#type {
                 GateTypeBinary::XOR => (
-                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                 ),
                 GateTypeBinary::AND => (
-                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(&compressed_set.get_x11(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                 ),
-                GateTypeBinary::NAND => (
-                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
-                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
-                ),
+                GateTypeBinary::NAND => {
+                    let x01 = compressed_set.get_x01();
+                    let x00 = compressed_set.get_x00();
+                    let l0 = BlockP::new_projection(x01, delta.get_block());
+                    let l1 = BlockP::new_projection(x00, delta.get_block());
+                    (l0, l1)
+                }
                 GateTypeBinary::OR => (
-                    BlockP::new_projection(&compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(&compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                 ),
             },
             GateType::Unary { r#type, input_a } => match r#type {
                 GateTypeUnary::INV => (
-                    BlockP::new_projection(&compressed_set.get_x1(), delta.get_block()),
-                    BlockP::new_projection(&compressed_set.get_x0(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
                 ),
             },
         };

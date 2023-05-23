@@ -133,3 +133,99 @@ impl From<BlockP> for BlockL {
 // struct Label1 {
 //     bits: LabelBits,
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+
+    #[test]
+    fn test_projection_zero_with_one() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+
+        let result = BlockP::new_projection(&zero, &one);
+
+        assert_eq!(result, zero);
+    }
+
+    #[test]
+    fn test_projection_one_with_zero() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+
+        let result = BlockP::new_projection(&one, &zero);
+
+        assert_eq!(result, zero);
+    }
+
+    #[test]
+    fn test_projection_one_with_one() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+
+        let result = BlockP::new_projection(&one, &one);
+
+        assert_eq!(result, one);
+    }
+
+    #[test]
+    fn test_projection_one_with_test() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+        // NOTE: generated on Rust Playground
+        let test = BlockP::new_with2([
+            24, 87, 54, 170, 45, 105, 64, 249, 2, 110, 96, 207, 237, 118, 7, 70, 179, 188, 68, 6,
+            107, 131, 120, 98, 33, 224, 122, 71, 252, 149, 106, 115, 142, 79, 61, 213, 30, 114, 82,
+            182, 55, 61, 34, 134, 99, 45, 153, 21, 251, 73, 55, 201, 18, 140, 179, 164, 112, 73,
+            80, 223, 218, 98, 195, 211, 25, 116, 173, 66, 124, 186, 182, 187, 7, 165, 125, 120,
+            103, 46, 146, 73, 201, 197, 16, 172, 231, 30, 114, 222, 195, 124, 208, 183, 134, 248,
+            84, 76, 167, 157, 108, 122, 16, 63, 219, 243, 145, 72, 157, 21, 35, 161, 16, 90, 213,
+            214, 122, 31, 102, 49, 177, 149, 177, 73, 145, 69, 212, 121, 234, 151,
+        ]);
+
+        let result = BlockP::new_projection(&one, &test);
+
+        assert_eq!(result, test);
+    }
+
+    #[test]
+    fn test_projection_test_with_one() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+        // NOTE: generated on Rust Playground
+        let test = BlockP::new_with2([
+            24, 87, 54, 170, 45, 105, 64, 249, 2, 110, 96, 207, 237, 118, 7, 70, 179, 188, 68, 6,
+            107, 131, 120, 98, 33, 224, 122, 71, 252, 149, 106, 115, 142, 79, 61, 213, 30, 114, 82,
+            182, 55, 61, 34, 134, 99, 45, 153, 21, 251, 73, 55, 201, 18, 140, 179, 164, 112, 73,
+            80, 223, 218, 98, 195, 211, 25, 116, 173, 66, 124, 186, 182, 187, 7, 165, 125, 120,
+            103, 46, 146, 73, 201, 197, 16, 172, 231, 30, 114, 222, 195, 124, 208, 183, 134, 248,
+            84, 76, 167, 157, 108, 122, 16, 63, 219, 243, 145, 72, 157, 21, 35, 161, 16, 90, 213,
+            214, 122, 31, 102, 49, 177, 149, 177, 73, 145, 69, 212, 121, 234, 151,
+        ]);
+
+        let result = BlockP::new_projection(&test, &one);
+
+        assert_eq!(result, test);
+    }
+
+    #[test]
+    fn test_projection_test_with_test() {
+        let zero = BlockP::new_zero();
+        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+        // NOTE: generated on Rust Playground
+        let test = BlockP::new_with2([
+            24, 87, 54, 170, 45, 105, 64, 249, 2, 110, 96, 207, 237, 118, 7, 70, 179, 188, 68, 6,
+            107, 131, 120, 98, 33, 224, 122, 71, 252, 149, 106, 115, 142, 79, 61, 213, 30, 114, 82,
+            182, 55, 61, 34, 134, 99, 45, 153, 21, 251, 73, 55, 201, 18, 140, 179, 164, 112, 73,
+            80, 223, 218, 98, 195, 211, 25, 116, 173, 66, 124, 186, 182, 187, 7, 165, 125, 120,
+            103, 46, 146, 73, 201, 197, 16, 172, 231, 30, 114, 222, 195, 124, 208, 183, 134, 248,
+            84, 76, 167, 157, 108, 122, 16, 63, 219, 243, 145, 72, 157, 21, 35, 161, 16, 90, 213,
+            214, 122, 31, 102, 49, 177, 149, 177, 73, 145, 69, 212, 121, 234, 151,
+        ]);
+
+        let result = BlockP::new_projection(&test, &test);
+
+        assert_eq!(result, test);
+    }
+}

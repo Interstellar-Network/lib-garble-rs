@@ -218,4 +218,30 @@ impl InterstellarCircuit {
 
         Ok(res_outputs)
     }
+
+    /// Build a basic circuit containing only a desired Binary Gate
+    pub(crate) fn new_test_circuit(gate_binary_type: GateTypeBinary) -> Self {
+        Self {
+            circuit: Circuit {
+                num_garbler_inputs: 2,
+                num_evaluator_inputs: 0,
+                inputs: vec![WireRef { id: 0 }, WireRef { id: 1 }],
+                outputs: vec![WireRef { id: 2 }],
+                gates: vec![Gate {
+                    internal: GateType::Binary {
+                        r#type: gate_binary_type,
+                        input_a: WireRef { id: 0 },
+                        input_b: WireRef { id: 1 },
+                    },
+                    output: WireRef { id: 2 },
+                }],
+                wires: vec![WireRef { id: 0 }, WireRef { id: 1 }, WireRef { id: 2 }],
+            },
+            config: SkcdConfig {
+                display_config: None,
+                garbler_inputs: vec![],
+                evaluator_inputs: vec![],
+            },
+        }
+    }
 }

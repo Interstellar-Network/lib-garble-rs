@@ -174,6 +174,30 @@ mod tests {
     }
 
     #[test]
+    fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_2() {
+        let block_a = BlockL::new_with([42, 0]);
+        let block_b = BlockL::new_with([43, 44]);
+        let block_common = BlockL::new_with([11, 12]);
+
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_common), 2);
+        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_common), 2);
+
+        assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
+    }
+
+    #[test]
+    fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_3() {
+        let block_a = BlockL::new_with([42, 0]);
+        let block_b = BlockL::new_with([43, 44]);
+        let block_common = BlockL::new_with([11, 12]);
+
+        let hash1 = RandomOracle::random_oracle_g(&block_common, Some(&block_a), 2);
+        let hash2 = RandomOracle::random_oracle_g(&block_common, Some(&block_b), 2);
+
+        assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
+    }
+
+    #[test]
     fn test_random_oracle_prime_distribution_1() {
         let mut random_oracle = RandomOracle::new();
 

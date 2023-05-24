@@ -16,6 +16,7 @@ mod interstellarpbskcd {
 /// - another Gate's inputs
 /// - a Gate's output
 /// - a Circuit's output
+// TODO ideally this SHOULD NOT be cloneable; and we should replace internal `id: usize` by eg `&Wire`
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub(crate) struct WireRef {
     pub(crate) id: usize,
@@ -181,9 +182,9 @@ pub(crate) enum GateType {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Gate {
-    internal: GateType,
+    pub(super) internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx
-    output: WireRef,
+    pub(super) output: WireRef,
 }
 
 impl Gate {

@@ -49,11 +49,13 @@ impl Delta {
         ));
 
         // TODO for performance; this should be rewrittten/vectorized?
+        let mut count_bits_ones = 0;
         for j in 0..KAPPA * KAPPA_FACTOR {
             let slice = compressed_set.get_bits_slice(j);
 
             if delta_slices.contains(&slice) {
                 delta_g_block.set_bit(j);
+                count_bits_ones += 1;
             }
         }
 
@@ -84,8 +86,10 @@ impl Delta {
                 GateTypeBinary::NAND => {
                     let x01 = compressed_set.get_x01();
                     let x00 = compressed_set.get_x00();
+                    let res1 = x01 != x00;
                     let l0 = BlockP::new_projection(x01, delta.get_block());
                     let l1 = BlockP::new_projection(x00, delta.get_block());
+                    let res1 = l0 != l1;
                     (l0, l1)
                 }
                 GateTypeBinary::OR => (
@@ -104,7 +108,7 @@ impl Delta {
         (l0_full, l1_full, delta)
     }
 
-    pub(super) fn get_block(&self) -> &BlockP {
+    fn get_block(&self) -> &BlockP {
         &self.block
     }
 }

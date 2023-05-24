@@ -44,15 +44,15 @@ mod delta;
 mod random_oracle;
 
 use block::{BlockL, BlockP};
-use k_label::K_label;
 use random_oracle::RandomOracle;
+use wire::Wire;
 
 use super::GarblerError;
 
 /// Represent a Wire's value, so essentially ON/OFF <=> a boolean
 #[repr(transparent)]
 #[derive(PartialEq, Debug, Serialize, Deserialize, Default, Clone)]
-pub(super) struct WireValue {
+pub(crate) struct WireValue {
     value: bool,
 }
 
@@ -74,17 +74,22 @@ impl From<bool> for WireValue {
     }
 }
 
-mod k_label {
+mod wire {
     use super::block::BlockL;
 
-    /// "Collectively, the set of labels associated with the wire is denoted by {Kj}"
-    pub(super) struct K_label {
+    /// Called "wire label set W" in https://eprint.iacr.org/2021/739.pdf
+    /// This is a pair of random label of l-size, one representing a 0 on the Wire,
+    /// and one for 1.
+    ///
+    /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
+    /// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+    pub(super) struct Wire {
         value0: BlockL,
         value1: BlockL,
     }
 
-    impl K_label {
-        /// Create a new `K_label`
+    impl Wire {
+        /// Create a new `Wire`
         ///
         /// `value0` and `value1` MUST be different!
         pub(super) fn new(value0: BlockL, value1: BlockL) -> Self {
@@ -327,17 +332,14 @@ impl CompressedSetBitSlice {
 //     }
 // }
 
-/// How to implement the "compress" function ("f1,0" in the papers)?
-/// Rust implementation of "compress" function ("f1,0") using ChaCha20Rng and rand crate
-/// Answer
-/// To implement the "compress" function (f1,0 in the papers), you can use a hash function that compresses its input into a fixed-size output. In this case, let's use the blake2 crate for the Blake2b hash function.
-
-/// "3.1 Garbling
-/// Key Extraction Similarly to the classical Yao’s garbled circuit, f1 first splits
-/// the four inputs, namely KA0 , KA1 , KB0 , KB1 coming out from f0, into the pairs:
-/// (KA0, KB0), (KA0, KB1), (KA1, KB0), (KA1, KB1).
+/// In https://eprint.iacr.org/2021/739.pdf
+/// this is the lines 1 to 4 of "Algorithm 5 Gate"
+/// 1: Xg00 = ROg (LA0 , LB0 )
+/// 2: Xg01 = ROg (LA0 , LB1 )
+/// 3: Xg10 = ROg (LA1 , LB0 )
+/// 4: Xg11 = ROg (LA1 , LB1 )
 ///
-/// Compress.
+/// Also called `Compress` in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
 /// The function f1,0, which we model as a random oracle, is used to
 /// compress each pair into a random string of length `, i.e.,
 /// X00 = f1,0(KA0 , KB0 ) = RO0(KA0 , KB0 );
@@ -349,7 +351,8 @@ impl CompressedSetBitSlice {
 /// - gate: "The random oracle RO employed throughout the gate-by-gate
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
-fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
+///
+fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> CompressedSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -358,8 +361,8 @@ fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
             input_a,
             input_b,
         } => {
-            let wire_a: &K_label = &w[&input_a.id];
-            let wire_b: &K_label = &w[&input_b.id];
+            let wire_a: &Wire = &w.e[input_a];
+            let wire_b: &Wire = &w.e[input_b];
 
             CompressedSet::new_binary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
@@ -369,7 +372,7 @@ fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
             )
         }
         GateType::Unary { r#type, input_a } => {
-            let wire_a: &K_label = &w[&input_a.id];
+            let wire_a: &Wire = &w.e[input_a];
 
             CompressedSet::new_unary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
@@ -380,8 +383,16 @@ fn f1_0_compress(w: &HashMap<usize, K_label>, gate: &Gate) -> CompressedSet {
 }
 
 /// "input encoding set e."
+///
+/// NOTE: Contrary to the papers it is a HashMap instead of a Vec in topological order
+/// b/c in `fn garble` when looping on `circuit.gates` the gate.id is NOT guaranteed to be in order!
+/// eg
+/// - circuits inputs: *should* indeed usually be in order => for instance 0..2
+/// - BUT the first "Gate ID" could be eg 5
+/// - which means the second iteration of the loop would not work without a hashmap
+///
 struct InputEncodingSet {
-    e: HashMap<usize, K_label>,
+    e: HashMap<WireRef, Wire>,
 }
 
 /// Initialize the `W` which is the set of wires:
@@ -408,13 +419,6 @@ struct InputEncodingSet {
 /// 6:  end for
 /// 7: Return e
 ///
-/// return: contrary to the papers it returns a HashMap instead of a Vec in topological order
-/// b/c in `fn garble` when looping on `circuit.gates` the gate.id is NOT guaranteed to be in order!
-/// eg
-/// - circuits inputs: *should* indeed usually be in order => for instance 0..2
-/// - BUT the first "Gate ID" could be eg 5
-/// - which means the second iteration of the loop would not work without a hashmap
-///
 fn init_circuit(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n() as usize);
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
@@ -430,7 +434,7 @@ fn init_circuit(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEnc
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
 
-        w.insert(input_wire.id, K_label::new(lw0, lw1));
+        w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -459,9 +463,9 @@ struct DecodedInfo {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-fn decoding_info<'a>(
+fn decoding_info(
     circuit_outputs: &[WireRef],
-    d_up: &D<'a>,
+    d_up: &D,
     random_oracle: &mut RandomOracle,
 ) -> DecodedInfo {
     let mut d = vec![];
@@ -494,16 +498,13 @@ struct F {
 }
 
 /// Noted `D` in the paper
-struct D<'a> {
-    d: HashMap<&'a WireRef, (BlockL, BlockL)>,
+struct D {
+    d: HashMap<WireRef, (BlockL, BlockL)>,
 }
 
-struct GarbledCircuit<'a> {
+struct GarbledCircuitInternal {
     f: F,
-    d: D<'a>,
-    /// For now at least we transfer ownership of the underlying clear Circuit
-    /// b/c deltas's keys(ie Gate) are reference to the Circuit's
-    circuit: &'a Circuit,
+    d: D,
 }
 
 /// Garble
@@ -522,17 +523,17 @@ struct GarbledCircuit<'a> {
 fn garble_circuit<'a>(
     circuit: &'a Circuit,
     e: &mut InputEncodingSet,
-) -> Result<GarbledCircuit<'a>, GarblerError> {
+) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
     let mut f: Vec<delta::Delta> = Vec::with_capacity(circuit.gates.len());
     // also noted as: ∇g
-    let mut deltas: HashMap<&WireRef, (BlockL, BlockL)> =
-        HashMap::with_capacity(circuit.outputs.len());
+    // TODO should this (semantically) be instead `HashMap<&WireRef, Wire>`(or `HashMap<&WireRef, &Wire>`)
+    let mut deltas = HashMap::with_capacity(circuit.outputs.len());
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        let compressed_set = f1_0_compress(&e.e, gate);
+        let compressed_set = f1_0_compress(&e, gate);
         let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type());
 
         f.push(delta);
@@ -541,18 +542,23 @@ fn garble_circuit<'a>(
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
         match e.e.try_insert(
-            gate.get_id(),
-            K_label::new(l0.clone().into(), l1.clone().into()),
+            WireRef { id: gate.get_id() },
+            Wire::new(l0.into(), l1.into()),
         ) {
             Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
             // The key WAS NOT already present; everything is fine
-            _ => Ok(()),
-        };
+            Ok(wire) => {
+                // "12: if g is an output gate then"
+                if let Some(wire_output) = outputs_set.get(gate.get_output()) {
+                    deltas.insert(
+                        wire_output.clone().clone(),
+                        (wire.value0().clone(), wire.value1().clone()),
+                    );
+                }
 
-        // "12: if g is an output gate then"
-        if let Some(wire_output) = outputs_set.get(gate.get_output()) {
-            deltas.insert(wire_output, (l0.into(), l1.into()));
-        }
+                Ok(())
+            }
+        };
 
         // // let k0 = RandomOracle::random_oracle_1(&s0);
         // // let k1 = RandomOracle::random_oracle_1(&s1);
@@ -573,11 +579,18 @@ fn garble_circuit<'a>(
 
     println!("garble_circuit: deltas: {deltas:?}");
 
-    Ok(GarbledCircuit {
+    Ok(GarbledCircuitInternal {
         f: F { f },
         d: D { d: deltas },
-        circuit,
     })
+}
+
+/// This is the EVALUABLE GarbledCircuit; ie the result of the whole garbling pipeline.
+pub(crate) struct GarbledCircuitFinal {
+    circuit: Circuit,
+    garbled_circuit: GarbledCircuitInternal,
+    d: DecodedInfo,
+    e: InputEncodingSet,
 }
 
 /// Grouping of all of the sequence:
@@ -586,21 +599,26 @@ fn garble_circuit<'a>(
 /// (3) DecodingInfo(D) → d
 ///
 // TODO? how to group the garble part vs eval vs decoding?
-pub(crate) fn garble(circuit: Circuit) -> Result<(), GarblerError> {
+pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
     let mut e = init_circuit(&circuit, &mut random_oracle);
 
     let garbled_circuit = garble_circuit(&circuit, &mut e)?;
 
-    decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
+    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
 
-    todo!()
+    Ok(GarbledCircuitFinal {
+        circuit,
+        garbled_circuit,
+        d,
+        e,
+    })
 }
 
 /// Noted `X`
-struct EncodedInfo {
-    x: HashMap<usize, K_label>,
+struct EncodedInfo<'a> {
+    x: HashMap<WireRef, &'a BlockL>,
 }
 
 /// Encoding
@@ -615,6 +633,7 @@ struct EncodedInfo {
 /// 6: Return X
 /// 7: end procedure
 ///
+/// "En(e, x) := X: returns the encoding X for function input x"
 ///
 /// In https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
 /// Algorithm 4 Algorithm En(e, x)
@@ -622,12 +641,37 @@ struct EncodedInfo {
 /// 1: for every j ∈ [n] do
 /// 2:  output Kjxj = ej [xj ]
 /// 3: end for
-fn encoding(circuit: &Circuit) -> EncodedInfo {
-    todo!()
+fn encoding_internal<'a>(
+    circuit: &'a Circuit,
+    e: &'a InputEncodingSet,
+    x: &'a [WireValue],
+) -> EncodedInfo<'a> {
+    // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
+    assert_eq!(
+        e.e.len(),
+        x.len(),
+        "encoding: `x` inputs len MUST match the Circuit's inputs len!"
+    );
+
+    let mut x_up = EncodedInfo {
+        x: HashMap::with_capacity(x.len()),
+    };
+
+    for (input_wire, input_value) in circuit.inputs.iter().zip(x) {
+        let encoded_wire = e.e.get(input_wire).unwrap();
+        let block = if input_value.value {
+            encoded_wire.value1()
+        } else {
+            encoded_wire.value0()
+        };
+        x_up.x.insert(input_wire.clone(), block);
+    }
+
+    x_up
 }
 
 /// Noted `Y` in the paper
-struct EvaluateResult {}
+struct OutputLabels {}
 
 ///
 /// In Algorithm 7 "Algorithms to Evaluate the Garbling"
@@ -636,7 +680,9 @@ struct EvaluateResult {}
 /// 18: Return Y
 /// 19: end procedure
 ///
-fn evaluate(f: &F, encoded_info: &EncodedInfo) -> EvaluateResult {
+/// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
+///
+fn evaluate_internal(f: &F, encoded_info: &EncodedInfo<'_>) -> OutputLabels {
     todo!()
 }
 
@@ -647,8 +693,18 @@ fn evaluate(f: &F, encoded_info: &EncodedInfo) -> EvaluateResult {
 /// 26: Return y
 /// 27: end procedure
 ///
-fn decoding(evaluate_result: &EvaluateResult, decoded_info: DecodedInfo) {
+/// "De(Y, d) := {⊥, y}: returns either the failure symbol ⊥ or a value y = f (x)."
+///
+fn decoding_internal(output_labels: &OutputLabels, decoded_info: &DecodedInfo) {
     todo!()
+}
+
+pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) {
+    let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
+
+    let output_labels = evaluate_internal(&garbled.garbled_circuit.f, &encoded_info);
+
+    decoding_internal(&output_labels, &garbled.d)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -774,7 +830,16 @@ fn binomial_num(n: u32, k: u32) -> num_bigint::BigInt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::garble::InterstellarCircuit;
+    use crate::{circuit::SkcdConfig, garble::InterstellarCircuit};
+
+    #[test]
+    fn test_basic_and() {
+        let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
+
+        let garbled = garble(circ.circuit).unwrap();
+
+        evaluate(&garbled, &[false.into(), false.into(), false.into()]);
+    }
 
     #[test]
     fn test_garble() {
@@ -790,10 +855,10 @@ mod tests {
     fn test_decoding_info() {
         let circuit_outputs = vec![WireRef { id: 42 }];
         let mut random_oracle = RandomOracle::new();
-        let mut d_up: HashMap<&WireRef, (BlockL, BlockL)> = HashMap::new();
+        let mut d_up = HashMap::new();
         let l0 = random_oracle.new_random_blockL();
         let l1 = random_oracle.new_random_blockL();
-        d_up.insert(&circuit_outputs[0], (l0.clone(), l1.clone()));
+        d_up.insert(circuit_outputs[0].clone(), (l0.clone(), l1.clone()));
 
         let d = D { d: d_up };
 

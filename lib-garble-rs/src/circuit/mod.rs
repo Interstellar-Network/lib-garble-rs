@@ -244,4 +244,28 @@ impl InterstellarCircuit {
             },
         }
     }
+
+    pub(crate) fn new_test_circuit_unary(gate_unary_type: GateTypeUnary) -> Self {
+        Self {
+            circuit: Circuit {
+                num_garbler_inputs: 1,
+                num_evaluator_inputs: 0,
+                inputs: vec![WireRef { id: 0 }],
+                outputs: vec![WireRef { id: 1 }],
+                gates: vec![Gate {
+                    internal: GateType::Unary {
+                        r#type: gate_unary_type,
+                        input_a: WireRef { id: 0 },
+                    },
+                    output: WireRef { id: 1 },
+                }],
+                wires: vec![WireRef { id: 0 }, WireRef { id: 1 }],
+            },
+            config: SkcdConfig {
+                display_config: None,
+                garbler_inputs: vec![],
+                evaluator_inputs: vec![],
+            },
+        }
+    }
 }

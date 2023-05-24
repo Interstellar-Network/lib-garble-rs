@@ -42,10 +42,11 @@ mod block;
 mod constant;
 mod delta;
 mod random_oracle;
+mod wire;
 
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
-use wire::{ActiveWire, Wire};
+use wire::{Wire, WireLabel};
 
 use super::GarblerError;
 
@@ -71,60 +72,6 @@ impl PartialEq<bool> for &WireValue {
 impl From<bool> for WireValue {
     fn from(value: bool) -> Self {
         Self { value }
-    }
-}
-
-mod wire {
-    use super::block::BlockL;
-
-    /// Called "wire label set W" in https://eprint.iacr.org/2021/739.pdf
-    /// This is a pair of random label of l-size, one representing a 0 on the Wire,
-    /// and one for 1.
-    ///
-    /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
-    /// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
-    #[derive(Debug, Clone)]
-    pub(super) struct Wire {
-        value0: BlockL,
-        value1: BlockL,
-    }
-
-    impl Wire {
-        /// Create a new `Wire`
-        ///
-        /// `value0` and `value1` MUST be different!
-        pub(super) fn new(value0: BlockL, value1: BlockL) -> Self {
-            assert!(value0 != value1, "`value0` and `value1` MUST be different!");
-            Self { value0, value1 }
-        }
-
-        pub(super) fn value0(&self) -> &BlockL {
-            &self.value0
-        }
-
-        pub(super) fn value1(&self) -> &BlockL {
-            &self.value1
-        }
-    }
-
-    /// This is used during evaluation
-    /// the `value` SHOULD match either a `Wire.value0` OR a `Wire.value1`
-    // TODO do this ^^^^ -> `value` SHOULD be ref
-    #[derive(Clone)]
-    pub(super) struct ActiveWire {
-        value: BlockL,
-    }
-
-    impl ActiveWire {
-        pub(super) fn new(block: &BlockL) -> Self {
-            Self {
-                value: block.clone(),
-            }
-        }
-
-        pub(super) fn get_block(&self) -> &BlockL {
-            &self.value
-        }
     }
 }
 
@@ -644,7 +591,7 @@ pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerErr
 /// For each Circuit.inputs this will be a `Block` referencing either `value0` or `value1`
 ///
 struct EncodedInfo {
-    x: HashMap<WireRef, ActiveWire>,
+    x: HashMap<WireRef, WireLabel>,
 }
 
 /// Encoding
@@ -690,7 +637,7 @@ fn encoding_internal<'a>(
         } else {
             encoded_wire.value0()
         };
-        x_up.x.insert(input_wire.clone(), ActiveWire::new(block));
+        x_up.x.insert(input_wire.clone(), WireLabel::new(block));
     }
 
     assert_eq!(x_up.x.len(), e.e.len(), "EncodedInfo: wrong length!");
@@ -1034,6 +981,31 @@ mod tests {
                 outputs.len(),
                 1,
                 "NAND gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_not() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+            // Standard truth table for NOT Gate
+            // (input0, input1), output
+            (vec![false.into()], true.into()),
+            (vec![true.into()], false.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ =
+                InterstellarCircuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            assert_eq!(
+                outputs.len(),
+                1,
+                "NOT gate so we SHOULD have only one output!"
             );
             assert_eq!(outputs[0], expected_output);
         }

@@ -45,7 +45,7 @@ mod random_oracle;
 
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
-use wire::Wire;
+use wire::{ActiveWire, Wire};
 
 use super::GarblerError;
 
@@ -83,7 +83,7 @@ mod wire {
     ///
     /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
     /// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub(super) struct Wire {
         value0: BlockL,
         value1: BlockL,
@@ -104,6 +104,26 @@ mod wire {
 
         pub(super) fn value1(&self) -> &BlockL {
             &self.value1
+        }
+    }
+
+    /// This is used during evaluation
+    /// the `value` SHOULD match either a `Wire.value0` OR a `Wire.value1`
+    // TODO do this ^^^^ -> `value` SHOULD be ref
+    #[derive(Clone)]
+    pub(super) struct ActiveWire {
+        value: BlockL,
+    }
+
+    impl ActiveWire {
+        pub(super) fn new(block: &BlockL) -> Self {
+            Self {
+                value: block.clone(),
+            }
+        }
+
+        pub(super) fn get_block(&self) -> &BlockL {
+            &self.value
         }
     }
 }
@@ -392,15 +412,9 @@ fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> CompressedSet {
 /// - BUT the first "Gate ID" could be eg 5
 /// - which means the second iteration of the loop would not work without a hashmap
 ///
+#[derive(Clone)]
 struct InputEncodingSet {
     e: HashMap<WireRef, Wire>,
-}
-
-/// Like `InputEncodingSet` but one per Gate instead of only for the inputs
-// TODO do we need both?
-#[derive(Debug)]
-struct WireEncodingSet {
-    w: HashMap<WireRef, Wire>,
 }
 
 /// Initialize the `W` which is the set of wires:
@@ -513,7 +527,6 @@ struct D {
 struct GarbledCircuitInternal {
     f: F,
     d: D,
-    w: WireEncodingSet,
 }
 
 /// Garble
@@ -592,7 +605,6 @@ fn garble_circuit<'a>(
     Ok(GarbledCircuitInternal {
         f: F { f },
         d: D { d: deltas },
-        w: WireEncodingSet { w: encoded_wires },
     })
 }
 
@@ -628,8 +640,11 @@ pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerErr
 }
 
 /// Noted `X`
-struct EncodedInfo<'a> {
-    x: HashMap<WireRef, &'a BlockL>,
+///
+/// For each Circuit.inputs this will be a `Block` referencing either `value0` or `value1`
+///
+struct EncodedInfo {
+    x: HashMap<WireRef, ActiveWire>,
 }
 
 /// Encoding
@@ -656,7 +671,7 @@ fn encoding_internal<'a>(
     circuit: &'a Circuit,
     e: &'a InputEncodingSet,
     x: &'a [WireValue],
-) -> EncodedInfo<'a> {
+) -> EncodedInfo {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
         e.e.len(),
@@ -675,9 +690,10 @@ fn encoding_internal<'a>(
         } else {
             encoded_wire.value0()
         };
-        x_up.x.insert(input_wire.clone(), block);
+        x_up.x.insert(input_wire.clone(), ActiveWire::new(block));
     }
 
+    assert_eq!(x_up.x.len(), e.e.len(), "EncodedInfo: wrong length!");
     x_up
 }
 
@@ -695,37 +711,53 @@ struct OutputLabels {
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
-fn evaluate_internal(
-    circuit: &Circuit,
-    encoded_wires: &WireEncodingSet,
-    f: &F,
-    encoded_info: &EncodedInfo<'_>,
-) -> OutputLabels {
+fn evaluate_internal(circuit: &Circuit, f: &F, encoded_info: &EncodedInfo) -> OutputLabels {
     let mut output_labels = OutputLabels {
         y: HashMap::with_capacity(circuit.outputs.len()),
     };
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
+    // As we are looping on the gates in order, this will be built step by step
+    // ie the first gates are inputs, and this will already contain them
+    // them we built all the other gates in subsequent iterations of the loop
+    let active_wires = encoded_info.x.clone();
+
     // "for each gate g ∈ [q] in a topological order do"
     for gate in circuit.gates.iter() {
         // "LA, LB ← active labels associated with the input wires of gate g"
-        let wire_ref = WireRef { id: gate.get_id() };
-        let wire = encoded_wires.w.get(&wire_ref).unwrap();
-        let l0 = wire.value0();
-        let l1 = wire.value1();
+        let (l_a, l_b) = match gate.get_type() {
+            GateType::Binary {
+                r#type,
+                input_a,
+                input_b,
+            } => {
+                let l_a = active_wires.get(input_a).unwrap();
+                let l_b = active_wires.get(input_b).unwrap();
 
-        // "extract ∇g ← F [g] and compute Lg ← RO(g, LA, LB ) ◦ ∇g"
+                (l_a.get_block(), Some(l_b.get_block()))
+            }
+            GateType::Unary { r#type, input_a } => {
+                let l_a = active_wires.get(input_a).unwrap();
+                (l_a.get_block(), None)
+            }
+        };
+
+        let wire_ref = WireRef { id: gate.get_id() };
+
+        // "extract ∇g ← F [g]"
         let delta_g = f.f.get(&wire_ref).unwrap();
-        let r = RandomOracle::random_oracle_g(l0, Some(l1), gate.get_id());
-        let lg_full = BlockP::new_projection(&r, delta_g.get_block());
-        let lg: BlockL = lg_full.into();
+
+        // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
+        let r = RandomOracle::random_oracle_g(l_a, l_b, gate.get_id());
+        let l_g_full = BlockP::new_projection(&r, delta_g.get_block());
+        let l_g: BlockL = l_g_full.into();
 
         // "if g is a circuit output wire then"
         // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)
         if let Some(wire_output) = outputs_set.get(&wire_ref) {
             // "Y [g] ← Lg"
-            match output_labels.y.try_insert(wire_ref, lg) {
+            match output_labels.y.try_insert(wire_ref, l_g) {
                 Err(OccupiedError { entry, value }) => Err(GarblerError::EvaluateDuplicatedWire),
                 // The key WAS NOT already present; everything is fine
                 Ok(wire) => Ok(()),
@@ -768,12 +800,8 @@ fn decoding_internal(
 pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<WireValue> {
     let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
 
-    let output_labels = evaluate_internal(
-        &garbled.circuit,
-        &garbled.garbled_circuit.w,
-        &garbled.garbled_circuit.f,
-        &encoded_info,
-    );
+    let output_labels =
+        evaluate_internal(&garbled.circuit, &garbled.garbled_circuit.f, &encoded_info);
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }

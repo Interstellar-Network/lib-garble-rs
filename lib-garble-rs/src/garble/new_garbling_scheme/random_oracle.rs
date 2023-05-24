@@ -78,7 +78,7 @@ impl RandomOracle {
     ///
     /// param:
     /// - `L0` or `L1` Block for the current output Gate
-    pub(super) fn random_oracle_prime(&self, l0_l1: &BlockL, dj: &BlockL) -> bool {
+    pub(super) fn random_oracle_prime(l0_l1: &BlockL, dj: &BlockL) -> bool {
         // TODO(random_oracle) what should we use here???
         // l0_l1.lsb(dj)
 
@@ -206,7 +206,7 @@ mod tests {
 
         for i in 0..1000 {
             let dj = random_oracle.new_random_blockL();
-            let a = !random_oracle.random_oracle_prime(&lj0, &dj);
+            let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }
 
@@ -224,7 +224,7 @@ mod tests {
 
         for i in 0..1000 {
             let lj0 = random_oracle.new_random_blockL();
-            let a = !random_oracle.random_oracle_prime(&lj0, &dj);
+            let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }
 

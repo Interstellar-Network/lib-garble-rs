@@ -101,7 +101,7 @@ impl BlockP {
             }
         }
 
-        println!("new_projection : {res:?}");
+        // println!("new_projection : {res:?}");
         res
     }
 }

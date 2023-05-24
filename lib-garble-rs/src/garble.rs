@@ -24,6 +24,7 @@ pub enum GarblerError {
     /// they SHOULD be processed in topological order.
     /// ie if a Gate is used as input for other Gates, it SHOULD be processed before them!
     GateIdOutputMismatch,
+    EvaluateDuplicatedWire,
 }
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]

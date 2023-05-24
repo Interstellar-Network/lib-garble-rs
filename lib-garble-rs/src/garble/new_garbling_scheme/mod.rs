@@ -83,6 +83,7 @@ mod wire {
     ///
     /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
     /// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+    #[derive(Debug)]
     pub(super) struct Wire {
         value0: BlockL,
         value1: BlockL,
@@ -395,6 +396,13 @@ struct InputEncodingSet {
     e: HashMap<WireRef, Wire>,
 }
 
+/// Like `InputEncodingSet` but one per Gate instead of only for the inputs
+// TODO do we need both?
+#[derive(Debug)]
+struct WireEncodingSet {
+    w: HashMap<WireRef, Wire>,
+}
+
 /// Initialize the `W` which is the set of wires:
 /// TODO? Does two things:
 /// - allocate the full `W` set with the correct number of wires
@@ -452,7 +460,7 @@ fn init_circuit(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEnc
 /// Noted `d` in the paper
 ///
 struct DecodedInfo {
-    d: Vec<BlockL>,
+    d: HashMap<WireRef, BlockL>,
 }
 
 /// In https://eprint.iacr.org/2021/739.pdf
@@ -468,7 +476,7 @@ fn decoding_info(
     d_up: &D,
     random_oracle: &mut RandomOracle,
 ) -> DecodedInfo {
-    let mut d = vec![];
+    let mut d = HashMap::with_capacity(circuit_outputs.len());
 
     // "2: for output wire j ∈ [m] do"
     for output_wire in circuit_outputs {
@@ -477,15 +485,15 @@ fn decoding_info(
 
         let mut dj = random_oracle.new_random_blockL();
         loop {
-            let a = !random_oracle.random_oracle_prime(lj0, &dj);
-            let b = random_oracle.random_oracle_prime(lj1, &dj);
+            let a = !RandomOracle::random_oracle_prime(lj0, &dj);
+            let b = RandomOracle::random_oracle_prime(lj1, &dj);
             if a && b {
                 break;
             }
             dj = random_oracle.new_random_blockL();
         }
 
-        d.push(dj);
+        d.insert(output_wire.clone(), dj);
     }
 
     DecodedInfo { d }
@@ -494,7 +502,7 @@ fn decoding_info(
 /// Noted `F` in the paper
 struct F {
     /// One per Gate
-    f: Vec<delta::Delta>,
+    f: HashMap<WireRef, delta::Delta>,
 }
 
 /// Noted `D` in the paper
@@ -505,6 +513,7 @@ struct D {
 struct GarbledCircuitInternal {
     f: F,
     d: D,
+    w: WireEncodingSet,
 }
 
 /// Garble
@@ -522,13 +531,15 @@ struct GarbledCircuitInternal {
 ///
 fn garble_circuit<'a>(
     circuit: &'a Circuit,
-    e: &mut InputEncodingSet,
+    e: &InputEncodingSet,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
-    let mut f: Vec<delta::Delta> = Vec::with_capacity(circuit.gates.len());
+    let mut f = HashMap::with_capacity(circuit.gates.len());
     // also noted as: ∇g
     // TODO should this (semantically) be instead `HashMap<&WireRef, Wire>`(or `HashMap<&WireRef, &Wire>`)
     let mut deltas = HashMap::with_capacity(circuit.outputs.len());
+
+    let mut encoded_wires = HashMap::with_capacity(circuit.gates.len());
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
@@ -536,15 +547,14 @@ fn garble_circuit<'a>(
         let compressed_set = f1_0_compress(&e, gate);
         let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type());
 
-        f.push(delta);
+        let wire_ref = WireRef { id: gate.get_id() };
+
+        f.try_insert(wire_ref.clone(), delta).unwrap();
 
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
-        match e.e.try_insert(
-            WireRef { id: gate.get_id() },
-            Wire::new(l0.into(), l1.into()),
-        ) {
+        match encoded_wires.try_insert(wire_ref, Wire::new(l0.into(), l1.into())) {
             Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
             // The key WAS NOT already present; everything is fine
             Ok(wire) => {
@@ -577,11 +587,12 @@ fn garble_circuit<'a>(
         // GateInternal::Constant { value } => todo!(),
     }
 
-    println!("garble_circuit: deltas: {deltas:?}");
+    // println!("garble_circuit: deltas: {deltas:?}");
 
     Ok(GarbledCircuitInternal {
         f: F { f },
         d: D { d: deltas },
+        w: WireEncodingSet { w: encoded_wires },
     })
 }
 
@@ -671,7 +682,9 @@ fn encoding_internal<'a>(
 }
 
 /// Noted `Y` in the paper
-struct OutputLabels {}
+struct OutputLabels {
+    y: HashMap<WireRef, BlockL>,
+}
 
 ///
 /// In Algorithm 7 "Algorithms to Evaluate the Garbling"
@@ -682,8 +695,45 @@ struct OutputLabels {}
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
-fn evaluate_internal(f: &F, encoded_info: &EncodedInfo<'_>) -> OutputLabels {
-    todo!()
+fn evaluate_internal(
+    circuit: &Circuit,
+    encoded_wires: &WireEncodingSet,
+    f: &F,
+    encoded_info: &EncodedInfo<'_>,
+) -> OutputLabels {
+    let mut output_labels = OutputLabels {
+        y: HashMap::with_capacity(circuit.outputs.len()),
+    };
+
+    let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+
+    // "for each gate g ∈ [q] in a topological order do"
+    for gate in circuit.gates.iter() {
+        // "LA, LB ← active labels associated with the input wires of gate g"
+        let wire_ref = WireRef { id: gate.get_id() };
+        let wire = encoded_wires.w.get(&wire_ref).unwrap();
+        let l0 = wire.value0();
+        let l1 = wire.value1();
+
+        // "extract ∇g ← F [g] and compute Lg ← RO(g, LA, LB ) ◦ ∇g"
+        let delta_g = f.f.get(&wire_ref).unwrap();
+        let r = RandomOracle::random_oracle_g(l0, Some(l1), gate.get_id());
+        let lg_full = BlockP::new_projection(&r, delta_g.get_block());
+        let lg: BlockL = lg_full.into();
+
+        // "if g is a circuit output wire then"
+        // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)
+        if let Some(wire_output) = outputs_set.get(&wire_ref) {
+            // "Y [g] ← Lg"
+            match output_labels.y.try_insert(wire_ref, lg) {
+                Err(OccupiedError { entry, value }) => Err(GarblerError::EvaluateDuplicatedWire),
+                // The key WAS NOT already present; everything is fine
+                Ok(wire) => Ok(()),
+            };
+        }
+    }
+
+    output_labels
 }
 
 ///
@@ -695,16 +745,37 @@ fn evaluate_internal(f: &F, encoded_info: &EncodedInfo<'_>) -> OutputLabels {
 ///
 /// "De(Y, d) := {⊥, y}: returns either the failure symbol ⊥ or a value y = f (x)."
 ///
-fn decoding_internal(output_labels: &OutputLabels, decoded_info: &DecodedInfo) {
-    todo!()
+fn decoding_internal(
+    circuit: &Circuit,
+    output_labels: &OutputLabels,
+    decoded_info: &DecodedInfo,
+) -> Vec<WireValue> {
+    let mut outputs = vec![];
+
+    // "for j ∈ [m] do"
+    for output in circuit.outputs.iter() {
+        // "y[j] ← lsb(RO′(Y [j], dj ))"
+        let yj = output_labels.y.get(output).unwrap();
+        let dj = decoded_info.d.get(output).unwrap();
+        let r = RandomOracle::random_oracle_prime(yj, dj);
+        // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
+        outputs.push(WireValue { value: r });
+    }
+
+    outputs
 }
 
-pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) {
+pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<WireValue> {
     let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
 
-    let output_labels = evaluate_internal(&garbled.garbled_circuit.f, &encoded_info);
+    let output_labels = evaluate_internal(
+        &garbled.circuit,
+        &garbled.garbled_circuit.w,
+        &garbled.garbled_circuit.f,
+        &encoded_info,
+    );
 
-    decoding_internal(&output_labels, &garbled.d)
+    decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -833,12 +904,111 @@ mod tests {
     use crate::{circuit::SkcdConfig, garble::InterstellarCircuit};
 
     #[test]
+    fn test_basic_or() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+            // Standard truth table for OR Gate
+            // (input0, input1), output
+            (vec![false.into(), false.into()], false.into()),
+            (vec![false.into(), true.into()], true.into()),
+            (vec![true.into(), false.into()], true.into()),
+            (vec![true.into(), true.into()], true.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "OR gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
     fn test_basic_and() {
-        let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
+        // inputs, expected_output
+        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+            // Standard truth table for AND Gate
+            // (input0, input1), output
+            (vec![false.into(), false.into()], false.into()),
+            (vec![false.into(), true.into()], false.into()),
+            (vec![true.into(), false.into()], false.into()),
+            (vec![true.into(), true.into()], true.into()),
+        ];
 
-        let garbled = garble(circ.circuit).unwrap();
+        for (inputs, expected_output) in tests {
+            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
+            let garbled = garble(circ.circuit).unwrap();
 
-        evaluate(&garbled, &[false.into(), false.into(), false.into()]);
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "AND gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_xor() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+            // Standard truth table for XOR Gate
+            // (input0, input1), output
+            (vec![false.into(), false.into()], false.into()),
+            (vec![false.into(), true.into()], true.into()),
+            (vec![true.into(), false.into()], true.into()),
+            (vec![true.into(), true.into()], false.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "XOR gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_nand() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+            // Standard truth table for NAND Gate
+            // (input0, input1), output
+            (vec![false.into(), false.into()], true.into()),
+            (vec![false.into(), true.into()], false.into()),
+            (vec![true.into(), false.into()], false.into()),
+            (vec![true.into(), true.into()], false.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "NAND gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
     }
 
     #[test]
@@ -863,9 +1033,9 @@ mod tests {
         let d = D { d: d_up };
 
         let d = decoding_info(&circuit_outputs, &d, &mut random_oracle);
-        let dj = &d.d[0];
-        assert_eq!(random_oracle.random_oracle_prime(&l0, dj), false);
-        assert_eq!(random_oracle.random_oracle_prime(&l1, dj), true);
+        let dj = &d.d.get(&circuit_outputs[0]).unwrap();
+        assert_eq!(RandomOracle::random_oracle_prime(&l0, dj), false);
+        assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);
     }
 
     #[cfg(feature = "key_length_search")]

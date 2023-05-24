@@ -7,6 +7,7 @@ use super::{
 };
 use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
 
+#[derive(Debug)]
 pub(super) struct Delta {
     block: BlockP,
 }
@@ -108,7 +109,7 @@ impl Delta {
         (l0_full, l1_full, delta)
     }
 
-    fn get_block(&self) -> &BlockP {
+    pub(super) fn get_block(&self) -> &BlockP {
         &self.block
     }
 }

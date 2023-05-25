@@ -518,146 +518,239 @@ impl TruthTable {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::garble::new_garbling_scheme::*;
-//     use crate::garble::InterstellarCircuit;
+#[cfg(test)]
+mod tests {
+    use rand::rngs::ThreadRng;
+    use rand::Rng;
 
-//     /// Not really a useful test
-//     /// It only checks the "truth table" of the Xab cols is generated in order:
-//     /// 0 0 0 0
-//     /// 0 0 0 1
-//     /// 0 0 1 0
-//     /// 0 0 1 1
-//     /// ...
-//     /// 1 1 1 1
-//     #[test]
-//     fn test_delta_table_Xab() {
-//         // NOTE: for this we only care about the first 4 cols; so the GateType does not matter
-//         let gate = Gate {
-//             internal: GateInternal::Standard {
-//                 r#type: GateType::AND,
-//                 input_a: None,
-//                 input_b: None,
-//             },
-//             output: WireRef { id: 1 },
-//         };
-//         let delta_table = DeltaTable::new_for_gate(&gate);
+    /// Minimal Reprodocible Example for Delta for a NAND Gate
+    /// Helpful to visualize of the algorithm works if we hardcoded all the truth tables etc
+    ///
+    /// For this we use l = 16 and l_prime = 64
+    /// Techinically not OK vs the security parameter but does not really matter here.
+    ///
+    fn mre_delta_binary_gate_aux() {
+        let mut rng = rand::thread_rng();
 
-//         assert_eq!(delta_table.rows[0].get_Xab(), [false, false, false, false]);
-//         assert_eq!(delta_table.rows[1].get_Xab(), [false, false, false, true,]);
-//         assert_eq!(delta_table.rows[10].get_Xab(), [true, false, true, false,]);
-//         assert_eq!(delta_table.rows[15].get_Xab(), [true, true, true, true,]);
-//     }
+        let x00 = rand_array_16(&mut rng);
+        let x01 = rand_array_16(&mut rng);
+        let x10 = rand_array_16(&mut rng);
+        let x11 = rand_array_16(&mut rng);
+        println!("{x00:?}\n{x01:?}\n{x10:?}\n{x11:?}\n");
 
-//     #[test]
-//     fn test_delta_table_AND() {
-//         let gate = Gate {
-//             internal: GateInternal::Standard {
-//                 r#type: GateType::AND,
-//                 input_a: None,
-//                 input_b: None,
-//             },
-//             output: WireRef { id: 1 },
-//         };
-//         let delta_table = DeltaTable::new_for_gate(&gate);
+        // Delta: init with 0; and longer than X00 etc
+        // Implicitely means it will contain mostly 0, except for the start length which matches with X00 etc
+        let mut delta = [0u8; 64];
 
-//         assert_eq!(delta_table.rows[0].get_delta(), true);
-//         assert_eq!(delta_table.rows[1].get_delta(), true);
-//         assert_eq!(delta_table.rows[14].get_delta(), true);
-//         assert_eq!(delta_table.rows[15].get_delta(), true);
-//         assert_eq!(
-//             delta_table
-//                 .rows
-//                 .iter()
-//                 .filter(|delta_row| !delta_row.get_delta().value)
-//                 .count(),
-//             12,
-//             "delta table: `false` rows count does not match!"
-//         );
-//     }
+        let delta_slices = [
+            // This first one is hardcoded
+            [0u8, 0, 0, 0],
+            // The two middle ones are the truth table for the current Gate type
+            // and its complement
+            // // NAND Gate
+            // [1, 0, 0, 0],
+            // [0, 1, 1, 1],
+            // XOR Gate
+            [0, 1, 1, 0],
+            [1, 0, 0, 1],
+            // This last one is also hardcoded
+            [1, 1, 1, 1],
+        ];
 
-//     #[test]
-//     fn test_delta_table_XOR() {
-//         let gate = Gate {
-//             internal: GateInternal::Standard {
-//                 r#type: GateType::XOR,
-//                 input_a: None,
-//                 input_b: None,
-//             },
-//             output: WireRef { id: 1 },
-//         };
-//         let delta_table = DeltaTable::new_for_gate(&gate);
+        for i in 0..x00.len() {
+            let current_slice = [x00[i], x01[i], x10[i], x11[i]];
+            println!("current_slice : {current_slice:?}");
 
-//         assert_eq!(delta_table.rows[0].get_delta(), true);
-//         assert_eq!(delta_table.rows[6].get_delta(), true);
-//         assert_eq!(delta_table.rows[9].get_delta(), true);
-//         assert_eq!(delta_table.rows[15].get_delta(), true);
-//         assert_eq!(
-//             delta_table
-//                 .rows
-//                 .iter()
-//                 .filter(|delta_row| !delta_row.get_delta().value)
-//                 .count(),
-//             12,
-//             "delta table: `false` rows count does not match!"
-//         );
-//     }
+            if delta_slices.contains(&current_slice) {
+                println!("match!");
+                delta[i] = 1;
+            }
+        }
 
-//     // TODO tests for `new_from_delta_table`
+        println!("delta : {delta:?}");
 
-//     // #[test]
-//     // fn test_project_x00_delta_all_1() {
-//     //     let mut delta_table = DeltaTable::new_default();
-//     //     for delta_row in delta_table.rows.iter_mut() {
-//     //         delta_row.set_x00_delta(true, true);
-//     //     }
+        // Build the L0 and L1
+        // The right side is always `Delta`, but the left DEPEND on the current Gate type
+        // // NAND Gate
+        // let l0 = new_projection(&x10, &delta);
+        // let l1 = new_projection(&x00, &delta);
+        // XOR Gate
+        let l0 = new_projection(&x00, &delta);
+        let l1 = new_projection(&x01, &delta);
+        println!("l0 : {l0:?}\nl1 : {l1:?}\n");
+        // cf `Wire::new` for why this assert matters!
+        assert_ne!(l0, l1, "L0 and L1 MUST NOT be the same!");
+    }
 
-//     //     let res = delta_table.project_x00_delta();
+    #[test]
+    fn mre_delta_nand_gate() {
+        for i in 0..1000 {
+            mre_delta_binary_gate_aux()
+        }
+    }
 
-//     //     assert!(res.iter().all(|&e| e));
-//     // }
+    fn rand_array_16(rng: &mut ThreadRng) -> [u8; 16] {
+        let mut arr = [0u8; 16];
+        for i in 0..16 {
+            let r: u8 = rng.gen();
+            arr[i] = (r > 127) as u8;
+        }
 
-//     // #[test]
-//     // fn test_project_x00_delta_10() {
-//     //     let mut delta_table = DeltaTable::new_default();
-//     //     for delta_row in delta_table.rows.iter_mut() {
-//     //         delta_row.set_x00_delta(true, false);
-//     //     }
+        arr
+    }
 
-//     //     let res = delta_table.project_x00_delta();
+    /// cf `BlockP::new_projection`
+    /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
+    fn new_projection(left: &[u8], right: &[u8]) -> [u8; 16] {
+        let mut res = [0u8; 16];
 
-//     //     assert!(res.iter().all(|&e| !e));
-//     // }
+        for (idx, bit) in right.iter().enumerate() {
+            if *bit >= 1 {
+                res[idx] = left[idx];
+            }
+        }
 
-//     // #[test]
-//     // fn test_project_x00_delta_01() {
-//     //     let mut delta_table = DeltaTable::new_default();
-//     //     for delta_row in delta_table.rows.iter_mut() {
-//     //         delta_row.set_x00_delta(false, true);
-//     //     }
+        res
+    }
 
-//     //     let res = delta_table.project_x00_delta();
+    //     use super::*;
+    //     use crate::garble::new_garbling_scheme::*;
+    //     use crate::garble::InterstellarCircuit;
 
-//     //     assert!(res.iter().all(|&e| !e));
-//     // }
+    //     /// Not really a useful test
+    //     /// It only checks the "truth table" of the Xab cols is generated in order:
+    //     /// 0 0 0 0
+    //     /// 0 0 0 1
+    //     /// 0 0 1 0
+    //     /// 0 0 1 1
+    //     /// ...
+    //     /// 1 1 1 1
+    //     #[test]
+    //     fn test_delta_table_Xab() {
+    //         // NOTE: for this we only care about the first 4 cols; so the GateType does not matter
+    //         let gate = Gate {
+    //             internal: GateInternal::Standard {
+    //                 r#type: GateType::AND,
+    //                 input_a: None,
+    //                 input_b: None,
+    //             },
+    //             output: WireRef { id: 1 },
+    //         };
+    //         let delta_table = DeltaTable::new_for_gate(&gate);
 
-//     // #[test]
-//     // fn test_compute_s1() {
-//     //     let gate = Gate {
-//     //         internal: GateInternal::Standard {
-//     //             r#type: GateType::AND,
-//     //             input_a: None,
-//     //             input_b: None,
-//     //         },
-//     //         output: WireRef { id: 1 },
-//     //     };
-//     //     let mut delta_table = DeltaTable::new_for_gate(&gate);
+    //         assert_eq!(delta_table.rows[0].get_Xab(), [false, false, false, false]);
+    //         assert_eq!(delta_table.rows[1].get_Xab(), [false, false, false, true,]);
+    //         assert_eq!(delta_table.rows[10].get_Xab(), [true, false, true, false,]);
+    //         assert_eq!(delta_table.rows[15].get_Xab(), [true, true, true, true,]);
+    //     }
 
-//     //     assert_eq!(delta_table.rows[0].get_delta(), true);
-//     //     assert_eq!(delta_table.rows[1].get_delta(), true);
-//     //     assert_eq!(delta_table.rows[14].get_delta(), true);
-//     //     assert_eq!(delta_table.rows[15].get_delta(), true);
-//     // }
-// }
+    //     #[test]
+    //     fn test_delta_table_AND() {
+    //         let gate = Gate {
+    //             internal: GateInternal::Standard {
+    //                 r#type: GateType::AND,
+    //                 input_a: None,
+    //                 input_b: None,
+    //             },
+    //             output: WireRef { id: 1 },
+    //         };
+    //         let delta_table = DeltaTable::new_for_gate(&gate);
+
+    //         assert_eq!(delta_table.rows[0].get_delta(), true);
+    //         assert_eq!(delta_table.rows[1].get_delta(), true);
+    //         assert_eq!(delta_table.rows[14].get_delta(), true);
+    //         assert_eq!(delta_table.rows[15].get_delta(), true);
+    //         assert_eq!(
+    //             delta_table
+    //                 .rows
+    //                 .iter()
+    //                 .filter(|delta_row| !delta_row.get_delta().value)
+    //                 .count(),
+    //             12,
+    //             "delta table: `false` rows count does not match!"
+    //         );
+    //     }
+
+    //     #[test]
+    //     fn test_delta_table_XOR() {
+    //         let gate = Gate {
+    //             internal: GateInternal::Standard {
+    //                 r#type: GateType::XOR,
+    //                 input_a: None,
+    //                 input_b: None,
+    //             },
+    //             output: WireRef { id: 1 },
+    //         };
+    //         let delta_table = DeltaTable::new_for_gate(&gate);
+
+    //         assert_eq!(delta_table.rows[0].get_delta(), true);
+    //         assert_eq!(delta_table.rows[6].get_delta(), true);
+    //         assert_eq!(delta_table.rows[9].get_delta(), true);
+    //         assert_eq!(delta_table.rows[15].get_delta(), true);
+    //         assert_eq!(
+    //             delta_table
+    //                 .rows
+    //                 .iter()
+    //                 .filter(|delta_row| !delta_row.get_delta().value)
+    //                 .count(),
+    //             12,
+    //             "delta table: `false` rows count does not match!"
+    //         );
+    //     }
+
+    //     // TODO tests for `new_from_delta_table`
+
+    //     // #[test]
+    //     // fn test_project_x00_delta_all_1() {
+    //     //     let mut delta_table = DeltaTable::new_default();
+    //     //     for delta_row in delta_table.rows.iter_mut() {
+    //     //         delta_row.set_x00_delta(true, true);
+    //     //     }
+
+    //     //     let res = delta_table.project_x00_delta();
+
+    //     //     assert!(res.iter().all(|&e| e));
+    //     // }
+
+    //     // #[test]
+    //     // fn test_project_x00_delta_10() {
+    //     //     let mut delta_table = DeltaTable::new_default();
+    //     //     for delta_row in delta_table.rows.iter_mut() {
+    //     //         delta_row.set_x00_delta(true, false);
+    //     //     }
+
+    //     //     let res = delta_table.project_x00_delta();
+
+    //     //     assert!(res.iter().all(|&e| !e));
+    //     // }
+
+    //     // #[test]
+    //     // fn test_project_x00_delta_01() {
+    //     //     let mut delta_table = DeltaTable::new_default();
+    //     //     for delta_row in delta_table.rows.iter_mut() {
+    //     //         delta_row.set_x00_delta(false, true);
+    //     //     }
+
+    //     //     let res = delta_table.project_x00_delta();
+
+    //     //     assert!(res.iter().all(|&e| !e));
+    //     // }
+
+    //     // #[test]
+    //     // fn test_compute_s1() {
+    //     //     let gate = Gate {
+    //     //         internal: GateInternal::Standard {
+    //     //             r#type: GateType::AND,
+    //     //             input_a: None,
+    //     //             input_b: None,
+    //     //         },
+    //     //         output: WireRef { id: 1 },
+    //     //     };
+    //     //     let mut delta_table = DeltaTable::new_for_gate(&gate);
+
+    //     //     assert_eq!(delta_table.rows[0].get_delta(), true);
+    //     //     assert_eq!(delta_table.rows[1].get_delta(), true);
+    //     //     assert_eq!(delta_table.rows[14].get_delta(), true);
+    //     //     assert_eq!(delta_table.rows[15].get_delta(), true);
+    //     // }
+}

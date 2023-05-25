@@ -40,6 +40,9 @@ impl Wire {
     ///
     /// `value0` and `value1` MUST be different!
     pub(super) fn new(label0: BlockL, label1: BlockL) -> Self {
+        // FAIL technically here we don't care if they are the same
+        // BUT in `decoding_info` we loop until both the LSB of left and not right are different
+        // and it they are the same here -> infinite loop!
         assert!(label0 != label1, "`value0` and `value1` MUST be different!");
         Self {
             label0: WireLabel { label: label0 },

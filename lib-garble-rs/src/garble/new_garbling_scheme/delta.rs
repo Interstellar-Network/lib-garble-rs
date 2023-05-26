@@ -7,7 +7,10 @@ use super::{
     wire_value::WireValue,
     CompressedSetBitSlice,
 };
-use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
+use crate::{
+    circuit::{GateType, GateTypeBinary, GateTypeUnary},
+    garble::GarblerError,
+};
 
 #[derive(Debug)]
 pub(super) struct Delta {
@@ -27,7 +30,7 @@ impl Delta {
     pub(super) fn new(
         compressed_set: &WireLabelsSet,
         gate_type: &GateType,
-    ) -> (BlockP, BlockP, Self) {
+    ) -> Result<(BlockP, BlockP, Self), GarblerError> {
         // "5: initialize ∇g ← 0ℓ′ and let j = 1"
         // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
         // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′)"
@@ -63,6 +66,19 @@ impl Delta {
                 delta_g_block.set_bit(j);
                 count_bits_ones += 1;
             }
+
+            // "14: until HW (∇g ) = ℓ or j = ℓ"
+            if count_bits_ones == KAPPA {
+                break;
+            }
+        }
+
+        // "15: if HW (∇g )̸ = ℓ then"
+        if count_bits_ones != KAPPA {
+            // "16: ABORT the computation"
+            return Err(GarblerError::BadHammingWeight {
+                hw: count_bits_ones,
+            });
         }
 
         let delta = Self {
@@ -89,15 +105,10 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                 ),
-                GateTypeBinary::NAND => {
-                    let x01 = compressed_set.get_x01();
-                    let x00 = compressed_set.get_x00();
-                    let res1 = x01 != x00;
-                    let l0 = BlockP::new_projection(x01, delta.get_block());
-                    let l1 = BlockP::new_projection(x00, delta.get_block());
-                    let res1 = l0 != l1;
-                    (l0, l1)
-                }
+                GateTypeBinary::NAND => (
+                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                ),
                 GateTypeBinary::OR => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
@@ -111,7 +122,7 @@ impl Delta {
             },
         };
 
-        (l0_full, l1_full, delta)
+        Ok((l0_full, l1_full, delta))
     }
 
     pub(super) fn get_block(&self) -> &BlockP {
@@ -511,12 +522,12 @@ impl TruthTable {
 
     pub(self) fn get_complement(&self) -> CompressedSetBitSlice {
         match &self.truth_table.internal {
-            super::CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+            super::WireLabelsSetBitsSlice::BinaryGate { x00, x01, x10, x11 } => {
                 CompressedSetBitSlice::new_binary_gate_from_bool(
                     !x00.value, !x01.value, !x10.value, !x11.value,
                 )
             }
-            super::CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
+            super::WireLabelsSetBitsSlice::UnaryGate { x0, x1 } => {
                 CompressedSetBitSlice::new_unary_gate_from_bool(!x0.value, !x1.value)
             }
         }

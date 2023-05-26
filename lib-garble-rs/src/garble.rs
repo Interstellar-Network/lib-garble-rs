@@ -25,6 +25,11 @@ pub enum GarblerError {
     /// ie if a Gate is used as input for other Gates, it SHOULD be processed before them!
     GateIdOutputMismatch,
     EvaluateDuplicatedWire,
+    /// "Algorithm 5 Gate" L15/16
+    /// "15: if HW (∇g )̸ = ℓ then 16: ABORT the computation"
+    BadHammingWeight {
+        hw: usize,
+    },
 }
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]

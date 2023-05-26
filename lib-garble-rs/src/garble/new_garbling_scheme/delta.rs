@@ -3,7 +3,9 @@ use alloc::vec;
 use super::{
     block::BlockP,
     constant::{KAPPA, KAPPA_FACTOR},
-    CompressedSet, CompressedSetBitSlice, WireValue,
+    wire_labels_set::WireLabelsSet,
+    wire_value::WireValue,
+    CompressedSetBitSlice,
 };
 use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
 
@@ -23,10 +25,13 @@ impl Delta {
     /// These four outputs of the random oracle are given to f1,1 to produce
     /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
     pub(super) fn new(
-        compressed_set: &CompressedSet,
+        compressed_set: &WireLabelsSet,
         gate_type: &GateType,
     ) -> (BlockP, BlockP, Self) {
         // "5: initialize ∇g ← 0ℓ′ and let j = 1"
+        // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
+        // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′)"
+        // -> Implies that only the l first bits of ∇g are potentially set??
         // BUT!
         // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
         // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′) that

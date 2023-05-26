@@ -36,192 +36,34 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::{Circuit, Gate, GateType, WireRef};
-
 mod block;
 mod constant;
 mod delta;
 mod random_oracle;
 mod wire;
+mod wire_labels_set;
+mod wire_value;
 
 #[cfg(feature = "key_length_search")]
 mod key_length;
 
+use super::GarblerError;
+use crate::circuit::{Circuit, Gate, GateType, WireRef};
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
 use wire::{Wire, WireLabel};
 
-use super::GarblerError;
-
-/// Represent a Wire's value, so essentially ON/OFF <=> a boolean
-#[repr(transparent)]
-#[derive(PartialEq, Debug, Serialize, Deserialize, Default, Clone)]
-pub(crate) struct WireValue {
-    value: bool,
-}
-
-impl PartialEq<bool> for WireValue {
-    fn eq(&self, other: &bool) -> bool {
-        &self.value == other
-    }
-}
-
-impl PartialEq<bool> for &WireValue {
-    fn eq(&self, other: &bool) -> bool {
-        &self.value == other
-    }
-}
-
-impl From<bool> for WireValue {
-    fn from(value: bool) -> Self {
-        Self { value }
-    }
-}
-
-/// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
-/// each possible value that wire j can take. Collectively, the set of labels associated
-/// with the wire is denoted by {Kj }. In particular, Yao’s scheme and all subsequent
-/// optimizations decompose the circuit’s input into bits and each bit is assigned a
-/// label (See also [App17]).""
-// fn f0_label_sampling(wire: Wire) -> K_labels_set {
-//     K_labels_set {
-//         value0: Block::random(),
-//         value1: Block::random(),
-//     }
-// }
-
-#[derive(Debug, PartialEq, Clone)]
-enum CompressedSetInternal {
-    BinaryGate {
-        x00: BlockP,
-        x01: BlockP,
-        x10: BlockP,
-        x11: BlockP,
-    },
-    UnaryGate {
-        x0: BlockP,
-        x1: BlockP,
-    },
-}
-
-struct CompressedSet {
-    internal: CompressedSetInternal,
-}
-
-fn assert_four_different(a: &BlockP, b: &BlockP, c: &BlockP, d: &BlockP) {
-    assert_ne!(a, b, "a and b are equal");
-    assert_ne!(a, c, "a and c are equal");
-    assert_ne!(a, d, "a and d are equal");
-    assert_ne!(b, c, "b and c are equal");
-    assert_ne!(b, d, "b and d are equal");
-    assert_ne!(c, d, "c and d are equal");
-}
-
-impl CompressedSet {
-    pub(crate) fn new_binary(x00: BlockP, x01: BlockP, x10: BlockP, x11: BlockP) -> Self {
-        assert_four_different(&x00, &x01, &x10, &x11);
-        Self {
-            internal: CompressedSetInternal::BinaryGate { x00, x01, x10, x11 },
-        }
-    }
-
-    pub(crate) fn new_unary(x0: BlockP, x1: BlockP) -> Self {
-        assert_ne!(&x0, &x1, "a and b are equal");
-        Self {
-            internal: CompressedSetInternal::UnaryGate { x0, x1 },
-        }
-    }
-
-    /// In https://eprint.iacr.org/2021/739.pdf this is a helper for
-    /// "Algorithm 5 Gate"
-    /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
-    ///
-    /// Return the specific BIT for each x00,x01,x10,x11
-    pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => CompressedSetBitSlice {
-                internal: CompressedSetBitSliceInternal::BinaryGate {
-                    x00: x00.get_bit(index),
-                    x01: x01.get_bit(index),
-                    x10: x10.get_bit(index),
-                    x11: x11.get_bit(index),
-                },
-            },
-            CompressedSetInternal::UnaryGate { x0, x1 } => CompressedSetBitSlice {
-                internal: CompressedSetBitSliceInternal::UnaryGate {
-                    x0: x0.get_bit(index),
-                    x1: x1.get_bit(index),
-                },
-            },
-        }
-    }
-
-    pub(super) fn get_x00(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x00,
-            CompressedSetInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("CompressedSetInternal::UnaryGate")
-            }
-        }
-    }
-
-    pub(super) fn get_x01(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x01,
-            CompressedSetInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("CompressedSetInternal::UnaryGate")
-            }
-        }
-    }
-
-    pub(super) fn get_x10(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x10,
-            CompressedSetInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("CompressedSetInternal::UnaryGate")
-            }
-        }
-    }
-
-    pub(super) fn get_x11(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => x11,
-            CompressedSetInternal::UnaryGate { x0, x1 } => {
-                unimplemented!("CompressedSetInternal::UnaryGate")
-            }
-        }
-    }
-
-    pub(super) fn get_x0(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => {
-                unimplemented!("CompressedSetInternal::BinaryGate")
-            }
-            CompressedSetInternal::UnaryGate { x0, x1 } => x0,
-        }
-    }
-
-    pub(super) fn get_x1(&self) -> &BlockP {
-        match &self.internal {
-            CompressedSetInternal::BinaryGate { x00, x01, x10, x11 } => {
-                unimplemented!("CompressedSetInternal::BinaryGate")
-            }
-            CompressedSetInternal::UnaryGate { x0, x1 } => x1,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub(super) enum CompressedSetBitSliceInternal {
     BinaryGate {
-        x00: WireValue,
-        x01: WireValue,
-        x10: WireValue,
-        x11: WireValue,
+        x00: wire_value::WireValue,
+        x01: wire_value::WireValue,
+        x10: wire_value::WireValue,
+        x11: wire_value::WireValue,
     },
     UnaryGate {
-        x0: WireValue,
-        x1: WireValue,
+        x0: wire_value::WireValue,
+        x1: wire_value::WireValue,
     },
 }
 
@@ -323,7 +165,7 @@ impl CompressedSetBitSlice {
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 ///
-fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> CompressedSet {
+fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> wire_labels_set::WireLabelsSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -335,7 +177,7 @@ fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> CompressedSet {
             let wire_a: &Wire = &w.e[input_a];
             let wire_b: &Wire = &w.e[input_b];
 
-            CompressedSet::new_binary(
+            wire_labels_set::WireLabelsSet::new_binary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
                 RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value1()), tweak),
                 RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value0()), tweak),
@@ -345,7 +187,7 @@ fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> CompressedSet {
         GateType::Unary { r#type, input_a } => {
             let wire_a: &Wire = &w.e[input_a];
 
-            CompressedSet::new_unary(
+            wire_labels_set::WireLabelsSet::new_unary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
                 RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak),
             )
@@ -620,7 +462,7 @@ struct EncodedInfo {
 fn encoding_internal<'a>(
     circuit: &'a Circuit,
     e: &'a InputEncodingSet,
-    x: &'a [WireValue],
+    x: &'a [wire_value::WireValue],
 ) -> EncodedInfo {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
@@ -731,7 +573,7 @@ fn decoding_internal(
     circuit: &Circuit,
     output_labels: &OutputLabels,
     decoded_info: &DecodedInfo,
-) -> Vec<WireValue> {
+) -> Vec<wire_value::WireValue> {
     let mut outputs = vec![];
 
     // "for j ∈ [m] do"
@@ -741,13 +583,16 @@ fn decoding_internal(
         let dj = decoded_info.d.get(output).unwrap();
         let r = RandomOracle::random_oracle_prime(yj, dj);
         // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
-        outputs.push(WireValue { value: r });
+        outputs.push(wire_value::WireValue { value: r });
     }
 
     outputs
 }
 
-pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<WireValue> {
+pub(crate) fn evaluate(
+    garbled: &GarbledCircuitFinal,
+    x: &[wire_value::WireValue],
+) -> Vec<wire_value::WireValue> {
     let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
 
     let output_labels =
@@ -764,7 +609,7 @@ mod tests {
     #[test]
     fn test_basic_or() {
         // inputs, expected_output
-        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
             // Standard truth table for OR Gate
             // (input0, input1), output
             (vec![false.into(), false.into()], false.into()),
@@ -791,7 +636,7 @@ mod tests {
     #[test]
     fn test_basic_and() {
         // inputs, expected_output
-        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
             // Standard truth table for AND Gate
             // (input0, input1), output
             (vec![false.into(), false.into()], false.into()),
@@ -818,7 +663,7 @@ mod tests {
     #[test]
     fn test_basic_xor() {
         // inputs, expected_output
-        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
             // Standard truth table for XOR Gate
             // (input0, input1), output
             (vec![false.into(), false.into()], false.into()),
@@ -845,7 +690,7 @@ mod tests {
     #[test]
     fn test_basic_nand() {
         // inputs, expected_output
-        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
             // Standard truth table for NAND Gate
             // (input0, input1), output
             (vec![false.into(), false.into()], true.into()),
@@ -872,7 +717,7 @@ mod tests {
     #[test]
     fn test_basic_not() {
         // inputs, expected_output
-        let tests: Vec<(Vec<WireValue>, WireValue)> = vec![
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
             // Standard truth table for NOT Gate
             // (input0, input1), output
             (vec![false.into()], true.into()),

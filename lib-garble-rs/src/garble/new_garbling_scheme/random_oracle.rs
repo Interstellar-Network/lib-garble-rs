@@ -6,7 +6,7 @@ use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use super::block::{BlockL, BlockP, KAPPA_BYTES};
 use super::constant::{KAPPA, KAPPA_FACTOR};
 
-use super::WireValue;
+use super::wire_value::WireValue;
 
 pub(crate) struct RandomOracle {
     rng: ChaChaRng,

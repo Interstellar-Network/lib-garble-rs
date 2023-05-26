@@ -4,7 +4,7 @@ use bitvec::{macros::internal::funty::Fundamental, prelude::*};
 
 use super::{
     constant::{KAPPA, KAPPA_FACTOR},
-    WireValue,
+    wire_value::WireValue,
 };
 
 // TODO u128? would it be faster?

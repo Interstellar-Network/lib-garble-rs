@@ -391,7 +391,7 @@ struct InputEncodingSet {
 /// 6:  end for
 /// 7: Return e
 ///
-fn init_circuit(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEncodingSet {
+fn init_internal(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n() as usize);
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
@@ -492,7 +492,7 @@ struct GarbledCircuitInternal {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-fn garble_circuit<'a>(
+fn garble_internal<'a>(
     circuit: &'a Circuit,
     e: &InputEncodingSet,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
@@ -575,9 +575,9 @@ pub(crate) struct GarbledCircuitFinal {
 pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
-    let mut e = init_circuit(&circuit, &mut random_oracle);
+    let mut e = init_internal(&circuit, &mut random_oracle);
 
-    let garbled_circuit = garble_circuit(&circuit, &mut e)?;
+    let garbled_circuit = garble_internal(&circuit, &mut e)?;
 
     let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
 
@@ -920,5 +920,4 @@ mod tests {
         assert_eq!(RandomOracle::random_oracle_prime(&l0, dj), false);
         assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);
     }
-
 }

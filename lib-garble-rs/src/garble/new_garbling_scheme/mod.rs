@@ -44,6 +44,9 @@ mod delta;
 mod random_oracle;
 mod wire;
 
+#[cfg(feature = "key_length_search")]
+mod key_length;
+
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
 use wire::{Wire, WireLabel};
@@ -753,126 +756,6 @@ pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<Wi
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-/// "A Key Length Search" [rug version]
-/// Ported from matlab to Rust using phind.com
-// pub(crate) fn key_length_search_rug() {
-//     use rug::ops::Pow;
-//     use rug::Float;
-//     use rug::Integer;
-
-//     // Set precision
-//     let prec = 1000;
-
-//     // Constants
-//     let sigma: f64 = 80.0;
-//     let kappa: f64 = 256.0;
-//     let search_from: u32 = 1700;
-//     let search_to: u32 = 1800;
-
-//     // Variables
-//     let mpfsigma = Float::with_val(prec, sigma);
-//     let mpfkappa = Float::with_val(prec, kappa);
-//     let mpf1 = Float::with_val(prec, 1);
-//     let mpf3 = Float::with_val(prec, 3);
-//     let mpf4 = Float::with_val(prec, 4);
-//     let mpf025 = &mpf1 / &mpf4;
-//     let mpf075 = &mpf3 / &mpf4;
-
-//     let mpfnegl = &mpf1 / Float::with_val(prec, Integer::from(2).pow(sigma as u32));
-
-//     // Main loop
-//     for ell in search_from..search_to {
-//         let mpfl = Float::with_val(prec, ell);
-//         let mut mpfbadprob = Float::with_val(prec, 0);
-
-//         for i in 0..(kappa as u32 - 1) {
-//             let mpfi = Float::with_val(prec, i);
-//             let bin_coeff = Float::with_val(prec, binomial(&mpfl, &mpfi));
-//             let term1 = mpf025.clone().pow(mpfi.to_u32().unwrap());
-//             let term2 = mpf075.clone().pow((mpfl - mpfi).to_u32().unwrap());
-//             mpfbadprob += bin_coeff * term1 * term2;
-//         }
-
-//         let log_mpfbadprob = mpfbadprob.log2();
-//         println!("ell = {}, mpfbadprob = 2^{}", ell, log_mpfbadprob);
-
-//         if mpfbadprob <= mpfnegl {
-//             println!("found ell = {}", ell);
-//             break;
-//         }
-//     }
-// }
-
-// fn binomial_rug(n: &rug::Float, k: &rug::Float) -> rug::Float {
-//     use rug::Float;
-
-//     let mut res = Float::with_val(n.prec(), 1);
-
-//     for i in 1..=k.to_u32().unwrap() {
-//         res *= n - Float::with_val(n.prec(), i - 1);
-//         res /= Float::with_val(n.prec(), i);
-//     }
-
-//     res
-// }
-
-/// "A Key Length Search" [num-bigint+num-traits version]
-/// Ported from matlab to Rust using phind.com
-#[cfg(feature = "key_length_search")]
-pub(crate) fn key_length_search_num(search_from: u32, search_to: u32) -> Option<u32> {
-    use num_bigint::BigInt;
-    use num_traits::identities::One;
-    use num_traits::identities::Zero;
-
-    // Constants
-    let sigma: u32 = 80;
-    let kappa: u32 = 256;
-
-    // Variables
-    let negl = BigInt::from(2).pow(sigma) / 2;
-
-    // Main loop
-    let mut ell: Option<u32> = None;
-    for cur_ell in search_from..search_to {
-        let mut badprob = BigInt::zero();
-
-        for i in 0..kappa {
-            let bin_coeff = binomial_num(cur_ell, i);
-            let term1 = BigInt::from(2).pow(i);
-            let term2 = BigInt::from(3).pow(cur_ell - i);
-            badprob += bin_coeff * term1 * term2;
-        }
-
-        badprob /= BigInt::from(4).pow(cur_ell);
-
-        println!("ell = {}, badprob = {}", cur_ell, badprob);
-
-        if badprob <= negl {
-            println!("found ell = {}", cur_ell);
-            ell = Some(cur_ell);
-        }
-    }
-
-    ell
-}
-
-#[cfg(feature = "key_length_search")]
-fn binomial_num(n: u32, k: u32) -> num_bigint::BigInt {
-    use num_bigint::BigInt;
-    use num_traits::One;
-
-    let mut res = BigInt::one();
-
-    for i in 1..=k {
-        res *= n - i + 1;
-        res /= i;
-    }
-
-    res
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1038,9 +921,4 @@ mod tests {
         assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);
     }
 
-    #[cfg(feature = "key_length_search")]
-    #[test]
-    fn test_key_length_search() {
-        assert_eq!(key_length_search_num(1700, 1800).unwrap(), 42);
-    }
 }

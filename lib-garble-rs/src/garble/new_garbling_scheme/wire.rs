@@ -1,4 +1,4 @@
-use super::block::BlockL;
+use super::block::{BlockL, BlockP};
 
 /// Represent either the TRUE or the FALSE part of a `Wire`
 ///
@@ -19,6 +19,19 @@ impl WireLabel {
     }
 
     pub(super) fn get_block(&self) -> &BlockL {
+        &self.label
+    }
+}
+
+/// Like `WireLabel` by INTERNAL part
+/// So based on `l'` length block instead of `l`
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct WireLabelInternal {
+    pub(super) label: BlockP,
+}
+
+impl WireLabelInternal {
+    pub(super) fn get_block(&self) -> &BlockP {
         &self.label
     }
 }

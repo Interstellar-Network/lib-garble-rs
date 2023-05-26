@@ -1,18 +1,19 @@
 use super::block::BlockP;
-use super::CompressedSetBitSlice;
-use super::WireLabelsSetBitsSlice;
+use super::wire::WireLabelInternal;
+use super::wire_labels_set_bitslice::WireLabelsSetBitSlice;
+use super::wire_labels_set_bitslice::WireLabelsSetBitsSliceInternal;
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) enum WireLabelsSetInternal {
+pub(super) enum WireLabelsSetInternal {
     BinaryGate {
-        x00: BlockP,
-        x01: BlockP,
-        x10: BlockP,
-        x11: BlockP,
+        x00: WireLabelInternal,
+        x01: WireLabelInternal,
+        x10: WireLabelInternal,
+        x11: WireLabelInternal,
     },
     UnaryGate {
-        x0: BlockP,
-        x1: BlockP,
+        x0: WireLabelInternal,
+        x1: WireLabelInternal,
     },
 }
 
@@ -30,31 +31,30 @@ pub(crate) enum WireLabelsSetInternal {
 /// optimizations decompose the circuit’s input into bits and each bit is assigned a
 /// label (See also [App17]).""
 ///
-pub(crate) struct WireLabelsSet {
+pub(super) struct WireLabelsSet {
     pub(crate) internal: WireLabelsSetInternal,
-}
-
-pub(crate) fn assert_four_different(a: &BlockP, b: &BlockP, c: &BlockP, d: &BlockP) {
-    assert_ne!(a, b, "a and b are equal");
-    assert_ne!(a, c, "a and c are equal");
-    assert_ne!(a, d, "a and d are equal");
-    assert_ne!(b, c, "b and c are equal");
-    assert_ne!(b, d, "b and d are equal");
-    assert_ne!(c, d, "c and d are equal");
 }
 
 impl WireLabelsSet {
     pub(crate) fn new_binary(x00: BlockP, x01: BlockP, x10: BlockP, x11: BlockP) -> Self {
         assert_four_different(&x00, &x01, &x10, &x11);
         Self {
-            internal: WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 },
+            internal: WireLabelsSetInternal::BinaryGate {
+                x00: WireLabelInternal { label: x00 },
+                x01: WireLabelInternal { label: x01 },
+                x10: WireLabelInternal { label: x10 },
+                x11: WireLabelInternal { label: x11 },
+            },
         }
     }
 
     pub(crate) fn new_unary(x0: BlockP, x1: BlockP) -> Self {
         assert_ne!(&x0, &x1, "a and b are equal");
         Self {
-            internal: WireLabelsSetInternal::UnaryGate { x0, x1 },
+            internal: WireLabelsSetInternal::UnaryGate {
+                x0: WireLabelInternal { label: x0 },
+                x1: WireLabelInternal { label: x1 },
+            },
         }
     }
 
@@ -63,20 +63,20 @@ impl WireLabelsSet {
     /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
     ///
     /// Return the specific BIT for each x00,x01,x10,x11
-    pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
+    pub(super) fn get_bits_slice(&self, index: usize) -> WireLabelsSetBitSlice {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => CompressedSetBitSlice {
-                internal: WireLabelsSetBitsSlice::BinaryGate {
-                    x00: x00.get_bit(index),
-                    x01: x01.get_bit(index),
-                    x10: x10.get_bit(index),
-                    x11: x11.get_bit(index),
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => WireLabelsSetBitSlice {
+                internal: WireLabelsSetBitsSliceInternal::BinaryGate {
+                    x00: x00.get_block().get_bit(index),
+                    x01: x01.get_block().get_bit(index),
+                    x10: x10.get_block().get_bit(index),
+                    x11: x11.get_block().get_bit(index),
                 },
             },
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => CompressedSetBitSlice {
-                internal: WireLabelsSetBitsSlice::UnaryGate {
-                    x0: x0.get_bit(index),
-                    x1: x1.get_bit(index),
+            WireLabelsSetInternal::UnaryGate { x0, x1 } => WireLabelsSetBitSlice {
+                internal: WireLabelsSetBitsSliceInternal::UnaryGate {
+                    x0: x0.get_block().get_bit(index),
+                    x1: x1.get_block().get_bit(index),
                 },
             },
         }
@@ -84,7 +84,7 @@ impl WireLabelsSet {
 
     pub(super) fn get_x00(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x00,
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x00.get_block(),
             WireLabelsSetInternal::UnaryGate { x0, x1 } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -93,7 +93,7 @@ impl WireLabelsSet {
 
     pub(super) fn get_x01(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x01,
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x01.get_block(),
             WireLabelsSetInternal::UnaryGate { x0, x1 } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -102,7 +102,7 @@ impl WireLabelsSet {
 
     pub(super) fn get_x10(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x10,
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x10.get_block(),
             WireLabelsSetInternal::UnaryGate { x0, x1 } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -111,7 +111,7 @@ impl WireLabelsSet {
 
     pub(super) fn get_x11(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x11,
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x11.get_block(),
             WireLabelsSetInternal::UnaryGate { x0, x1 } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -123,7 +123,7 @@ impl WireLabelsSet {
             WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => x0,
+            WireLabelsSetInternal::UnaryGate { x0, x1 } => x0.get_block(),
         }
     }
 
@@ -132,7 +132,16 @@ impl WireLabelsSet {
             WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => x1,
+            WireLabelsSetInternal::UnaryGate { x0, x1 } => x1.get_block(),
         }
     }
+}
+
+fn assert_four_different(a: &BlockP, b: &BlockP, c: &BlockP, d: &BlockP) {
+    assert_ne!(a, b, "a and b are equal");
+    assert_ne!(a, c, "a and c are equal");
+    assert_ne!(a, d, "a and d are equal");
+    assert_ne!(b, c, "b and c are equal");
+    assert_ne!(b, d, "b and d are equal");
+    assert_ne!(c, d, "c and d are equal");
 }

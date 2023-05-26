@@ -4,8 +4,8 @@ use super::{
     block::BlockP,
     constant::{KAPPA, KAPPA_FACTOR},
     wire_labels_set::WireLabelsSet,
+    wire_labels_set_bitslice::{WireLabelsSetBitSlice, WireLabelsSetBitsSliceInternal},
     wire_value::WireValue,
-    CompressedSetBitSlice,
 };
 use crate::{
     circuit::{GateType, GateTypeBinary, GateTypeUnary},
@@ -48,12 +48,12 @@ impl Delta {
         // the other 2 elements will depend on the truth table
         let truth_table = TruthTable::new_from_gate(gate_type);
         let mut delta_slices = vec![];
-        delta_slices.push(CompressedSetBitSlice::new_binary_gate_from_bool(
+        delta_slices.push(WireLabelsSetBitSlice::new_binary_gate_from_bool(
             false, false, false, false,
         ));
         delta_slices.push(truth_table.truth_table.clone());
         delta_slices.push(truth_table.get_complement());
-        delta_slices.push(CompressedSetBitSlice::new_binary_gate_from_bool(
+        delta_slices.push(WireLabelsSetBitSlice::new_binary_gate_from_bool(
             true, true, true, true,
         ));
 
@@ -463,7 +463,7 @@ impl Delta {
 /// Represent the truth table for a 2 inputs boolean gate
 /// ordered classically as: 00, 01, 10, 11
 struct TruthTable {
-    truth_table: CompressedSetBitSlice,
+    truth_table: WireLabelsSetBitSlice,
 }
 
 impl TruthTable {
@@ -485,34 +485,34 @@ impl TruthTable {
                 input_b,
             } => match r#type {
                 GateTypeBinary::XOR => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, true, true, false,
                     ),
                 },
                 GateTypeBinary::NAND => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         true, true, true, false,
                     ),
                 },
                 GateTypeBinary::AND => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, false, false, true,
                     ),
                 },
                 GateTypeBinary::OR => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, true, true, true,
                     ),
                 },
                 GateTypeBinary::NOR => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         true, false, false, false,
                     ),
                 },
             },
             GateType::Unary { r#type, input_a } => match r#type {
                 GateTypeUnary::INV => TruthTable {
-                    truth_table: CompressedSetBitSlice::new_unary_gate_from_bool(false, true),
+                    truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(false, true),
                 },
             },
             // GateType::XNOR => todo!(),
@@ -529,15 +529,15 @@ impl TruthTable {
         }
     }
 
-    pub(self) fn get_complement(&self) -> CompressedSetBitSlice {
+    pub(self) fn get_complement(&self) -> WireLabelsSetBitSlice {
         match &self.truth_table.internal {
-            super::WireLabelsSetBitsSlice::BinaryGate { x00, x01, x10, x11 } => {
-                CompressedSetBitSlice::new_binary_gate_from_bool(
+            WireLabelsSetBitsSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
+                WireLabelsSetBitSlice::new_binary_gate_from_bool(
                     !x00.value, !x01.value, !x10.value, !x11.value,
                 )
             }
-            super::WireLabelsSetBitsSlice::UnaryGate { x0, x1 } => {
-                CompressedSetBitSlice::new_unary_gate_from_bool(!x0.value, !x1.value)
+            WireLabelsSetBitsSliceInternal::UnaryGate { x0, x1 } => {
+                WireLabelsSetBitSlice::new_unary_gate_from_bool(!x0.value, !x1.value)
             }
         }
     }

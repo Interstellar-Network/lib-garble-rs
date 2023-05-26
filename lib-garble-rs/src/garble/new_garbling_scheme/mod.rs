@@ -42,6 +42,7 @@ mod delta;
 mod random_oracle;
 mod wire;
 mod wire_labels_set;
+mod wire_labels_set_bitslice;
 mod wire_value;
 
 #[cfg(feature = "key_length_search")]
@@ -52,98 +53,6 @@ use crate::circuit::{Circuit, Gate, GateType, WireRef};
 use block::{BlockL, BlockP};
 use random_oracle::RandomOracle;
 use wire::{Wire, WireLabel};
-
-#[derive(Debug, PartialEq, Clone)]
-pub(super) enum WireLabelsSetBitsSlice {
-    BinaryGate {
-        x00: wire_value::WireValue,
-        x01: wire_value::WireValue,
-        x10: wire_value::WireValue,
-        x11: wire_value::WireValue,
-    },
-    UnaryGate {
-        x0: wire_value::WireValue,
-        x1: wire_value::WireValue,
-    },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct CompressedSetBitSlice {
-    internal: WireLabelsSetBitsSlice,
-}
-
-impl CompressedSetBitSlice {
-    pub(super) fn new_binary_gate_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
-        Self {
-            internal: WireLabelsSetBitsSlice::BinaryGate {
-                x00: x00.into(),
-                x01: x01.into(),
-                x10: x10.into(),
-                x11: x11.into(),
-            },
-        }
-    }
-
-    pub(super) fn new_unary_gate_from_bool(x0: bool, x1: bool) -> Self {
-        Self {
-            internal: WireLabelsSetBitsSlice::UnaryGate {
-                x0: x0.into(),
-                x1: x1.into(),
-            },
-        }
-    }
-}
-
-// TOREMOVE cleanup below
-// impl PartialEq<[bool; 4]> for CompressedSetBitSlice {
-//     fn eq(&self, other: &[bool; 4]) -> bool {
-//         match &self.internal {
-//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-//                 x00 == other[0] && x01 == other[1] && x10 == other[2] && x11 == other[3]
-//             }
-//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-//                 unimplemented!("PartialEq<[bool; 4]> for UnaryGate")
-//             }
-//         }
-//     }
-// }
-
-// impl PartialEq<[bool; 2]> for CompressedSetBitSlice {
-//     fn eq(&self, other: &[bool; 2]) -> bool {
-//         match &self.internal {
-//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-//                 unimplemented!("PartialEq<[bool; 4]> for BinaryGate")
-//             }
-//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => x0 == other[0] && x1 == other[1],
-//         }
-//     }
-// }
-
-// impl PartialEq<[WireValue; 4]> for CompressedSetBitSlice {
-//     fn eq(&self, other: &[WireValue; 4]) -> bool {
-//         match &self.internal {
-//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-//                 x00 == &other[0] && x01 == &other[1] && x10 == &other[2] && x11 == &other[3]
-//             }
-//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-//                 unimplemented!("PartialEq<[WireValue; 4]> for UnaryGate")
-//             }
-//         }
-//     }
-// }
-
-// impl PartialEq<[WireValue; 2]> for CompressedSetBitSlice {
-//     fn eq(&self, other: &[WireValue; 2]) -> bool {
-//         match &self.internal {
-//             CompressedSetBitSliceInternal::BinaryGate { x00, x01, x10, x11 } => {
-//                 unimplemented!("PartialEq<[WireValue; 4]> for BinaryGate")
-//             }
-//             CompressedSetBitSliceInternal::UnaryGate { x0, x1 } => {
-//                 x0 == &other[0] && x1 == &other[1]
-//             }
-//         }
-//     }
-// }
 
 /// In https://eprint.iacr.org/2021/739.pdf
 /// this is the lines 1 to 4 of "Algorithm 5 Gate"

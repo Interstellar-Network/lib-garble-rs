@@ -121,7 +121,7 @@ TODO constant 0 and 1
 #[repr(i32)]
 pub(crate) enum GateTypeBinary {
     // ZERO = 0,
-    // NOR = 1,
+    NOR = 1,
     // A-and-not-B
     // AANB = 2,
     // not-A-and-B?
@@ -221,6 +221,11 @@ impl Gate {
                 }),
                 interstellarpbskcd::SkcdGateType::Or => Ok(GateType::Binary {
                     r#type: GateTypeBinary::OR,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                interstellarpbskcd::SkcdGateType::Nor => Ok(GateType::Binary {
+                    r#type: GateTypeBinary::NOR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),

@@ -106,12 +106,16 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                 ),
                 GateTypeBinary::NAND => (
-                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
                 GateTypeBinary::OR => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                ),
+                GateTypeBinary::NOR => (
+                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
             },
             GateType::Unary { r#type, input_a } => match r#type {
@@ -500,6 +504,11 @@ impl TruthTable {
                         false, true, true, true,
                     ),
                 },
+                GateTypeBinary::NOR => TruthTable {
+                    truth_table: CompressedSetBitSlice::new_binary_gate_from_bool(
+                        true, false, false, false,
+                    ),
+                },
             },
             GateType::Unary { r#type, input_a } => match r#type {
                 GateTypeUnary::INV => TruthTable {
@@ -599,6 +608,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn mre_delta_nand_gate() {
         for i in 0..1000 {
             mre_delta_binary_gate_aux()

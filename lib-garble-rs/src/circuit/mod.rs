@@ -143,6 +143,21 @@ impl InterstellarCircuit {
 
                         circuit.not(and_output)
                     }
+                    GateTypeBinary::NOR => {
+                        // NOR is a OR, whose output is NOTed
+                        let or_output = circuit.and(
+                            bdd_map
+                                .get(&input_a.id)
+                                .expect("GateType::NOR missing input a!")
+                                .clone(),
+                            bdd_map
+                                .get(&input_b.id)
+                                .expect("GateType::NOR missing input b!")
+                                .clone(),
+                        );
+
+                        circuit.not(or_output)
+                    }
                     GateTypeBinary::AND => circuit.and(
                         bdd_map
                             .get(&input_a.id)

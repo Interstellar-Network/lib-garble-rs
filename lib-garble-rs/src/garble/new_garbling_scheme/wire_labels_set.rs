@@ -1,6 +1,6 @@
 use super::block::BlockP;
 use super::CompressedSetBitSlice;
-use super::CompressedSetBitSliceInternal;
+use super::WireLabelsSetBitsSlice;
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum WireLabelsSetInternal {
@@ -66,7 +66,7 @@ impl WireLabelsSet {
     pub(super) fn get_bits_slice(&self, index: usize) -> CompressedSetBitSlice {
         match &self.internal {
             WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => CompressedSetBitSlice {
-                internal: CompressedSetBitSliceInternal::BinaryGate {
+                internal: WireLabelsSetBitsSlice::BinaryGate {
                     x00: x00.get_bit(index),
                     x01: x01.get_bit(index),
                     x10: x10.get_bit(index),
@@ -74,7 +74,7 @@ impl WireLabelsSet {
                 },
             },
             WireLabelsSetInternal::UnaryGate { x0, x1 } => CompressedSetBitSlice {
-                internal: CompressedSetBitSliceInternal::UnaryGate {
+                internal: WireLabelsSetBitsSlice::UnaryGate {
                     x0: x0.get_bit(index),
                     x1: x1.get_bit(index),
                 },

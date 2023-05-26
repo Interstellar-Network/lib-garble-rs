@@ -54,7 +54,7 @@ use random_oracle::RandomOracle;
 use wire::{Wire, WireLabel};
 
 #[derive(Debug, PartialEq, Clone)]
-pub(super) enum CompressedSetBitSliceInternal {
+pub(super) enum WireLabelsSetBitsSlice {
     BinaryGate {
         x00: wire_value::WireValue,
         x01: wire_value::WireValue,
@@ -69,13 +69,13 @@ pub(super) enum CompressedSetBitSliceInternal {
 
 #[derive(Debug, PartialEq, Clone)]
 struct CompressedSetBitSlice {
-    internal: CompressedSetBitSliceInternal,
+    internal: WireLabelsSetBitsSlice,
 }
 
 impl CompressedSetBitSlice {
     pub(super) fn new_binary_gate_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
         Self {
-            internal: CompressedSetBitSliceInternal::BinaryGate {
+            internal: WireLabelsSetBitsSlice::BinaryGate {
                 x00: x00.into(),
                 x01: x01.into(),
                 x10: x10.into(),
@@ -86,7 +86,7 @@ impl CompressedSetBitSlice {
 
     pub(super) fn new_unary_gate_from_bool(x0: bool, x1: bool) -> Self {
         Self {
-            internal: CompressedSetBitSliceInternal::UnaryGate {
+            internal: WireLabelsSetBitsSlice::UnaryGate {
                 x0: x0.into(),
                 x1: x1.into(),
             },
@@ -350,7 +350,7 @@ fn garble_internal<'a>(
 
     for gate in circuit.gates.iter() {
         let compressed_set = f1_0_compress(&e, gate);
-        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type());
+        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
 
         let wire_ref = WireRef { id: gate.get_id() };
 
@@ -694,8 +694,8 @@ mod tests {
             // Standard truth table for NAND Gate
             // (input0, input1), output
             (vec![false.into(), false.into()], true.into()),
-            (vec![false.into(), true.into()], false.into()),
-            (vec![true.into(), false.into()], false.into()),
+            (vec![false.into(), true.into()], true.into()),
+            (vec![true.into(), false.into()], true.into()),
             (vec![true.into(), true.into()], false.into()),
         ];
 
@@ -709,6 +709,33 @@ mod tests {
                 outputs.len(),
                 1,
                 "NAND gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_nor() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
+            // Standard truth table for NOR Gate
+            // (input0, input1), output
+            (vec![false.into(), false.into()], true.into()),
+            (vec![false.into(), true.into()], false.into()),
+            (vec![true.into(), false.into()], false.into()),
+            (vec![true.into(), true.into()], false.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "NOR gate so we SHOULD have only one output!"
             );
             assert_eq!(outputs[0], expected_output);
         }

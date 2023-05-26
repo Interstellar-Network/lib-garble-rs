@@ -1,4 +1,5 @@
 use num_enum::TryFromPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::skcd_parser::CircuitParserError;
 
@@ -17,7 +18,7 @@ mod interstellarpbskcd {
 /// - a Gate's output
 /// - a Circuit's output
 // TODO ideally this SHOULD NOT be cloneable; and we should replace internal `id: usize` by eg `&Wire`
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize, Deserialize)]
 pub(crate) struct WireRef {
     pub(crate) id: usize,
 }
@@ -117,7 +118,7 @@ In summary, while NAND and NOR gates are commonly used as universal gates, it is
 TODO constant 0 and 1
  */
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(i32)]
 pub(crate) enum GateTypeBinary {
     // ZERO = 0,
@@ -141,7 +142,7 @@ pub(crate) enum GateTypeBinary {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, TryFromPrimitive, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(i32)]
 pub(crate) enum GateTypeUnary {
     // NOT B
@@ -165,22 +166,22 @@ pub(crate) enum GateTypeUnary {
 /// Which means Constant type only has an output and NO input.
 ///
 /// NOTE: it SHOULD be optimized-out by Verilog/ABC but right now, we CAN have multiple ZERO and ONE gates in a Circuit!
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum GateType {
     Binary {
-        r#type: GateTypeBinary,
+        gate_type: GateTypeBinary,
         input_a: WireRef,
         input_b: WireRef,
     },
     Unary {
-        r#type: GateTypeUnary,
+        gate_type: GateTypeUnary,
         input_a: WireRef,
     }, // Constant {
        //     value: bool,
        // },
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct Gate {
     pub(super) internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx
@@ -201,31 +202,31 @@ impl Gate {
         let internal = match skcd_gate_type_res {
             Some(skcd_gate_type) => match skcd_gate_type {
                 interstellarpbskcd::SkcdGateType::Inv => Ok(GateType::Unary {
-                    r#type: GateTypeUnary::INV,
+                    gate_type: GateTypeUnary::INV,
                     input_a: input_a.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xor => Ok(GateType::Binary {
-                    r#type: GateTypeBinary::XOR,
+                    gate_type: GateTypeBinary::XOR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nand => Ok(GateType::Binary {
-                    r#type: GateTypeBinary::NAND,
+                    gate_type: GateTypeBinary::NAND,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::And => Ok(GateType::Binary {
-                    r#type: GateTypeBinary::AND,
+                    gate_type: GateTypeBinary::AND,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Or => Ok(GateType::Binary {
-                    r#type: GateTypeBinary::OR,
+                    gate_type: GateTypeBinary::OR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nor => Ok(GateType::Binary {
-                    r#type: GateTypeBinary::NOR,
+                    gate_type: GateTypeBinary::NOR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),

@@ -1,12 +1,9 @@
 use bitvec::prelude::*;
-use rand::seq::SliceRandom;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
 use super::block::{BlockL, BlockP, KAPPA_BYTES};
-use super::constant::{KAPPA, KAPPA_FACTOR};
-
-use super::wire_value::WireValue;
+use super::constant::KAPPA_FACTOR;
 
 pub(crate) struct RandomOracle {
     rng: ChaChaRng,
@@ -52,7 +49,7 @@ impl RandomOracle {
         BlockP::new_with2(hash2_bytes)
     }
 
-    pub(super) fn new_random_blockL(&mut self) -> BlockL {
+    pub(super) fn new_random_block_l(&mut self) -> BlockL {
         let arr1: [u64; 2] = self.rng.gen();
         BlockL::new_with(arr1)
     }
@@ -202,10 +199,10 @@ mod tests {
         let mut random_oracle = RandomOracle::new();
 
         let mut results = vec![];
-        let lj0 = random_oracle.new_random_blockL();
+        let lj0 = random_oracle.new_random_block_l();
 
         for i in 0..1000 {
-            let dj = random_oracle.new_random_blockL();
+            let dj = random_oracle.new_random_block_l();
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }
@@ -220,10 +217,10 @@ mod tests {
         let mut random_oracle = RandomOracle::new();
 
         let mut results = vec![];
-        let dj = random_oracle.new_random_blockL();
+        let dj = random_oracle.new_random_block_l();
 
         for i in 0..1000 {
-            let lj0 = random_oracle.new_random_blockL();
+            let lj0 = random_oracle.new_random_block_l();
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }

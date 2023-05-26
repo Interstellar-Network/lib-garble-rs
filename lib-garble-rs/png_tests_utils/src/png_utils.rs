@@ -14,25 +14,11 @@ pub fn read_png_to_bytes(buf: &[u8]) -> Vec<u8> {
     bytes.to_vec()
 }
 
-pub fn convert_vec_u16_to_u8(data: &[u16]) -> Vec<u8> {
-    let data: Vec<u8> = data
-        .iter()
-        .map(|v| {
-            let pixel_value: u8 = (*v).try_into().unwrap();
-            pixel_value * 255
-        })
-        .collect();
-
-    data
-}
-
 /// param outputs: result of garb.eval()
 /// return: the raw bytes of .png corresponding to the GarbledCircuit's eval outputs
 /// Typically the is "output[i] = eval[i] * 255"
-pub fn write_png(path: &str, width: usize, height: usize, data: &[u16]) {
-    let data_u8 = convert_vec_u16_to_u8(data);
-
-    write_png_direct(path, width, height, &data_u8);
+pub fn write_png(path: &str, width: usize, height: usize, data: &[u8]) {
+    write_png_direct(path, width, height, &data);
 }
 
 pub fn write_png_direct(path: &str, width: usize, height: usize, data: &[u8]) {

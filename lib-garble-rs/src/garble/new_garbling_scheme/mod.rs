@@ -33,19 +33,18 @@
 //! inputs a and b. For example, if gj is an XOR gate then gj (a, b) = a ⊕ b. The
 //! interpretation would always be clear from the context.""
 
-use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
-use serde::{Deserialize, Serialize};
-
 mod block;
 mod constant;
 mod delta;
-mod evaluate;
-mod garble;
 mod random_oracle;
-mod wire;
+
 mod wire_labels_set;
 mod wire_labels_set_bitslice;
 mod wire_value;
+
+pub(crate) mod evaluate;
+pub(crate) mod garble;
+pub(crate) mod wire;
 
 #[cfg(feature = "key_length_search")]
 mod key_length;
@@ -53,12 +52,9 @@ mod key_length;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        circuit::SkcdConfig,
-        garble::{
-            new_garbling_scheme::{evaluate::evaluate, garble::garble},
-            InterstellarCircuit,
-        },
+    use crate::garble::{
+        new_garbling_scheme::{evaluate::evaluate, garble::garble},
+        Circuit,
     };
 
     #[test]
@@ -74,7 +70,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -101,7 +97,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -128,7 +124,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -155,7 +151,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -182,7 +178,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ = InterstellarCircuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -207,8 +203,7 @@ mod tests {
         ];
 
         for (inputs, expected_output) in tests {
-            let circ =
-                InterstellarCircuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
+            let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
             let garbled = garble(circ.circuit).unwrap();
 
             let outputs = evaluate(&garbled, &inputs);
@@ -222,12 +217,10 @@ mod tests {
     }
 
     #[test]
-    fn test_garble() {
-        let circ = InterstellarCircuit::parse_skcd(include_bytes!(
-            "../../../examples/data/adder.skcd.pb.bin"
-        ))
-        .unwrap();
+    fn test_garble_adder() {
+        let circ = Circuit::parse_skcd(include_bytes!("../../../examples/data/adder.skcd.pb.bin"))
+            .unwrap();
 
-        garble(circ.circuit);
+        garble(circ.circuit).unwrap();
     }
 }

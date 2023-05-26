@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::block::{BlockL, BlockP};
 
 /// Represent either the TRUE or the FALSE part of a `Wire`
@@ -6,8 +8,8 @@ use super::block::{BlockL, BlockP};
 /// the `value` SHOULD match either a `Wire.value0` OR a `Wire.value1`
 ///
 // TODO do this ^^^^ -> `value` SHOULD be ref
-#[derive(Debug, Clone)]
-pub(super) struct WireLabel {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct WireLabel {
     label: BlockL,
 }
 
@@ -42,7 +44,7 @@ impl WireLabelInternal {
 ///
 /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
 /// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(super) struct Wire {
     label0: WireLabel,
     label1: WireLabel,

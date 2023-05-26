@@ -1,7 +1,7 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 
 use crate::{
-    circuit::{Circuit, GateType, WireRef},
+    circuit::{CircuitInternal, GateType, WireRef},
     garble::{new_garbling_scheme::wire::WireLabel, GarblerError},
 };
 
@@ -41,7 +41,7 @@ struct EncodedInfo {
 /// 2:  output Kjxj = ej [xj ]
 /// 3: end for
 fn encoding_internal<'a>(
-    circuit: &'a Circuit,
+    circuit: &'a CircuitInternal,
     e: &'a InputEncodingSet,
     x: &'a [WireValue],
 ) -> EncodedInfo {
@@ -84,34 +84,32 @@ struct OutputLabels {
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
-fn evaluate_internal(circuit: &Circuit, f: &F, encoded_info: &EncodedInfo) -> OutputLabels {
+fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInfo) -> OutputLabels {
     let mut output_labels = OutputLabels {
         y: HashMap::with_capacity(circuit.outputs.len()),
     };
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
-    // As we are looping on the gates in order, this will be built step by step
-    // ie the first gates are inputs, and this will already contain them
-    // them we built all the other gates in subsequent iterations of the loop
-    let active_wires = encoded_info.x.clone();
-
     // "for each gate g ∈ [q] in a topological order do"
     for gate in circuit.gates.iter() {
         // "LA, LB ← active labels associated with the input wires of gate g"
         let (l_a, l_b) = match gate.get_type() {
             GateType::Binary {
-                r#type,
+                gate_type: r#type,
                 input_a,
                 input_b,
             } => {
-                let l_a = active_wires.get(input_a).unwrap();
-                let l_b = active_wires.get(input_b).unwrap();
+                let l_a = encoded_info.x.get(input_a).unwrap();
+                let l_b = encoded_info.x.get(input_b).unwrap();
 
                 (l_a.get_block(), Some(l_b.get_block()))
             }
-            GateType::Unary { r#type, input_a } => {
-                let l_a = active_wires.get(input_a).unwrap();
+            GateType::Unary {
+                gate_type: r#type,
+                input_a,
+            } => {
+                let l_a = encoded_info.x.get(input_a).unwrap();
                 (l_a.get_block(), None)
             }
         };
@@ -151,7 +149,7 @@ fn evaluate_internal(circuit: &Circuit, f: &F, encoded_info: &EncodedInfo) -> Ou
 /// "De(Y, d) := {⊥, y}: returns either the failure symbol ⊥ or a value y = f (x)."
 ///
 fn decoding_internal(
-    circuit: &Circuit,
+    circuit: &CircuitInternal,
     output_labels: &OutputLabels,
     decoded_info: &DecodedInfo,
 ) -> Vec<WireValue> {
@@ -177,4 +175,9 @@ pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<Wi
         evaluate_internal(&garbled.circuit, &garbled.garbled_circuit.f, &encoded_info);
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
+}
+
+/// encode inputs; this can be either "garbler inputs" or "evaluator inputs"
+pub(crate) fn encode_inputs() {
+    let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
 }

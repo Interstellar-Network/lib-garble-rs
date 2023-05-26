@@ -1,18 +1,19 @@
 use alloc::vec;
 
+use serde::{Deserialize, Serialize};
+
 use super::{
     block::BlockP,
     constant::{KAPPA, KAPPA_FACTOR},
     wire_labels_set::WireLabelsSet,
     wire_labels_set_bitslice::{WireLabelsSetBitSlice, WireLabelsSetBitsSliceInternal},
-    wire_value::WireValue,
 };
 use crate::{
     circuit::{GateType, GateTypeBinary, GateTypeUnary},
     garble::GarblerError,
 };
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(super) struct Delta {
     block: BlockP,
 }
@@ -93,7 +94,7 @@ impl Delta {
         // TODO same issue with `l1`
         let (l0_full, l1_full) = match gate_type {
             GateType::Binary {
-                r#type,
+                gate_type: r#type,
                 input_a,
                 input_b,
             } => match r#type {
@@ -118,7 +119,10 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
             },
-            GateType::Unary { r#type, input_a } => match r#type {
+            GateType::Unary {
+                gate_type: r#type,
+                input_a,
+            } => match r#type {
                 GateTypeUnary::INV => (
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
@@ -480,7 +484,7 @@ impl TruthTable {
             // TODO? NOR(A, A) inverts the input A.
             // GateType::INV => todo!(),
             GateType::Binary {
-                r#type,
+                gate_type: r#type,
                 input_a,
                 input_b,
             } => match r#type {
@@ -510,7 +514,10 @@ impl TruthTable {
                     ),
                 },
             },
-            GateType::Unary { r#type, input_a } => match r#type {
+            GateType::Unary {
+                gate_type: r#type,
+                input_a,
+            } => match r#type {
                 GateTypeUnary::INV => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(false, true),
                 },

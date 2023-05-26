@@ -30,8 +30,8 @@ fn main() {
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 
-    let mut merged_outputs = vec![0u16; width * height];
-    let mut temp_outputs = vec![Some(0u16); width * height];
+    let mut merged_outputs = vec![0u8; width * height];
+    let mut temp_outputs = vec![0u8; width * height];
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
@@ -66,7 +66,7 @@ fn main() {
             // 1 + 0 = 1
             // 0 + 1 = 1
             // 1 + 1 = 1
-            *merged_output = std::cmp::min(*merged_output + cur_output.unwrap(), 1u16)
+            *merged_output = std::cmp::min(*merged_output + cur_output, 1u8)
         }
     }
 

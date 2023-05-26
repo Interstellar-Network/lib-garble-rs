@@ -1,7 +1,7 @@
 mod gate;
 mod skcd_config;
 
-use hashbrown::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 
 pub(crate) use gate::{Gate, GateType, GateTypeBinary, GateTypeUnary, WireRef};
 pub(crate) use skcd_config::{
@@ -16,7 +16,8 @@ pub(crate) use skcd_config::{
 ///
 /// NOTE: this is important, especially for the outputs to be in order!
 /// ie DO NOT use HashSet/HashMap etc in this struct!
-pub(crate) struct Circuit {
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub(crate) struct CircuitInternal {
     pub(crate) num_garbler_inputs: u32,
     pub(crate) num_evaluator_inputs: u32,
     pub(crate) inputs: Vec<WireRef>,
@@ -25,7 +26,7 @@ pub(crate) struct Circuit {
     pub(crate) wires: Vec<WireRef>,
 }
 
-impl Circuit {
+impl CircuitInternal {
     /// Return "n" ie the number of inputs
     pub(crate) fn n(&self) -> u32 {
         self.num_garbler_inputs + self.num_evaluator_inputs
@@ -51,8 +52,8 @@ impl Circuit {
 /// Represents the raw(ie **UN**garbled) circuit; usually created from a .skcd file
 ///
 /// Exists mostly to mask swanky/fancy-garbling Circuit to the public.
-pub(crate) struct InterstellarCircuit {
-    pub(crate) circuit: Circuit,
+pub(crate) struct Circuit {
+    pub(crate) circuit: CircuitInternal,
     pub(crate) config: skcd_config::SkcdConfig,
 }
 
@@ -63,7 +64,7 @@ pub enum EvaluateError {
 }
 
 #[cfg(test)]
-impl InterstellarCircuit {
+impl Circuit {
     pub(crate) fn num_evaluator_inputs(&self) -> u32 {
         let mut num_inputs = 0;
         for skcd_input in &self.config.evaluator_inputs {
@@ -88,7 +89,7 @@ impl InterstellarCircuit {
     ///
     /// NOTE: "expected_outputs" are passed as param b/c of the way "evaluate" from the crate "boolean_expression" works
     /// See also: https://stackoverflow.com/questions/59109453/how-do-i-use-the-rust-crate-boolean-expression-to-implement-a-simple-logic-cir
-    pub(crate) fn eval_plain(&self, evaluator_inputs: &[u16]) -> Result<Vec<u16>, EvaluateError> {
+    pub(crate) fn eval_plain(&self, evaluator_inputs: &[u8]) -> Result<Vec<u8>, EvaluateError> {
         use boolean_expression::*;
 
         assert!(
@@ -102,7 +103,7 @@ impl InterstellarCircuit {
 
         let mut circuit = boolean_expression::BDD::new();
         // Map: "WireRef" == Gate ID to a BDDFunc
-        let mut bdd_map = HashMap::new();
+        let mut bdd_map = hashbrown::HashMap::new();
 
         for input_wire in &self.circuit.inputs {
             bdd_map.insert(input_wire.id, circuit.terminal(input_wire.id));
@@ -114,7 +115,7 @@ impl InterstellarCircuit {
         for gate in &self.circuit.gates {
             let bdd_gate: BDDFunc = match gate.get_type() {
                 GateType::Binary {
-                    r#type,
+                    gate_type: r#type,
                     input_a,
                     input_b,
                 } => match r#type {
@@ -193,7 +194,10 @@ impl InterstellarCircuit {
                     // ),
                     // _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
-                GateType::Unary { r#type, input_a } => match r#type {
+                GateType::Unary {
+                    gate_type: r#type,
+                    input_a,
+                } => match r#type {
                     GateTypeUnary::INV => circuit.not(
                         bdd_map
                             .get(&input_a.id)
@@ -220,13 +224,13 @@ impl InterstellarCircuit {
             .map(|(idx, input)| (idx, input.clone() == 1))
             .collect();
 
-        let res_outputs: Vec<u16> = self
+        let res_outputs: Vec<u8> = self
             .circuit
             .outputs
             .iter()
             .map(|output| {
                 let output_bddfunc = bdd_map.get(&output.id).expect("missing output!").clone();
-                circuit.evaluate(output_bddfunc, &hashmap_inputs) as u16
+                circuit.evaluate(output_bddfunc, &hashmap_inputs) as u8
             })
             .collect();
         println!("########### evaluate : {:?}", res_outputs);
@@ -237,14 +241,14 @@ impl InterstellarCircuit {
     /// Build a basic circuit containing only a desired Binary Gate
     pub(crate) fn new_test_circuit(gate_binary_type: GateTypeBinary) -> Self {
         Self {
-            circuit: Circuit {
+            circuit: CircuitInternal {
                 num_garbler_inputs: 2,
                 num_evaluator_inputs: 0,
                 inputs: vec![WireRef { id: 0 }, WireRef { id: 1 }],
                 outputs: vec![WireRef { id: 2 }],
                 gates: vec![Gate {
                     internal: GateType::Binary {
-                        r#type: gate_binary_type,
+                        gate_type: gate_binary_type,
                         input_a: WireRef { id: 0 },
                         input_b: WireRef { id: 1 },
                     },
@@ -262,14 +266,14 @@ impl InterstellarCircuit {
 
     pub(crate) fn new_test_circuit_unary(gate_unary_type: GateTypeUnary) -> Self {
         Self {
-            circuit: Circuit {
+            circuit: CircuitInternal {
                 num_garbler_inputs: 1,
                 num_evaluator_inputs: 0,
                 inputs: vec![WireRef { id: 0 }],
                 outputs: vec![WireRef { id: 1 }],
                 gates: vec![Gate {
                     internal: GateType::Unary {
-                        r#type: gate_unary_type,
+                        gate_type: gate_unary_type,
                         input_a: WireRef { id: 0 },
                     },
                     output: WireRef { id: 1 },

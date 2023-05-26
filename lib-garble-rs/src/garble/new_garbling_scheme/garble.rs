@@ -1,13 +1,25 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    circuit::{Circuit, Gate, GateType, WireRef},
-    garble::GarblerError,
-};
+use crate::circuit::{CircuitInternal, Gate, GateType, WireRef};
 
 use super::{
     block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
 };
+
+#[derive(Debug)]
+enum GarblerError {
+    /// During `fn garble`, when looping on the Gates in order,
+    /// they SHOULD be processed in topological order.
+    /// ie if a Gate is used as input for other Gates, it SHOULD be processed before them!
+    GateIdOutputMismatch,
+    EvaluateDuplicatedWire,
+    /// "Algorithm 5 Gate" L15/16
+    /// "15: if HW (∇g )̸ = ℓ then 16: ABORT the computation"
+    BadHammingWeight {
+        hw: usize,
+    },
+}
 
 /// In https://eprint.iacr.org/2021/739.pdf
 /// this is the lines 1 to 4 of "Algorithm 5 Gate"
@@ -29,17 +41,17 @@ use super::{
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 ///
-fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> WireLabelsSet {
+fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLabelsSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
         GateType::Binary {
-            r#type,
+            gate_type: r#type,
             input_a,
             input_b,
         } => {
-            let wire_a: &Wire = &w.e[input_a];
-            let wire_b: &Wire = &w.e[input_b];
+            let wire_a: &Wire = &encoded_wires[input_a];
+            let wire_b: &Wire = &encoded_wires[input_b];
 
             WireLabelsSet::new_binary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
@@ -48,8 +60,11 @@ fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> WireLabelsSet {
                 RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value1()), tweak),
             )
         }
-        GateType::Unary { r#type, input_a } => {
-            let wire_a: &Wire = &w.e[input_a];
+        GateType::Unary {
+            gate_type: r#type,
+            input_a,
+        } => {
+            let wire_a: &Wire = &encoded_wires[input_a];
 
             WireLabelsSet::new_unary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
@@ -68,7 +83,7 @@ fn f1_0_compress(w: &InputEncodingSet, gate: &Gate) -> WireLabelsSet {
 /// - BUT the first "Gate ID" could be eg 5
 /// - which means the second iteration of the loop would not work without a hashmap
 ///
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct InputEncodingSet {
     pub(super) e: HashMap<WireRef, Wire>,
 }
@@ -97,7 +112,7 @@ pub(super) struct InputEncodingSet {
 /// 6:  end for
 /// 7: Return e
 ///
-fn init_internal(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEncodingSet {
+fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n() as usize);
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
@@ -106,8 +121,8 @@ fn init_internal(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEn
             "Wires MUST be iterated in topological order!"
         );
 
-        let lw0 = random_oracle.new_random_blockL();
-        let lw1 = random_oracle.new_random_blockL();
+        let lw0 = random_oracle.new_random_block_l();
+        let lw1 = random_oracle.new_random_block_l();
 
         // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
         assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
@@ -141,7 +156,7 @@ fn init_internal(circuit: &Circuit, random_oracle: &mut RandomOracle) -> InputEn
 /// (3) DecodingInfo(D) → d
 ///
 fn garble_internal<'a>(
-    circuit: &'a Circuit,
+    circuit: &'a CircuitInternal,
     e: &InputEncodingSet,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
@@ -150,12 +165,15 @@ fn garble_internal<'a>(
     // TODO should this (semantically) be instead `HashMap<&WireRef, Wire>`(or `HashMap<&WireRef, &Wire>`)
     let mut deltas = HashMap::with_capacity(circuit.outputs.len());
 
-    let mut encoded_wires = HashMap::with_capacity(circuit.gates.len());
+    // As we are looping on the gates in order, this will be built step by step
+    // ie the first gates are inputs, and this will already contain them.
+    // Then we built all the other gates in subsequent iterations of the loop.
+    let mut encoded_wires = e.e.clone();
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        let compressed_set = f1_0_compress(&e, gate);
+        let compressed_set = f1_0_compress(&encoded_wires, gate);
         let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
 
         let wire_ref = WireRef { id: gate.get_id() };
@@ -207,24 +225,28 @@ fn garble_internal<'a>(
 }
 
 /// Noted `F` in the paper
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(super) struct F {
     /// One per Gate
     pub(super) f: HashMap<WireRef, delta::Delta>,
 }
 
 /// Noted `D` in the paper
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct D {
     d: HashMap<WireRef, (BlockL, BlockL)>,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(super) struct GarbledCircuitInternal {
     pub(super) f: F,
     d: D,
 }
 
 /// This is the EVALUABLE GarbledCircuit; ie the result of the whole garbling pipeline.
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct GarbledCircuitFinal {
-    pub(super) circuit: Circuit,
+    pub(super) circuit: CircuitInternal,
     pub(super) garbled_circuit: GarbledCircuitInternal,
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,
@@ -236,7 +258,7 @@ pub(crate) struct GarbledCircuitFinal {
 /// (3) DecodingInfo(D) → d
 ///
 // TODO? how to group the garble part vs eval vs decoding?
-pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerError> {
+pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
     let mut e = init_internal(&circuit, &mut random_oracle);
@@ -255,6 +277,7 @@ pub(crate) fn garble(circuit: Circuit) -> Result<GarbledCircuitFinal, GarblerErr
 
 /// Noted `d` in the paper
 ///
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub(super) struct DecodedInfo {
     pub(super) d: HashMap<WireRef, BlockL>,
 }
@@ -279,14 +302,14 @@ fn decoding_info(
         // "extract Lj0, Lj1 ← D[j]"
         let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
 
-        let mut dj = random_oracle.new_random_blockL();
+        let mut dj = random_oracle.new_random_block_l();
         loop {
             let a = !RandomOracle::random_oracle_prime(lj0, &dj);
             let b = RandomOracle::random_oracle_prime(lj1, &dj);
             if a && b {
                 break;
             }
-            dj = random_oracle.new_random_blockL();
+            dj = random_oracle.new_random_block_l();
         }
 
         d.insert(output_wire.clone(), dj);
@@ -304,8 +327,8 @@ mod tests {
         let circuit_outputs = vec![WireRef { id: 42 }];
         let mut random_oracle = RandomOracle::new();
         let mut d_up = HashMap::new();
-        let l0 = random_oracle.new_random_blockL();
-        let l1 = random_oracle.new_random_blockL();
+        let l0 = random_oracle.new_random_block_l();
+        let l1 = random_oracle.new_random_block_l();
         d_up.insert(circuit_outputs[0].clone(), (l0.clone(), l1.clone()));
 
         let d = D { d: d_up };

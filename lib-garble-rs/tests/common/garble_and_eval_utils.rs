@@ -18,9 +18,9 @@ pub fn eval_client(
     garb: &mut GarbledCircuit,
     encoded_garbler_inputs: &EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
-    data: &mut Vec<Option<u16>>,
+    data: &mut Vec<u8>,
     rng: &mut ThreadRng,
-    rand_0_1: &Uniform<u16>,
+    rand_0_1: &Uniform<u8>,
     should_randomize_evaluator_inputs: bool,
 ) {
     // randomize the "rnd" part of the inputs

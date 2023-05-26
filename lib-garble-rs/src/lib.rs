@@ -15,6 +15,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
+use circuit::SkcdConfig;
 use snafu::prelude::*;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
@@ -36,10 +37,34 @@ pub use garble::EvaluatorInput;
 pub use garble::GarbledCircuit;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
+/// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub struct EncodedGarblerInputs {
+    pub(super) encoded_wires: Vec<new_garbling_scheme::wire::WireLabel>,
+}
+
+fn num_evaluator_inputs(skcd_config: &SkcdConfig) -> u32 {
+    let mut num_evaluator_inputs = 0;
+    for skcd_input in &skcd_config.evaluator_inputs {
+        num_evaluator_inputs += skcd_input.length;
+    }
+
+    num_evaluator_inputs
+}
+
+fn num_garbler_inputs(skcd_config: &SkcdConfig) -> u32 {
+    let mut num_garbler_inputs = 0;
+    for skcd_input in &skcd_config.garbler_inputs {
+        num_garbler_inputs += skcd_input.length;
+    }
+
+    num_garbler_inputs
+}
+
 #[derive(Debug, Snafu)]
 pub enum InterstellarError {
     /// Error at GarbledCircuit::garble
-    GarbleError,
+    GarblerError,
     /// Error at garbled_display_circuit_prepare_garbler_inputs
     SkcdParserError,
     /// garbled_display_circuit_prepare_garbler_inputs: the circuit SHOULD be
@@ -62,7 +87,6 @@ pub enum InterstellarError {
 /// It:
 /// - parses a .skcd; usually coming from IPFS
 /// - garbles it
-/// - encode the "garbler inputs" ie the message/watermark/OTP(pinpad or message)
 ///
 /// # Errors
 /// - if the circuit can not be parsed; eg `skcd_buf` does not contain properly serialized data(postcard)
@@ -70,10 +94,10 @@ pub enum InterstellarError {
 ///
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
 pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError> {
-    let circ = circuit::InterstellarCircuit::parse_skcd(skcd_buf)
-        .map_err(|_e| InterstellarError::SkcdParserError)?;
+    let circ =
+        circuit::Circuit::parse_skcd(skcd_buf).map_err(|_e| InterstellarError::SkcdParserError)?;
 
-    GarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarbleError)
+    GarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarblerError)
 }
 
 /// Prepare the `garbler_inputs`; it contains both:
@@ -115,7 +139,7 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
                     return Err(InterstellarError::GarblerInputsInvalidBufLength);
                 }
 
-                garbler_inputs.push(0u16);
+                garbler_inputs.push(0u8);
             }
             circuit::GarblerInputsType::SevenSegments => {
                 if garbler_input.length % 7 != 0 {
@@ -183,49 +207,46 @@ pub fn prepare_evaluator_inputs(
 
 #[cfg(test)]
 mod tests {
-    use crate::garble_skcd;
+    use super::*;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
     // input  i_bit1;
     // input  i_bit2;
     // input  i_carry;
-    pub(super) const FULL_ADDER_2BITS_ALL_INPUTS: &'static [&'static [u16]] = &[
-        &[0, 0, 0],
-        &[1, 0, 0],
-        &[0, 1, 0],
-        &[1, 1, 0],
-        &[0, 0, 1],
-        &[1, 0, 1],
-        &[0, 1, 1],
-        &[1, 1, 1],
+    pub(super) const FULL_ADDER_2BITS_ALL_INPUTS: [[u8; 3]; 8] = [
+        [0, 0, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [1, 1, 0],
+        [0, 0, 1],
+        [1, 0, 1],
+        [0, 1, 1],
+        [1, 1, 1],
     ];
 
     // output o_sum;
     // output o_carry;
-    pub(super) const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: &'static [&'static [u16]] = &[
-        &[0, 0],
-        &[1, 0],
-        &[1, 0],
-        &[0, 1],
-        &[1, 0],
-        &[0, 1],
-        &[0, 1],
-        &[1, 1],
+    pub(super) const FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS: [[u8; 2]; 8] = [
+        [0, 0],
+        [1, 0],
+        [1, 0],
+        [0, 1],
+        [1, 0],
+        [0, 1],
+        [0, 1],
+        [1, 1],
     ];
 
     #[test]
-    fn test_garble_full_adder_2bits() {
+    fn test_garble_evaluate_full_adder_2bits() {
         let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
         let encoded_garbler_inputs = garb.encode_garbler_inputs(&[]);
 
-        let mut outputs = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
+        let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval(&encoded_garbler_inputs, &inputs, &mut outputs)
+            garb.eval(&encoded_garbler_inputs, inputs, &mut outputs)
                 .unwrap();
-
-            // convert Vec<std::option::Option<u16>> -> Vec<u16>
-            let outputs: Vec<u16> = outputs.iter().map(|i| i.unwrap()).collect();
 
             let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
             println!(

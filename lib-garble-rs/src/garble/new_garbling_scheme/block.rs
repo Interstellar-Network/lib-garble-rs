@@ -1,6 +1,7 @@
 use core::mem::size_of;
 
-use bitvec::{macros::internal::funty::Fundamental, prelude::*};
+use bitvec::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{
     constant::{KAPPA, KAPPA_FACTOR},
@@ -18,14 +19,14 @@ type MyBitArrayP = BitArr!(for KAPPA * KAPPA_FACTOR, in BitsInternal, Lsb0);
 
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct BlockL {
     bits: MyBitArrayL,
 }
 
 /// The "internal" Block,
 /// "a random string of length l'" (l' <=> 8 * l <=> 8 * KAPPA)
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct BlockP {
     bits: MyBitArrayP,
 }
@@ -140,7 +141,6 @@ impl From<BlockP> for BlockL {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
 
     #[test]
     fn test_projection_zero_with_one() {

@@ -91,7 +91,7 @@ fn convert_image_to_garbler_inputs(image: GrayImage) -> Vec<GarblerInput> {
         .into_iter()
         .map(|pixel| {
             // IMPORTANT: we NEED a threshold here b/c "draw_text_mut" has apparently some AA
-            u16::from(pixel > 0)
+            u8::from(pixel > 0)
         })
         .collect()
 }
@@ -126,14 +126,14 @@ mod tests {
     fn test_convert_image_to_garbler_inputs_black_white() {
         let image = GrayImage::from_vec(4, 1, vec![255, 0, 0, 255]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u16, 0, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![0u8, 0, 0, 1]);
     }
 
     #[test]
     fn test_convert_image_to_garbler_inputs_grays() {
         let image = GrayImage::from_vec(4, 1, vec![128, 10, 0, 1]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u16, 1, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![0u8, 1, 0, 1]);
     }
 
     fn test_my_draw_text_mut(text: &str, expected_png_bytes: &[u8]) {

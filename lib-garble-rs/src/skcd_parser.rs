@@ -1,10 +1,8 @@
 use crate::circuit::{
-    Circuit, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
-    Gate, GateType, InterstellarCircuit, SkcdConfig, SkcdToWireRefConverter, WireRef,
+    Circuit, CircuitInternal, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs,
+    GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
 use core::convert::TryFrom;
-use core::convert::TryInto;
-use hashbrown::{HashMap, HashSet};
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
@@ -55,7 +53,7 @@ pub enum CircuitParserError {
     },
 }
 
-impl InterstellarCircuit {
+impl Circuit {
     /// Parse a Protobuf-serialized .skcd file
     /// It is doing what fancy-garbling/src/parser.rs is doing for a "Blif Fashion" txt file,
     /// but for a .skcd instead.
@@ -73,7 +71,7 @@ impl InterstellarCircuit {
     /// WITH InvalidGateId if not yet present), the resulting Gates SHOULD
     /// be in topological(-ish) order.
     #[allow(clippy::too_many_lines)]
-    pub(super) fn parse_skcd(buf: &[u8]) -> Result<InterstellarCircuit, CircuitParserError> {
+    pub(super) fn parse_skcd(buf: &[u8]) -> Result<Circuit, CircuitParserError> {
         // TODO(interstellar) decode_length_delimited ?
         let skcd: interstellarpbskcd::Skcd = prost::Message::decode(buf)
             .map_err(|err| CircuitParserError::DeserializerInternalError { err })?;
@@ -193,8 +191,8 @@ impl InterstellarCircuit {
         // TODO
         // assert!(skcd.gates.len() == gates.len(), "invalid gates.len()!");
 
-        Ok(InterstellarCircuit {
-            circuit: Circuit {
+        Ok(Circuit {
+            circuit: CircuitInternal {
                 num_garbler_inputs,
                 num_evaluator_inputs,
                 inputs,
@@ -209,14 +207,13 @@ impl InterstellarCircuit {
 
 #[cfg(test)]
 mod tests {
-    use crate::circuit::InterstellarCircuit;
+    use crate::circuit::Circuit;
     use crate::tests::{FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS, FULL_ADDER_2BITS_ALL_INPUTS};
 
     #[test]
     fn test_eval_plain_full_adder_2bits() {
         let circ =
-            InterstellarCircuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin"))
-                .unwrap();
+            Circuit::parse_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
 
         assert!(circ.num_evaluator_inputs() == 3);
         for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {

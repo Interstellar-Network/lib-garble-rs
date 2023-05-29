@@ -16,7 +16,7 @@ pub(crate) use skcd_config::{
 ///
 /// NOTE: this is important, especially for the outputs to be in order!
 /// ie DO NOT use HashSet/HashMap etc in this struct!
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct CircuitInternal {
     pub(crate) num_garbler_inputs: u32,
     pub(crate) num_evaluator_inputs: u32,

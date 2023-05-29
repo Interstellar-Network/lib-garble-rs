@@ -8,7 +8,7 @@ use super::{
 };
 
 #[derive(Debug)]
-enum GarblerError {
+pub(crate) enum GarblerError {
     /// During `fn garble`, when looping on the Gates in order,
     /// they SHOULD be processed in topological order.
     /// ie if a Gate is used as input for other Gates, it SHOULD be processed before them!
@@ -225,26 +225,26 @@ fn garble_internal<'a>(
 }
 
 /// Noted `F` in the paper
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct F {
     /// One per Gate
     pub(super) f: HashMap<WireRef, delta::Delta>,
 }
 
 /// Noted `D` in the paper
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 struct D {
     d: HashMap<WireRef, (BlockL, BlockL)>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct GarbledCircuitInternal {
     pub(super) f: F,
     d: D,
 }
 
 /// This is the EVALUABLE GarbledCircuit; ie the result of the whole garbling pipeline.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct GarbledCircuitFinal {
     pub(super) circuit: CircuitInternal,
     pub(super) garbled_circuit: GarbledCircuitInternal,
@@ -277,7 +277,7 @@ pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, Ga
 
 /// Noted `d` in the paper
 ///
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub(super) struct DecodedInfo {
     pub(super) d: HashMap<WireRef, BlockL>,
 }

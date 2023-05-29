@@ -1,8 +1,9 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     circuit::{CircuitInternal, GateType, WireRef},
-    garble::{new_garbling_scheme::wire::WireLabel, GarblerError},
+    new_garbling_scheme::{wire::WireLabel, GarblerError},
 };
 
 use super::{
@@ -16,8 +17,15 @@ use super::{
 ///
 /// For each Circuit.inputs this will be a `Block` referencing either `value0` or `value1`
 ///
-struct EncodedInfo {
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
+pub(crate) struct EncodedInfo {
     x: HashMap<WireRef, WireLabel>,
+}
+
+impl EncodedInfo {
+    pub(crate) fn len(&self) -> usize {
+        self.x.len()
+    }
 }
 
 /// Encoding
@@ -168,6 +176,12 @@ fn decoding_internal(
     outputs
 }
 
+/// Full evaluate chain
+///
+/// NOTE: this is mostly for testing purposes
+/// The "standard" API is to do "multi step" eval with Garbler Inputs vs Evaluator Inputs
+/// cf `encode_inputs` etc
+///
 pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<WireValue> {
     let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
 
@@ -177,7 +191,8 @@ pub(crate) fn evaluate(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> Vec<Wi
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }
 
-/// encode inputs; this can be either "garbler inputs" or "evaluator inputs"
-pub(crate) fn encode_inputs() {
-    let encoded_info = encoding_internal(&garbled.circuit, &garbled.e, x);
+/// encoded inputs
+/// ie convert a "vec" of bool/u8 into a "vec" of Wire Labels
+pub(crate) fn encode_inputs(garbled: &GarbledCircuitFinal, x: &[WireValue]) -> EncodedInfo {
+    encoding_internal(&garbled.circuit, &garbled.e, x)
 }

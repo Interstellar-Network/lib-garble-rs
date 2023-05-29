@@ -166,7 +166,7 @@ pub(crate) enum GateTypeUnary {
 /// Which means Constant type only has an output and NO input.
 ///
 /// NOTE: it SHOULD be optimized-out by Verilog/ABC but right now, we CAN have multiple ZERO and ONE gates in a Circuit!
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub(crate) enum GateType {
     Binary {
         gate_type: GateTypeBinary,
@@ -181,7 +181,7 @@ pub(crate) enum GateType {
        // },
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub(crate) struct Gate {
     pub(super) internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx

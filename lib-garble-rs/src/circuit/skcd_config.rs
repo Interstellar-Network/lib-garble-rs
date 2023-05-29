@@ -58,6 +58,26 @@ pub struct SkcdConfig {
     pub(crate) evaluator_inputs: Vec<EvaluatorInputs>,
 }
 
+impl SkcdConfig {
+    pub(crate) fn num_evaluator_inputs(&self) -> u32 {
+        let mut num_evaluator_inputs = 0;
+        for skcd_input in &self.evaluator_inputs {
+            num_evaluator_inputs += skcd_input.length;
+        }
+
+        num_evaluator_inputs
+    }
+
+    pub(crate) fn num_garbler_inputs(&self) -> u32 {
+        let mut num_garbler_inputs = 0;
+        for skcd_input in &self.garbler_inputs {
+            num_garbler_inputs += skcd_input.length;
+        }
+
+        num_garbler_inputs
+    }
+}
+
 /// We need to convert something like
 /// ".gate XOR  a=rnd[2] b=rnd[0] O=n7016" in the .skcd(which is basically a .blif)
 /// into something that `CircuitBuilder` can accept.

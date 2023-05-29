@@ -40,11 +40,13 @@ mod random_oracle;
 
 mod wire_labels_set;
 mod wire_labels_set_bitslice;
-mod wire_value;
 
 pub(crate) mod evaluate;
 pub(crate) mod garble;
 pub(crate) mod wire;
+pub(crate) mod wire_value;
+
+pub(super) use garble::GarblerError;
 
 #[cfg(feature = "key_length_search")]
 mod key_length;
@@ -52,9 +54,9 @@ mod key_length;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::garble::{
+    use crate::{
+        circuit::Circuit,
         new_garbling_scheme::{evaluate::evaluate, garble::garble},
-        Circuit,
     };
 
     #[test]
@@ -218,8 +220,8 @@ mod tests {
 
     #[test]
     fn test_garble_adder() {
-        let circ = Circuit::parse_skcd(include_bytes!("../../../examples/data/adder.skcd.pb.bin"))
-            .unwrap();
+        let circ =
+            Circuit::parse_skcd(include_bytes!("../../examples/data/adder.skcd.pb.bin")).unwrap();
 
         garble(circ.circuit).unwrap();
     }

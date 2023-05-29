@@ -13,53 +13,20 @@
 extern crate alloc;
 
 use alloc::string::String;
-use alloc::string::ToString;
 use alloc::vec::Vec;
-use circuit::SkcdConfig;
 use snafu::prelude::*;
 
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-extern crate sgx_tstd as std;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec;
+// re-export
+pub use garble::{EncodedGarblerInputs, EvaluatorInput, GarbledCircuit};
+pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
 mod circuit;
 mod garble;
+mod new_garbling_scheme;
 mod segments;
 mod serialize_deserialize;
 mod skcd_parser;
 mod watermark;
-
-// re-export
-pub use garble::EncodedGarblerInputs;
-pub use garble::EvaluatorInput;
-pub use garble::GarbledCircuit;
-pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
-
-/// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct EncodedGarblerInputs {
-    pub(super) encoded_wires: Vec<new_garbling_scheme::wire::WireLabel>,
-}
-
-fn num_evaluator_inputs(skcd_config: &SkcdConfig) -> u32 {
-    let mut num_evaluator_inputs = 0;
-    for skcd_input in &skcd_config.evaluator_inputs {
-        num_evaluator_inputs += skcd_input.length;
-    }
-
-    num_evaluator_inputs
-}
-
-fn num_garbler_inputs(skcd_config: &SkcdConfig) -> u32 {
-    let mut num_garbler_inputs = 0;
-    for skcd_input in &skcd_config.garbler_inputs {
-        num_garbler_inputs += skcd_input.length;
-    }
-
-    num_garbler_inputs
-}
 
 #[derive(Debug, Snafu)]
 pub enum InterstellarError {
@@ -94,10 +61,16 @@ pub enum InterstellarError {
 ///
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
 pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError> {
-    let circ =
+    let circuit =
         circuit::Circuit::parse_skcd(skcd_buf).map_err(|_e| InterstellarError::SkcdParserError)?;
 
-    GarbledCircuit::garble(circ).map_err(|_e| InterstellarError::GarblerError)
+    let garbled = new_garbling_scheme::garble::garble(circuit.circuit)
+        .map_err(|_e| InterstellarError::GarblerError)?;
+
+    Ok(GarbledCircuit {
+        garbled,
+        config: circuit.config,
+    })
 }
 
 /// Prepare the `garbler_inputs`; it contains both:

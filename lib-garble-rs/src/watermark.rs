@@ -1,11 +1,12 @@
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::vec::Vec;
 
-use crate::garble::GarblerInput;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
 use snafu::prelude::*;
+
+use crate::garble::GarblerInput;
 
 const FONT_BYTES: &[u8] = include_bytes!("../examples/data/BF_Modernista-Regular.ttf");
 const WATERMARK_COLOR: [u8; 1] = [255u8];
@@ -126,14 +127,14 @@ mod tests {
     fn test_convert_image_to_garbler_inputs_black_white() {
         let image = GrayImage::from_vec(4, 1, vec![255, 0, 0, 255]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![0u8, 0, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u8, 0, 0, 1]);
     }
 
     #[test]
     fn test_convert_image_to_garbler_inputs_grays() {
         let image = GrayImage::from_vec(4, 1, vec![128, 10, 0, 1]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![0u8, 1, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u8, 1, 0, 1]);
     }
 
     fn test_my_draw_text_mut(text: &str, expected_png_bytes: &[u8]) {

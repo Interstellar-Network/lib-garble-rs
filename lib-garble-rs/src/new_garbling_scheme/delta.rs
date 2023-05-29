@@ -7,13 +7,11 @@ use super::{
     constant::{KAPPA, KAPPA_FACTOR},
     wire_labels_set::WireLabelsSet,
     wire_labels_set_bitslice::{WireLabelsSetBitSlice, WireLabelsSetBitsSliceInternal},
+    GarblerError,
 };
-use crate::{
-    circuit::{GateType, GateTypeBinary, GateTypeUnary},
-    garble::GarblerError,
-};
+use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct Delta {
     block: BlockP,
 }

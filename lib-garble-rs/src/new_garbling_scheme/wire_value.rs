@@ -24,3 +24,9 @@ impl From<bool> for WireValue {
         Self { value }
     }
 }
+
+impl From<&u8> for WireValue {
+    fn from(value: &u8) -> Self {
+        Self { value: *value >= 1 }
+    }
+}

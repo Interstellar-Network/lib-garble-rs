@@ -164,11 +164,11 @@ impl Circuit {
 
             gates.push(Gate::new_from_skcd_gate_type(
                 skcd_gate.r#type,
-                skcd_to_wire_ref_converter.get(&skcd_gate.o).ok_or(
-                    CircuitParserError::OutputInvalidGateId {
+                skcd_to_wire_ref_converter
+                    .get(&skcd_gate.o)
+                    .ok_or_else(|| CircuitParserError::OutputInvalidGateId {
                         gate_id: skcd_gate.o.clone(),
-                    },
-                )?,
+                    })?,
                 x_ref,
                 y_ref,
             )?);

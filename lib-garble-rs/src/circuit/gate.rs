@@ -230,6 +230,8 @@ impl Gate {
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
+                interstellarpbskcd::SkcdGateType::Zero => unimplemented!("ZERO constant gate"),
+                interstellarpbskcd::SkcdGateType::One => unimplemented!("ONE constant gate"),
                 _ => Err(CircuitParserError::UnknownGateType {
                     gate_type: skcd_gate_type_i32,
                 }),

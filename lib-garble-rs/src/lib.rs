@@ -62,7 +62,7 @@ pub enum InterstellarError {
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
 pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError> {
     let circuit =
-        circuit::Circuit::parse_skcd(skcd_buf).map_err(|_e| InterstellarError::SkcdParserError)?;
+        circuit::Circuit::parse_skcd(skcd_buf).map_err(|e| InterstellarError::SkcdParserError)?;
 
     let garbled = new_garbling_scheme::garble::garble(circuit.circuit)
         .map_err(|_e| InterstellarError::GarblerError)?;

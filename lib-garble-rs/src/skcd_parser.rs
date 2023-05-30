@@ -227,6 +227,8 @@ impl Circuit {
                 outputs,
                 gates,
                 wires: skcd_to_wire_ref_converter.get_all_wires(),
+                wire_constant0,
+                wire_constant1,
             },
             config,
         })

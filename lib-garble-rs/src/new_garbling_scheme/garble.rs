@@ -126,13 +126,7 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
             "Wires MUST be iterated in topological order!"
         );
 
-        let lw0 = random_oracle.new_random_block_l();
-        let lw1 = random_oracle.new_random_block_l();
-
-        // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
-        assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
-
-        w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
+        insert_new_wire_random_labels(random_oracle, &mut w, input_wire);
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -145,6 +139,20 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
     // w
 
     InputEncodingSet { e: w }
+}
+
+fn insert_new_wire_random_labels(
+    random_oracle: &mut RandomOracle,
+    w: &mut HashMap<WireRef, Wire>,
+    input_wire: &WireRef,
+) {
+    let lw0 = random_oracle.new_random_block_l();
+    let lw1 = random_oracle.new_random_block_l();
+
+    // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
+    assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
+
+    w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
 }
 
 /// Garble
@@ -163,6 +171,7 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
 fn garble_internal<'a>(
     circuit: &'a CircuitInternal,
     e: &InputEncodingSet,
+    random_oracle: &mut RandomOracle,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
     let mut f = HashMap::with_capacity(circuit.gates.len());
@@ -174,6 +183,11 @@ fn garble_internal<'a>(
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
     let mut encoded_wires = e.e.clone();
+
+    // [constant gate special case]
+    // we MUST built the WireLabel for our "internal" constant wires
+    insert_new_wire_random_labels(random_oracle, &mut encoded_wires, &circuit.wire_constant0);
+    insert_new_wire_random_labels(random_oracle, &mut encoded_wires, &circuit.wire_constant1);
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
@@ -266,9 +280,9 @@ pub(crate) struct GarbledCircuitFinal {
 pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
-    let mut e = init_internal(&circuit, &mut random_oracle);
+    let e = init_internal(&circuit, &mut random_oracle);
 
-    let garbled_circuit = garble_internal(&circuit, &mut e)?;
+    let garbled_circuit = garble_internal(&circuit, &e, &mut random_oracle)?;
 
     let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
 

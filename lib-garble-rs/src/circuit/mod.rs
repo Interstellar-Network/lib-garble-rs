@@ -24,6 +24,8 @@ pub(crate) struct CircuitInternal {
     pub(crate) outputs: Vec<WireRef>,
     pub(crate) gates: Vec<gate::Gate>,
     pub(crate) wires: Vec<WireRef>,
+    pub(crate) wire_constant0: WireRef,
+    pub(crate) wire_constant1: WireRef,
 }
 
 impl CircuitInternal {
@@ -265,6 +267,8 @@ impl Circuit {
                     output: WireRef { id: 2 },
                 }],
                 wires: vec![WireRef { id: 0 }, WireRef { id: 1 }, WireRef { id: 2 }],
+                wire_constant0: WireRef { id: 42 },
+                wire_constant1: WireRef { id: 43 },
             },
             config: SkcdConfig {
                 display_config: None,
@@ -289,6 +293,8 @@ impl Circuit {
                     output: WireRef { id: 1 },
                 }],
                 wires: vec![WireRef { id: 0 }, WireRef { id: 1 }],
+                wire_constant0: WireRef { id: 42 },
+                wire_constant1: WireRef { id: 43 },
             },
             config: SkcdConfig {
                 display_config: None,

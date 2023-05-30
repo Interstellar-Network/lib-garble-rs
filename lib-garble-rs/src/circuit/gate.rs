@@ -242,8 +242,14 @@ impl Gate {
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
-                // [constant gate special case] ZERO gate are rewritten as XNOR(A,A) = 1
+                // [constant gate special case] ZERO gate are rewritten as XOR(A,A) = 0
                 interstellarpbskcd::SkcdGateType::Zero => Ok(GateType::Binary {
+                    gate_type: GateTypeBinary::XOR,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_a.unwrap().clone(),
+                }),
+                // [constant gate special case] ONE gate are rewritten as XNOR(A,A) = 1
+                interstellarpbskcd::SkcdGateType::One => Ok(GateType::Binary {
                     gate_type: GateTypeBinary::XNOR,
                     input_a: input_a.unwrap().clone(),
                     input_b: input_a.unwrap().clone(),

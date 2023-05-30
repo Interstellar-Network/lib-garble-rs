@@ -184,11 +184,6 @@ fn garble_internal<'a>(
     // Then we built all the other gates in subsequent iterations of the loop.
     let mut encoded_wires = e.e.clone();
 
-    // [constant gate special case]
-    // we MUST built the WireLabel for our "internal" constant wires
-    insert_new_wire_random_labels(random_oracle, &mut encoded_wires, &circuit.wire_constant0);
-    insert_new_wire_random_labels(random_oracle, &mut encoded_wires, &circuit.wire_constant1);
-
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {

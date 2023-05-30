@@ -152,20 +152,23 @@ impl Circuit {
             outputs.push(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
         }
 
-        // [constant gate special case]
+        // TODO? [constant gate special case]
         // we add two wires to represent constant 0 and 1
         // we loop just in case the wire ID would already be present in the "map"
-        let mut rng = ChaChaRng::from_entropy();
-        let wire_constant0 = generate_wire_with_fixed_id_and_random_prefix(
-            &mut rng,
-            &mut skcd_to_wire_ref_converter,
-            "constant0",
-        );
-        let wire_constant1 = generate_wire_with_fixed_id_and_random_prefix(
-            &mut rng,
-            &mut skcd_to_wire_ref_converter,
-            "constant1",
-        );
+        // let mut rng = ChaChaRng::from_entropy();
+        // let wire_constant = generate_wire_with_fixed_id_and_random_prefix(
+        //     &mut rng,
+        //     &mut skcd_to_wire_ref_converter,
+        //     "constant",
+        // );
+        // TODO should they instead be Gates??? or both Gate+Wire
+        // If we only add Wires? how are we supposed to "set" them? They CAN NOT be "free floating"??
+        // Or can they?
+        // MAYBE use eg inputs[0] instead?
+        let wire_constant = skcd_to_wire_ref_converter
+            .get(skcd.inputs.first().unwrap())
+            .unwrap()
+            .clone();
 
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
@@ -184,7 +187,11 @@ impl Circuit {
             match skcd_gate.r#type {
                 // == interstellarpbskcd::SkcdGateType::Zero
                 0 => {
-                    x_ref = Some(&wire_constant0);
+                    x_ref = Some(&wire_constant);
+                }
+                // == interstellarpbskcd::SkcdGateType::One
+                1 => {
+                    x_ref = Some(&wire_constant);
                 }
                 // Not a special case; it will be handled by `Gate::new_from_skcd_gate_type`
                 _ => {}
@@ -227,8 +234,6 @@ impl Circuit {
                 outputs,
                 gates,
                 wires: skcd_to_wire_ref_converter.get_all_wires(),
-                wire_constant0,
-                wire_constant1,
             },
             config,
         })

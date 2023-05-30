@@ -1,17 +1,19 @@
+use crate::circuit::WireRef;
 use crate::circuit::{
     Circuit, CircuitInternal, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs,
     GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
+use alloc::vec::Vec;
 use core::convert::TryFrom;
+use rand::Rng;
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::string::String;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 use sgx_tstd::string::ToString;
@@ -150,8 +152,24 @@ impl Circuit {
             outputs.push(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
         }
 
+        // [constant gate special case]
+        // we add two wires to represent constant 0 and 1
+        // we loop just in case the wire ID would already be present in the "map"
+        let mut rng = ChaChaRng::from_entropy();
+        let wire_constant0 = generate_wire_with_fixed_id_and_random_prefix(
+            &mut rng,
+            &mut skcd_to_wire_ref_converter,
+            "constant0",
+        );
+        let wire_constant1 = generate_wire_with_fixed_id_and_random_prefix(
+            &mut rng,
+            &mut skcd_to_wire_ref_converter,
+            "constant1",
+        );
+
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
+        // TODO constant_gate
         for skcd_gate in skcd.gates {
             // But `output` MUST always be set; this is what we use as Gate ID
             skcd_to_wire_ref_converter.insert(&skcd_gate.o);
@@ -159,8 +177,18 @@ impl Circuit {
             // **IMPORTANT** NOT ALL Gate to be built require x_ref and y_ref
             // so DO NOT unwrap here!
             // That would break the circuit building process!
-            let x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a);
+            let mut x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a);
             let y_ref = skcd_to_wire_ref_converter.get(&skcd_gate.b);
+
+            // [constant gate special case]
+            match skcd_gate.r#type {
+                // == interstellarpbskcd::SkcdGateType::Zero
+                0 => {
+                    x_ref = Some(&wire_constant0);
+                }
+                // Not a special case; it will be handled by `Gate::new_from_skcd_gate_type`
+                _ => {}
+            }
 
             gates.push(Gate::new_from_skcd_gate_type(
                 skcd_gate.r#type,
@@ -203,6 +231,27 @@ impl Circuit {
             config,
         })
     }
+}
+
+fn generate_wire_with_fixed_id_and_random_prefix(
+    rng: &mut rand_chacha::ChaCha20Rng,
+    skcd_to_wire_ref_converter: &mut SkcdToWireRefConverter,
+    fixed_part: &str,
+) -> WireRef {
+    let mut wire_id_with_rand: String = "".to_string();
+    loop {
+        let rand_int: u32 = rng.gen();
+        wire_id_with_rand = format!("{}_{}", fixed_part, rand_int);
+        if skcd_to_wire_ref_converter.get(&wire_id_with_rand).is_none() {
+            skcd_to_wire_ref_converter.insert(&wire_id_with_rand);
+            break;
+        }
+    }
+
+    skcd_to_wire_ref_converter
+        .get(&wire_id_with_rand)
+        .unwrap()
+        .clone()
 }
 
 #[cfg(test)]

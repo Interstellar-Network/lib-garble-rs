@@ -129,6 +129,21 @@ impl Circuit {
                             .expect("GateType::XOR missing input b!")
                             .clone(),
                     ),
+                    GateTypeBinary::XNOR => {
+                        // XNOR is a XOR, whose output is NOTed
+                        let xor_output = circuit.xor(
+                            bdd_map
+                                .get(&input_a.id)
+                                .expect("GateType::XOR missing input a!")
+                                .clone(),
+                            bdd_map
+                                .get(&input_b.id)
+                                .expect("GateType::XOR missing input b!")
+                                .clone(),
+                        );
+
+                        circuit.not(xor_output)
+                    }
                     GateTypeBinary::NAND => {
                         // NAND is a AND, whose output is NOTed
                         let and_output = circuit.and(
@@ -146,7 +161,7 @@ impl Circuit {
                     }
                     GateTypeBinary::NOR => {
                         // NOR is a OR, whose output is NOTed
-                        let or_output = circuit.and(
+                        let or_output = circuit.or(
                             bdd_map
                                 .get(&input_a.id)
                                 .expect("GateType::NOR missing input a!")
@@ -179,20 +194,6 @@ impl Circuit {
                             .expect("GateType::OR missing input b!")
                             .clone(),
                     ),
-                    // ite = If-Then-Else
-                    // we define BUF as "if input == 1 then input; else 0"
-                    // GateType::BUF => circuit.ite(
-                    //     bdd_map
-                    //         .get(&input_a.as_ref().unwrap().id)
-                    //         .expect("GateType::BUF missing input a!")
-                    //         .clone(),
-                    //     bdd_map
-                    //         .get(&input_a.as_ref().unwrap().id)
-                    //         .expect("GateType::BUF missing input a!")
-                    //         .clone(),
-                    //     BDD_ZERO,
-                    // ),
-                    // _ => todo!("unsupported gate type! [{:?}]", gate),
                 },
                 GateType::Unary {
                     gate_type: r#type,
@@ -204,9 +205,18 @@ impl Circuit {
                             .expect("GateType::NOT missing input a!")
                             .clone(),
                     ),
+                    // ite = If-Then-Else
+                    // we define BUF as "if input == 1 then input; else 0"
+                    GateTypeUnary::BUF => circuit.ite(
+                        bdd_map
+                            .get(&input_a.id)
+                            .expect("GateType::NOT missing input a!")
+                            .clone(),
+                        BDD_ONE,
+                        BDD_ZERO,
+                    ),
                 },
-                // TODO?
-                // GateType::Constant { value } => circuit.constant(value.clone()),
+                GateType::Constant { value } => circuit.constant(value.clone()),
             };
 
             bdd_map.insert(gate.get_output().id, bdd_gate);

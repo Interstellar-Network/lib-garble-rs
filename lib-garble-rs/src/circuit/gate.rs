@@ -130,7 +130,7 @@ pub(crate) enum GateTypeBinary {
     XOR = 6,
     NAND = 7,
     AND = 8,
-    // XNOR = 9,
+    XNOR = 9,
     // BUF = 10,
     // A-or-NOT-B?
     // AONB = 11,
@@ -149,7 +149,7 @@ pub(crate) enum GateTypeUnary {
     // INVB = 3,
     // NOT A
     INV = 5,
-    // BUF = 10,
+    BUF = 10,
 }
 
 // TODO use ?
@@ -176,9 +176,12 @@ pub(crate) enum GateType {
     Unary {
         gate_type: GateTypeUnary,
         input_a: WireRef,
-    }, // Constant {
-       //     value: bool,
-       // },
+    },
+    /// Constant gates (ie 0 and 1) are a special case wrt to parsing the .skcd and garbling/evaluating:
+    /// they are "rewritten" using AUX Gate (eg XOR(A,A) = 0, XNOR(A,A) = 1)
+    /// That is because contrary to Unary gates, the paper does not explain how to
+    /// generalize "Garbling other gate functionalities" to 0 input gate.
+    Constant { value: bool },
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
@@ -203,6 +206,10 @@ impl Gate {
             Some(skcd_gate_type) => match skcd_gate_type {
                 interstellarpbskcd::SkcdGateType::Inv => Ok(GateType::Unary {
                     gate_type: GateTypeUnary::INV,
+                    input_a: input_a.unwrap().clone(),
+                }),
+                interstellarpbskcd::SkcdGateType::Buf => Ok(GateType::Unary {
+                    gate_type: GateTypeUnary::BUF,
                     input_a: input_a.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xor => Ok(GateType::Binary {
@@ -230,7 +237,17 @@ impl Gate {
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
-                interstellarpbskcd::SkcdGateType::Zero => unimplemented!("ZERO constant gate"),
+                interstellarpbskcd::SkcdGateType::Xnor => Ok(GateType::Binary {
+                    gate_type: GateTypeBinary::XNOR,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_b.unwrap().clone(),
+                }),
+                // [constant gate special case] ZERO gate are rewritten as XNOR(A,A) = 1
+                interstellarpbskcd::SkcdGateType::Zero => Ok(GateType::Binary {
+                    gate_type: GateTypeBinary::XNOR,
+                    input_a: input_a.unwrap().clone(),
+                    input_b: input_a.unwrap().clone(),
+                }),
                 interstellarpbskcd::SkcdGateType::One => unimplemented!("ONE constant gate"),
                 _ => Err(CircuitParserError::UnknownGateType {
                     gate_type: skcd_gate_type_i32,

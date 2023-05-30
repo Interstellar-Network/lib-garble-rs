@@ -195,6 +195,33 @@ mod tests {
     }
 
     #[test]
+    fn test_basic_xnor() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
+            // Standard truth table for XNOR Gate (also known as XAND)
+            // (input0, input1), output
+            (vec![false.into(), false.into()], true.into()),
+            (vec![false.into(), true.into()], false.into()),
+            (vec![true.into(), false.into()], false.into()),
+            (vec![true.into(), true.into()], true.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XNOR);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            println!("outputs : {outputs:?}");
+            assert_eq!(
+                outputs.len(),
+                1,
+                "XNOR gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
     fn test_basic_not() {
         // inputs, expected_output
         let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
@@ -213,6 +240,30 @@ mod tests {
                 outputs.len(),
                 1,
                 "NOT gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_buf() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
+            // Standard truth table for BUF Gate
+            // (input0, input1), output
+            (vec![false.into()], false.into()),
+            (vec![true.into()], true.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::BUF);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate(&garbled, &inputs);
+            assert_eq!(
+                outputs.len(),
+                1,
+                "BUF gate so we SHOULD have only one output!"
             );
             assert_eq!(outputs[0], expected_output);
         }

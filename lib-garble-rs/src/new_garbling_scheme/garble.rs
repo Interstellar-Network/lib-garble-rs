@@ -71,6 +71,11 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
                 RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak),
             )
         }
+        // Constant gates are handled differently!
+        // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
+        GateType::Constant { value } => {
+            unimplemented!("f1_0_compress for Constant gates is a special case!")
+        }
     }
 }
 

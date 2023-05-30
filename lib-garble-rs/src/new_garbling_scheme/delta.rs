@@ -26,6 +26,23 @@ impl Delta {
     /// "Collapse.
     /// These four outputs of the random oracle are given to f1,1 to produce
     /// ∇ (this is either ∇⊕ or ∇∧, depending on the gate type)"
+    ///
+    /// - fill the standard truth table for your gate
+    ///     - Binary gates: 2 columns and 4 rows
+    ///     - unary gates: 1 column and 2 rows
+    /// - write the TRANSPOSE and COMPLEMENT of the Truth Table
+    /// - in the "Delta Table" with either 16 rows + 4 cols for Binary or 4 rows + 2 cols [on the left of ∇ col]
+    ///     - set ∇ = 1 for first and last row
+    ///     - set ∇ = 1 for TRANSPOSE
+    ///     - set ∇ = 1 for COMPLEMENT
+    ///     - you SHOULD always have 4 rows with ∇ = 1 for both Binary and Unary (and others) gates!
+    /// - next "group" the COLUMNS Sxy (or Sx for Unary) by their value
+    ///     - you SHOULD identify two different possible values, and only 2!
+    ///     - you CAN have two groups of two, or 1 group of 1 and one group of 3; it depends
+    ///     - set the appropriate L0 and L1 based on the groups and truth table
+    ///     - NOTE: if a group has more than on Sxy/Sx column with a given value (eg S01 and S00) you can pick whichever
+    ///       you want; what matters is to be determistic b/w garbling and evaluating (ie use the same one!)
+    ///
     pub(super) fn new(
         compressed_set: &WireLabelsSet,
         gate_type: &GateType,
@@ -85,7 +102,9 @@ impl Delta {
         };
 
         // Following are after line 19: of "Algorithm 5 Gate"
-
+        //
+        // To know how to "project" cf docstring
+        //
         // NOTE: both `CompressedSet`(randomly generated) and `Delta` are `BlockP`
         // NOTE: `Delta` is technically a `BlockL` padded to a `BlockP`(?)
         // TODO? but we want a `BlockL`
@@ -99,6 +118,10 @@ impl Delta {
                 GateTypeBinary::XOR => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                ),
+                GateTypeBinary::XNOR => (
+                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
                 GateTypeBinary::AND => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
@@ -125,7 +148,16 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
                 ),
+                GateTypeUnary::BUF => (
+                    BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
+                ),
             },
+            // Constant gates are handled differently!
+            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
+            GateType::Constant { value } => {
+                unimplemented!("Delta::new for Constant gates is a special case!")
+            }
         };
 
         Ok((l0_full, l1_full, delta))
@@ -511,6 +543,11 @@ impl TruthTable {
                         true, false, false, false,
                     ),
                 },
+                GateTypeBinary::XNOR => TruthTable {
+                    truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
+                        true, false, false, true,
+                    ),
+                },
             },
             GateType::Unary {
                 gate_type: r#type,
@@ -519,18 +556,15 @@ impl TruthTable {
                 GateTypeUnary::INV => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(false, true),
                 },
+                GateTypeUnary::BUF => TruthTable {
+                    truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(true, false),
+                },
             },
-            // GateType::XNOR => todo!(),
-            // // TODO? BUF(A) = XOR(A, 0), BUF(A) = NOR(NOR(A, A), 0), BUF(A) = OR(A, 0), BUF(A) = NAND(A, NAND(A, 0)), BUF(A) = AND(A, 1)
-            // GateType::BUF => todo!(),
-            // GateType::AONB => todo!(),
-            // GateType::BUFB => todo!(),
-            // GateType::NAOB => todo!(),
-            // GateType::OR => TruthTable {
-            //     truth_table: [false, true, true, true],
-            // },
-            // TODO? NAND(A, 0) always outputs 1 since NAND outputs 0 only when both inputs are 1.
-            // GateType::ONE => todo!(),
+            // Constant gates are handled differently!
+            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
+            GateType::Constant { value } => {
+                unimplemented!("TruthTable for Constant gates is a special case!")
+            }
         }
     }
 

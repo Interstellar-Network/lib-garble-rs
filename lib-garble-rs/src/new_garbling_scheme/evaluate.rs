@@ -120,6 +120,11 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
                 let l_a = encoded_info.x.get(input_a).unwrap();
                 (l_a.get_block(), None)
             }
+            // Constant gates are handled differently!
+            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
+            GateType::Constant { value } => {
+                unimplemented!("evaluate_internal for Constant gates is a special case!")
+            }
         };
 
         let wire_ref = WireRef { id: gate.get_id() };

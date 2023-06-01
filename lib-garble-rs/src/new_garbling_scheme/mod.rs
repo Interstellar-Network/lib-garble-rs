@@ -56,7 +56,7 @@ mod tests {
     use super::*;
     use crate::{
         circuit::Circuit,
-        new_garbling_scheme::{evaluate::evaluate, garble::garble},
+        new_garbling_scheme::{evaluate::evaluate_full_chain, garble::garble},
     };
 
     #[test]
@@ -75,7 +75,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -102,7 +102,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -129,7 +129,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -156,7 +156,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -183,7 +183,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -210,7 +210,7 @@ mod tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XNOR);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
             assert_eq!(
                 outputs.len(),
@@ -235,7 +235,7 @@ mod tests {
             let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
                 outputs.len(),
                 1,
@@ -259,11 +259,59 @@ mod tests {
             let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::BUF);
             let garbled = garble(circ.circuit).unwrap();
 
-            let outputs = evaluate(&garbled, &inputs);
+            let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
                 outputs.len(),
                 1,
                 "BUF gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_zero() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
+            // Standard truth table for 0 Gate
+            // (input0, input1), output
+            (vec![false.into()], false.into()),
+            (vec![true.into()], false.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = Circuit::new_test_circuit_constant(false);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate_full_chain(&garbled, &inputs);
+            assert_eq!(
+                outputs.len(),
+                1,
+                "0 gate so we SHOULD have only one output!"
+            );
+            assert_eq!(outputs[0], expected_output);
+        }
+    }
+
+    #[test]
+    fn test_basic_one() {
+        // inputs, expected_output
+        let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
+            // Standard truth table for 0 Gate
+            // (input0, input1), output
+            (vec![false.into()], true.into()),
+            (vec![true.into()], true.into()),
+        ];
+
+        for (inputs, expected_output) in tests {
+            let circ = Circuit::new_test_circuit_constant(true);
+            let garbled = garble(circ.circuit).unwrap();
+
+            let outputs = evaluate_full_chain(&garbled, &inputs);
+            assert_eq!(
+                outputs.len(),
+                1,
+                "0 gate so we SHOULD have only one output!"
             );
             assert_eq!(outputs[0], expected_output);
         }

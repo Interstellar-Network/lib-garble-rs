@@ -15,3 +15,7 @@ members = [
 # [patch."https://github.com/Interstellar-Network/rs-common.git"]
 # http-grpc-client = { path = "../rs-common/http-grpc-client/" }
 ################################################################################
+
+[profile.dev]
+# without optimizations the tests with display circuits(even the small 120x52) are REALLY slow
+opt-level = 1

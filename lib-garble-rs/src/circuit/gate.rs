@@ -169,11 +169,14 @@ pub(crate) enum GateTypeUnary {
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub(crate) enum GateType {
     Binary {
+        // TODO SHOULD be rewritten as "is_xor" to support Free XOR [when serializing]
+        #[serde(skip_serializing)]
         gate_type: GateTypeBinary,
         input_a: WireRef,
         input_b: WireRef,
     },
     Unary {
+        #[serde(skip_serializing)]
         gate_type: GateTypeUnary,
         input_a: WireRef,
     },

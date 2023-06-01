@@ -153,7 +153,7 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                 ),
             },
-            // Constant gates are handled differently!
+            // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
             GateType::Constant { value } => {
                 unimplemented!("Delta::new for Constant gates is a special case!")
@@ -560,7 +560,7 @@ impl TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(true, false),
                 },
             },
-            // Constant gates are handled differently!
+            // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
             GateType::Constant { value } => {
                 unimplemented!("TruthTable for Constant gates is a special case!")

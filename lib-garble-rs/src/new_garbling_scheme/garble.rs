@@ -71,7 +71,7 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
                 RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak),
             )
         }
-        // Constant gates are handled differently!
+        // [constant gate special case]
         // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
         GateType::Constant { value } => {
             unimplemented!("f1_0_compress for Constant gates is a special case!")
@@ -87,6 +87,9 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
 /// - circuits inputs: *should* indeed usually be in order => for instance 0..2
 /// - BUT the first "Gate ID" could be eg 5
 /// - which means the second iteration of the loop would not work without a hashmap
+///
+/// Produced by: `garble::init_internal`
+/// Used by: `garble::garble_internal`, `evaluate::encoding_internal`
 ///
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct InputEncodingSet {
@@ -118,7 +121,7 @@ pub(super) struct InputEncodingSet {
 /// 7: Return e
 ///
 fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) -> InputEncodingSet {
-    let mut w = HashMap::with_capacity(circuit.n() as usize);
+    let mut w = HashMap::with_capacity(circuit.n());
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
         assert_eq!(
@@ -130,7 +133,7 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
-    assert_eq!(w.len(), circuit.n() as usize, "wrong w length! [2]");
+    assert_eq!(w.len(), circuit.n(), "wrong w length! [2]");
 
     // w.extend((0..circuit.q()).iter(). )
 
@@ -203,35 +206,20 @@ fn garble_internal<'a>(
             Ok(wire) => {
                 // "12: if g is an output gate then"
                 if let Some(wire_output) = outputs_set.get(gate.get_output()) {
-                    deltas.insert(
-                        wire_output.clone().clone(),
-                        (wire.value0().clone(), wire.value1().clone()),
-                    );
+                    deltas
+                        .try_insert(
+                            wire_output.clone().clone(),
+                            (wire.value0().clone(), wire.value1().clone()),
+                        )
+                        .unwrap();
                 }
 
                 Ok(())
             }
         };
-
-        // // let k0 = RandomOracle::random_oracle_1(&s0);
-        // // let k1 = RandomOracle::random_oracle_1(&s1);
-
-        // match r#type {
-        //     // GateType::INV => todo!(),
-        //     GateType::XOR => todo!(),
-        //     // GateType::NAND => todo!(),
-        //     GateType::AND => todo!(),
-        //     // ite = If-Then-Else
-        //     // we define BUF as "if input == 1 then input; else 0"
-        //     // GateType::BUF => todo!(),
-        //     _ => todo!("unsupported gate type! [{:?}]", gate),
-        // }
-        // TODO?
-        // GateInternal::Constant { value } => todo!(),
     }
 
-    // println!("garble_circuit: deltas: {deltas:?}");
-
+    // assert_eq!(encoded_wires, deltas);
     Ok(GarbledCircuitInternal {
         f: F { f },
         d: D { d: deltas },

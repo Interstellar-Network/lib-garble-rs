@@ -6,8 +6,6 @@ use crate::circuit::{
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use rand::Rng;
-use rand::SeedableRng;
-use rand_chacha::ChaChaRng;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 extern crate sgx_tstd as std;
@@ -228,8 +226,6 @@ impl Circuit {
 
         Ok(Circuit {
             circuit: CircuitInternal {
-                num_garbler_inputs,
-                num_evaluator_inputs,
                 inputs,
                 outputs,
                 gates,

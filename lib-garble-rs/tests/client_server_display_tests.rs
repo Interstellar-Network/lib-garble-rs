@@ -15,7 +15,7 @@ use png_tests_utils::png_utils::read_png_to_bytes;
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {
-    let (mut garb, encoded_garbler_inputs) = {
+    let (mut garb, mut encoded_garbler_inputs) = {
         // [server 1]
         let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
@@ -45,7 +45,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         // [client 3]
         eval_client(
             &mut garb,
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut outputs,
             &mut rng,

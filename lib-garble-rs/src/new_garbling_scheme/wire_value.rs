@@ -30,3 +30,15 @@ impl From<&u8> for WireValue {
         Self { value: *value >= 1 }
     }
 }
+
+impl From<WireValue> for u8 {
+    fn from(value: WireValue) -> Self {
+        value.value as u8
+    }
+}
+
+impl From<&WireValue> for u8 {
+    fn from(value: &WireValue) -> Self {
+        value.value as u8
+    }
+}

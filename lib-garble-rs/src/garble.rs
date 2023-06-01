@@ -48,7 +48,6 @@ impl GarbledCircuit {
         self.config.num_evaluator_inputs()
     }
 
-    // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
     pub(super) fn encode_garbler_inputs(
         &self,
         garbler_inputs: &[GarblerInput],
@@ -65,9 +64,11 @@ impl GarbledCircuit {
             garbler_inputs.iter().map(|input| input.into()).collect();
 
         EncodedGarblerInputs {
-            encoded: new_garbling_scheme::evaluate::encode_inputs(
+            encoded: new_garbling_scheme::evaluate::encode_garbler_inputs(
                 &self.garbled,
                 &garbler_inputs_wire_value,
+                0,
+                self.num_garbler_inputs() as usize,
             ),
         }
     }
@@ -83,13 +84,36 @@ impl GarbledCircuit {
     /// In the latter case it means the circuit is a dud and nothing can be done!
     pub fn eval(
         &mut self,
-        encoded_garbler_inputs: &EncodedGarblerInputs,
+        encoded_garbler_inputs: &mut EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<u8>,
     ) -> Result<(), InterstellarEvaluatorError> {
-        todo!()
-        // let encoded_evaluator_inputs = garbled.encoder.encode_evaluator_inputs(evaluator_inputs);
-        // crate::new_garble_scheme::eval(&garbled, outputs)
+        // convert param `garbler_inputs` into `WireValue`
+        let evaluator_inputs_wire_value: Vec<WireValue> =
+            evaluator_inputs.iter().map(|input| input.into()).collect();
+
+        new_garbling_scheme::evaluate::encode_evaluator_inputs(
+            &self.garbled,
+            &evaluator_inputs_wire_value,
+            &mut encoded_garbler_inputs.encoded,
+            self.num_garbler_inputs() as usize,
+            self.num_garbler_inputs() as usize + self.num_evaluator_inputs() as usize,
+        );
+
+        // TODO this SHOULD have `outputs` in-place [1]
+        let outputs_wire_value = new_garbling_scheme::evaluate::evaluate_with_encoded_info(
+            &self.garbled,
+            &encoded_garbler_inputs.encoded,
+        );
+
+        // Convert Vec<WireValue> -> Vec<u8>
+        let outputs_u8: Vec<u8> = outputs_wire_value
+            .into_iter()
+            .map(|output| output.into())
+            .collect();
+        outputs.copy_from_slice(&outputs_u8);
+
+        Ok(())
     }
 }
 

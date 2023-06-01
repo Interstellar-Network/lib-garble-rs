@@ -21,14 +21,14 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
 
     let mut temp_outputs = vec![0u8; width * height];
 
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     for _ in 0..NB_EVALS {
         eval_client(
             &mut garb,
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut temp_outputs,
             &mut rng,
@@ -44,6 +44,11 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
             // 1 + 1 = 1
             *merged_output = std::cmp::min(*merged_output + cur_output, 1u8)
         }
+    }
+
+    // Convert Vec<0/1u8> -> Vec<0/255u8>; needed to have a proper png-like image output
+    for merged_output in merged_outputs.iter_mut() {
+        *merged_output = *merged_output * 255;
     }
 
     merged_outputs
@@ -78,13 +83,13 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let (mut garb, _width, _height) = garble_skcd_helper(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
     let evaluator_inputs = vec![0u8; 9];
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
     let mut outputs = vec![0u8; width * height];
-    garb.eval(&encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
+    garb.eval(&mut encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
         .unwrap();
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
@@ -127,7 +132,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
     ));
 
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
 
     let mut rng = thread_rng();
@@ -145,7 +150,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
 
         eval_client(
             &mut garb,
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut data,
             &mut rng,

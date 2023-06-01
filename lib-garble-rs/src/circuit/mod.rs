@@ -18,8 +18,6 @@ pub(crate) use skcd_config::{
 /// ie DO NOT use HashSet/HashMap etc in this struct!
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct CircuitInternal {
-    pub(crate) num_garbler_inputs: u32,
-    pub(crate) num_evaluator_inputs: u32,
     pub(crate) inputs: Vec<WireRef>,
     pub(crate) outputs: Vec<WireRef>,
     pub(crate) gates: Vec<gate::Gate>,
@@ -28,8 +26,8 @@ pub(crate) struct CircuitInternal {
 
 impl CircuitInternal {
     /// Return "n" ie the number of inputs
-    pub(crate) fn n(&self) -> u32 {
-        self.num_garbler_inputs + self.num_evaluator_inputs
+    pub(crate) fn n(&self) -> usize {
+        self.inputs.len()
     }
 
     /// Return "m" ie the number of wires
@@ -65,19 +63,19 @@ pub enum EvaluateError {
 
 #[cfg(test)]
 impl Circuit {
-    pub(crate) fn num_evaluator_inputs(&self) -> u32 {
-        let mut num_inputs = 0;
+    pub(crate) fn num_evaluator_inputs(&self) -> usize {
+        let mut num_inputs = 0usize;
         for skcd_input in &self.config.evaluator_inputs {
-            num_inputs += skcd_input.length;
+            num_inputs += skcd_input.length as usize;
         }
 
         num_inputs
     }
 
-    fn num_garbler_inputs(&self) -> u32 {
-        let mut num_inputs = 0;
+    fn num_garbler_inputs(&self) -> usize {
+        let mut num_inputs = 0usize;
         for skcd_input in &self.config.garbler_inputs {
-            num_inputs += skcd_input.length;
+            num_inputs += skcd_input.length as usize;
         }
 
         num_inputs
@@ -252,8 +250,6 @@ impl Circuit {
     pub(crate) fn new_test_circuit(gate_binary_type: GateTypeBinary) -> Self {
         Self {
             circuit: CircuitInternal {
-                num_garbler_inputs: 2,
-                num_evaluator_inputs: 0,
                 inputs: vec![WireRef { id: 0 }, WireRef { id: 1 }],
                 outputs: vec![WireRef { id: 2 }],
                 gates: vec![Gate {
@@ -277,8 +273,6 @@ impl Circuit {
     pub(crate) fn new_test_circuit_unary(gate_unary_type: GateTypeUnary) -> Self {
         Self {
             circuit: CircuitInternal {
-                num_garbler_inputs: 1,
-                num_evaluator_inputs: 0,
                 inputs: vec![WireRef { id: 0 }],
                 outputs: vec![WireRef { id: 1 }],
                 gates: vec![Gate {
@@ -286,6 +280,25 @@ impl Circuit {
                         gate_type: gate_unary_type,
                         input_a: WireRef { id: 0 },
                     },
+                    output: WireRef { id: 1 },
+                }],
+                wires: vec![WireRef { id: 0 }, WireRef { id: 1 }],
+            },
+            config: SkcdConfig {
+                display_config: None,
+                garbler_inputs: vec![],
+                evaluator_inputs: vec![],
+            },
+        }
+    }
+
+    pub(crate) fn new_test_circuit_constant(value: bool) -> Self {
+        Self {
+            circuit: CircuitInternal {
+                inputs: vec![WireRef { id: 0 }],
+                outputs: vec![WireRef { id: 1 }],
+                gates: vec![Gate {
+                    internal: GateType::Constant { value },
                     output: WireRef { id: 1 },
                 }],
                 wires: vec![WireRef { id: 0 }, WireRef { id: 1 }],

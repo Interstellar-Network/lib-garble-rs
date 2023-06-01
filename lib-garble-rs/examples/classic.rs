@@ -35,7 +35,7 @@ fn main() {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
             .unwrap();
 
@@ -49,7 +49,7 @@ fn main() {
         }
 
         garb.eval(
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &evaluator_inputs,
             &mut temp_outputs,
         )

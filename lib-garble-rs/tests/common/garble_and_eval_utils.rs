@@ -16,7 +16,7 @@ use rand::rngs::ThreadRng;
 // #[profiling::function]
 pub fn eval_client(
     garb: &mut GarbledCircuit,
-    encoded_garbler_inputs: &EncodedGarblerInputs,
+    encoded_garbler_inputs: &mut EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
     data: &mut Vec<u8>,
     rng: &mut ThreadRng,

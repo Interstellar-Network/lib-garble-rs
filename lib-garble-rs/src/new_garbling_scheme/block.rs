@@ -1,4 +1,4 @@
-use core::mem::size_of;
+use core::{mem::size_of, ops::BitAnd};
 
 use bitvec::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -75,7 +75,9 @@ impl BlockP {
     }
 
     pub(super) fn new_zero() -> Self {
-        Self::new_with2([0; KAPPA_BYTES * KAPPA_FACTOR])
+        Self {
+            bits: MyBitArrayP::ZERO,
+        }
     }
 
     pub(super) fn get_bit(&self, index: usize) -> WireValue {
@@ -96,14 +98,9 @@ impl BlockP {
     pub(crate) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
         let mut res = Self::new_zero();
 
-        for (idx, bit) in right.bits.iter().enumerate() {
-            if *bit {
-                res.bits.set(idx, left.bits[idx]);
-            }
+        Self {
+            bits: left.bits.bitand(right.bits),
         }
-
-        // println!("new_projection : {res:?}");
-        res
     }
 }
 

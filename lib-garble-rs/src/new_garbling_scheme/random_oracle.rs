@@ -2,7 +2,7 @@ use bitvec::prelude::*;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
-use super::block::{BlockL, BlockP, KAPPA_BYTES};
+use super::block::{BitsInternal, BlockL, BlockP, KAPPA_BYTES, KAPPA_NB_ELEMENTS};
 use super::constant::KAPPA_FACTOR;
 
 pub(crate) struct RandomOracle {
@@ -50,7 +50,7 @@ impl RandomOracle {
     }
 
     pub(super) fn new_random_block_l(&mut self) -> BlockL {
-        let arr1: [u64; 2] = self.rng.gen();
+        let arr1: [BitsInternal; KAPPA_NB_ELEMENTS] = self.rng.gen();
         BlockL::new_with(arr1)
     }
 
@@ -137,10 +137,17 @@ impl RandomOracle {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_random_oracle_0_same_blocks_different_tweaks_should_return_different_hashes() {
+    fn get_test_blocks() -> (BlockL, BlockL, BlockL) {
         let block_a = BlockL::new_with([42, 0]);
         let block_b = BlockL::new_with([43, 44]);
+        let block_common = BlockL::new_with([11, 12]);
+
+        (block_a, block_b, block_common)
+    }
+
+    #[test]
+    fn test_random_oracle_0_same_blocks_different_tweaks_should_return_different_hashes() {
+        let (block_a, block_b, block_common) = get_test_blocks();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 0);
         let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 1);
@@ -150,8 +157,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_same_blocks_same_tweaks_should_return_same_hashes() {
-        let block_a = BlockL::new_with([42, 0]);
-        let block_b = BlockL::new_with([43, 44]);
+        let (block_a, block_b, block_common) = get_test_blocks();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
         let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
@@ -161,8 +167,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes() {
-        let block_a = BlockL::new_with([42, 0]);
-        let block_b = BlockL::new_with([43, 44]);
+        let (block_a, block_b, block_common) = get_test_blocks();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
         let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_a), 2);
@@ -172,9 +177,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_2() {
-        let block_a = BlockL::new_with([42, 0]);
-        let block_b = BlockL::new_with([43, 44]);
-        let block_common = BlockL::new_with([11, 12]);
+        let (block_a, block_b, block_common) = get_test_blocks();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_common), 2);
         let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_common), 2);
@@ -184,9 +187,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_3() {
-        let block_a = BlockL::new_with([42, 0]);
-        let block_b = BlockL::new_with([43, 44]);
-        let block_common = BlockL::new_with([11, 12]);
+        let (block_a, block_b, block_common) = get_test_blocks();
 
         let hash1 = RandomOracle::random_oracle_g(&block_common, Some(&block_a), 2);
         let hash2 = RandomOracle::random_oracle_g(&block_common, Some(&block_b), 2);

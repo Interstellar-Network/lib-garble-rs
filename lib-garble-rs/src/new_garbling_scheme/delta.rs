@@ -51,10 +51,6 @@ impl Delta {
         // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
         // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′)"
         // -> Implies that only the l first bits of ∇g are potentially set??
-        // BUT!
-        // "Next, the random oracle outputs (Xg00, Xg01, Xg10, Xg11) are used to derive a
-        // single ℓg -bit string ∇g (that is padded by 0s to make its length equal to ℓ′) that
-        // encodes the gate functionality."
         let mut delta_g_block = BlockP::new_zero();
 
         // Return the (x00,x01,x10,x11) values for which the delta colmun == 1
@@ -160,6 +156,8 @@ impl Delta {
             }
         };
 
+        // cf `Wire::new` assert for why this is bad
+        assert!(l0_full != l1_full, "`L0` and `L1` MUST be different!");
         Ok((l0_full, l1_full, delta))
     }
 

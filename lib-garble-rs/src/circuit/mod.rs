@@ -117,7 +117,7 @@ impl Circuit {
                     input_a,
                     input_b,
                 } => match r#type {
-                    GateTypeBinary::XOR => circuit.xor(
+                    Some(GateTypeBinary::XOR) => circuit.xor(
                         bdd_map
                             .get(&input_a.id)
                             .expect("GateType::XOR missing input a!")
@@ -127,7 +127,7 @@ impl Circuit {
                             .expect("GateType::XOR missing input b!")
                             .clone(),
                     ),
-                    GateTypeBinary::XNOR => {
+                    Some(GateTypeBinary::XNOR) => {
                         // XNOR is a XOR, whose output is NOTed
                         let xor_output = circuit.xor(
                             bdd_map
@@ -142,7 +142,7 @@ impl Circuit {
 
                         circuit.not(xor_output)
                     }
-                    GateTypeBinary::NAND => {
+                    Some(GateTypeBinary::NAND) => {
                         // NAND is a AND, whose output is NOTed
                         let and_output = circuit.and(
                             bdd_map
@@ -157,7 +157,7 @@ impl Circuit {
 
                         circuit.not(and_output)
                     }
-                    GateTypeBinary::NOR => {
+                    Some(GateTypeBinary::NOR) => {
                         // NOR is a OR, whose output is NOTed
                         let or_output = circuit.or(
                             bdd_map
@@ -172,7 +172,7 @@ impl Circuit {
 
                         circuit.not(or_output)
                     }
-                    GateTypeBinary::AND => circuit.and(
+                    Some(GateTypeBinary::AND) => circuit.and(
                         bdd_map
                             .get(&input_a.id)
                             .expect("GateType::AND missing input a!")
@@ -182,7 +182,7 @@ impl Circuit {
                             .expect("GateType::AND missing input b!")
                             .clone(),
                     ),
-                    GateTypeBinary::OR => circuit.or(
+                    Some(GateTypeBinary::OR) => circuit.or(
                         bdd_map
                             .get(&input_a.id)
                             .expect("GateType::OR missing input a!")
@@ -192,12 +192,13 @@ impl Circuit {
                             .expect("GateType::OR missing input b!")
                             .clone(),
                     ),
+                    None => unimplemented!("eval_plain: None GateTypeBinary!"),
                 },
                 GateType::Unary {
                     gate_type: r#type,
                     input_a,
                 } => match r#type {
-                    GateTypeUnary::INV => circuit.not(
+                    Some(GateTypeUnary::INV) => circuit.not(
                         bdd_map
                             .get(&input_a.id)
                             .expect("GateType::NOT missing input a!")
@@ -205,7 +206,7 @@ impl Circuit {
                     ),
                     // ite = If-Then-Else
                     // we define BUF as "if input == 1 then input; else 0"
-                    GateTypeUnary::BUF => circuit.ite(
+                    Some(GateTypeUnary::BUF) => circuit.ite(
                         bdd_map
                             .get(&input_a.id)
                             .expect("GateType::NOT missing input a!")
@@ -213,6 +214,7 @@ impl Circuit {
                         BDD_ONE,
                         BDD_ZERO,
                     ),
+                    None => unimplemented!("eval_plain: None GateTypeUnary!"),
                 },
                 GateType::Constant { value } => circuit.constant(value.clone()),
             };
@@ -254,7 +256,7 @@ impl Circuit {
                 outputs: vec![WireRef { id: 2 }],
                 gates: vec![Gate {
                     internal: GateType::Binary {
-                        gate_type: gate_binary_type,
+                        gate_type: Some(gate_binary_type),
                         input_a: WireRef { id: 0 },
                         input_b: WireRef { id: 1 },
                     },
@@ -277,7 +279,7 @@ impl Circuit {
                 outputs: vec![WireRef { id: 1 }],
                 gates: vec![Gate {
                     internal: GateType::Unary {
-                        gate_type: gate_unary_type,
+                        gate_type: Some(gate_unary_type),
                         input_a: WireRef { id: 0 },
                     },
                     output: WireRef { id: 1 },

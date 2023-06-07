@@ -248,7 +248,7 @@ pub(super) struct GarbledCircuitInternal {
 /// This is the EVALUABLE GarbledCircuit; ie the result of the whole garbling pipeline.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct GarbledCircuitFinal {
-    pub(super) circuit: CircuitInternal,
+    pub(crate) circuit: CircuitInternal,
     pub(super) garbled_circuit: GarbledCircuitInternal,
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,

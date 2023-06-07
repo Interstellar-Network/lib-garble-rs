@@ -169,15 +169,17 @@ pub(crate) enum GateTypeUnary {
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub(crate) enum GateType {
     Binary {
+        /// GateTypeBinary is None only when deserializing
         // TODO SHOULD be rewritten as "is_xor" to support Free XOR [when serializing]
-        #[serde(skip_serializing)]
-        gate_type: GateTypeBinary,
+        #[serde(skip)]
+        gate_type: Option<GateTypeBinary>,
         input_a: WireRef,
         input_b: WireRef,
     },
     Unary {
-        #[serde(skip_serializing)]
-        gate_type: GateTypeUnary,
+        /// GateTypeUnary is None only when deserializing
+        #[serde(skip)]
+        gate_type: Option<GateTypeUnary>,
         input_a: WireRef,
     },
     /// Constant gates (ie 0 and 1) are a special case wrt to parsing the .skcd and garbling/evaluating:
@@ -189,7 +191,7 @@ pub(crate) enum GateType {
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub(crate) struct Gate {
-    pub(super) internal: GateType,
+    pub(crate) internal: GateType,
     /// Gate's output is in practice a Gate's ID or idx
     pub(super) output: WireRef,
 }
@@ -208,52 +210,52 @@ impl Gate {
         let internal = match skcd_gate_type_res {
             Some(skcd_gate_type) => match skcd_gate_type {
                 interstellarpbskcd::SkcdGateType::Inv => Ok(GateType::Unary {
-                    gate_type: GateTypeUnary::INV,
+                    gate_type: Some(GateTypeUnary::INV),
                     input_a: input_a.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Buf => Ok(GateType::Unary {
-                    gate_type: GateTypeUnary::BUF,
+                    gate_type: Some(GateTypeUnary::BUF),
                     input_a: input_a.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xor => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::XOR,
+                    gate_type: Some(GateTypeBinary::XOR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nand => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::NAND,
+                    gate_type: Some(GateTypeBinary::NAND),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::And => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::AND,
+                    gate_type: Some(GateTypeBinary::AND),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Or => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::OR,
+                    gate_type: Some(GateTypeBinary::OR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nor => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::NOR,
+                    gate_type: Some(GateTypeBinary::NOR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xnor => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::XNOR,
+                    gate_type: Some(GateTypeBinary::XNOR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_b.unwrap().clone(),
                 }),
                 // [constant gate special case] ZERO gate are rewritten as XOR(A,A) = 0
                 interstellarpbskcd::SkcdGateType::Zero => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::XOR,
+                    gate_type: Some(GateTypeBinary::XOR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_a.unwrap().clone(),
                 }),
                 // [constant gate special case] ONE gate are rewritten as XNOR(A,A) = 1
                 interstellarpbskcd::SkcdGateType::One => Ok(GateType::Binary {
-                    gate_type: GateTypeBinary::XNOR,
+                    gate_type: Some(GateTypeBinary::XNOR),
                     input_a: input_a.unwrap().clone(),
                     input_b: input_a.unwrap().clone(),
                 }),

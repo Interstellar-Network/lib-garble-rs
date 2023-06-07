@@ -111,43 +111,47 @@ impl Delta {
                 input_a,
                 input_b,
             } => match r#type {
-                GateTypeBinary::XOR => (
+                Some(GateTypeBinary::XOR) => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                 ),
-                GateTypeBinary::XNOR => (
+                Some(GateTypeBinary::XNOR) => (
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
-                GateTypeBinary::AND => (
+                Some(GateTypeBinary::AND) => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                 ),
-                GateTypeBinary::NAND => (
+                Some(GateTypeBinary::NAND) => (
                     BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
-                GateTypeBinary::OR => (
+                Some(GateTypeBinary::OR) => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                 ),
-                GateTypeBinary::NOR => (
+                Some(GateTypeBinary::NOR) => (
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
+                /// GateTypeBinary is None only when deserializing
+                None => unimplemented!("Delta::new for None[GateTypeBinary]!"),
             },
             GateType::Unary {
                 gate_type: r#type,
                 input_a,
             } => match r#type {
-                GateTypeUnary::INV => (
+                Some(GateTypeUnary::INV) => (
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
                 ),
-                GateTypeUnary::BUF => (
+                Some(GateTypeUnary::BUF) => (
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                 ),
+                /// GateTypeUnary is None only when deserializing
+                None => unimplemented!("Delta::new for None[GateTypeUnary]!"),
             },
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
@@ -516,47 +520,51 @@ impl TruthTable {
                 input_a,
                 input_b,
             } => match r#type {
-                GateTypeBinary::XOR => TruthTable {
+                Some(GateTypeBinary::XOR) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, true, true, false,
                     ),
                 },
-                GateTypeBinary::NAND => TruthTable {
+                Some(GateTypeBinary::NAND) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         true, true, true, false,
                     ),
                 },
-                GateTypeBinary::AND => TruthTable {
+                Some(GateTypeBinary::AND) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, false, false, true,
                     ),
                 },
-                GateTypeBinary::OR => TruthTable {
+                Some(GateTypeBinary::OR) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         false, true, true, true,
                     ),
                 },
-                GateTypeBinary::NOR => TruthTable {
+                Some(GateTypeBinary::NOR) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         true, false, false, false,
                     ),
                 },
-                GateTypeBinary::XNOR => TruthTable {
+                Some(GateTypeBinary::XNOR) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
                         true, false, false, true,
                     ),
                 },
+                /// GateTypeBinary is None only when deserializing
+                None => unimplemented!("TruthTable for None[GateTypeBinary]!"),
             },
             GateType::Unary {
                 gate_type: r#type,
                 input_a,
             } => match r#type {
-                GateTypeUnary::INV => TruthTable {
+                Some(GateTypeUnary::INV) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(false, true),
                 },
-                GateTypeUnary::BUF => TruthTable {
+                Some(GateTypeUnary::BUF) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(true, false),
                 },
+                /// GateTypeUnary is None only when deserializing
+                None => unimplemented!("TruthTable for None[GateTypeUnary]!"),
             },
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`

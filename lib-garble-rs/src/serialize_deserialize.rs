@@ -84,11 +84,14 @@ mod tests {
     /// test that specific(=postcard) (de)serialization works
     #[test]
     fn test_serialize_deserialize_full_adder_2bits() {
-        let ref_garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
+        let mut ref_garb =
+            garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
         let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
+
+        garbled_circuit_reset_gate_type(&mut ref_garb);
 
         assert_eq!(ref_garb, new_garb);
     }
@@ -98,7 +101,7 @@ mod tests {
     /// be serialized(cf test after) so we compare manually
     #[test]
     fn test_serialize_deserialize_display_message_120x52_2digits() {
-        let ref_garb = garble_skcd(include_bytes!(
+        let mut ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
@@ -107,6 +110,8 @@ mod tests {
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
+
+        garbled_circuit_reset_gate_type(&mut ref_garb);
 
         assert_eq!(ref_garb, new_garb);
         assert_eq!(
@@ -119,7 +124,7 @@ mod tests {
     /// test that the client DOES NOT have access to Encoder's garbler_inputs
     #[test]
     fn test_encoder_has_no_garbler_inputs_display_message_120x52_2digits() {
-        let ref_garb = garble_skcd(include_bytes!(
+        let mut ref_garb = garble_skcd(include_bytes!(
             "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
         ))
         .unwrap();
@@ -129,6 +134,27 @@ mod tests {
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
 
+        garbled_circuit_reset_gate_type(&mut ref_garb);
+
         assert_eq!(new_garb.num_garbler_inputs(), 0);
+    }
+
+    /// IMPORTANT: for security/privacy, we DO NOT serialize the GateType
+    /// so we must clean the Gate
+    fn garbled_circuit_reset_gate_type(garbled: &mut GarbledCircuit) {
+        for gate in garbled.garbled.circuit.gates.iter_mut() {
+            match &mut gate.internal {
+                crate::circuit::GateType::Binary {
+                    ref mut gate_type,
+                    input_a,
+                    input_b,
+                } => *gate_type = None,
+                crate::circuit::GateType::Unary {
+                    ref mut gate_type,
+                    input_a,
+                } => *gate_type = None,
+                crate::circuit::GateType::Constant { value } => {}
+            }
+        }
     }
 }

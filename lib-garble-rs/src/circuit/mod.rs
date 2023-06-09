@@ -1,6 +1,7 @@
 mod gate;
 mod skcd_config;
 
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 pub(crate) use gate::{Gate, GateType, GateTypeBinary, GateTypeUnary, WireRef};
@@ -53,6 +54,38 @@ impl CircuitInternal {
 pub(crate) struct Circuit {
     pub(crate) circuit: CircuitInternal,
     pub(crate) config: skcd_config::SkcdConfig,
+    pub(super) metadata: CircuitMetadata,
+}
+
+/// Various stats, min/max indexes for other fields, etc
+/// This is useful both for debugging/info, and for eg optimising alloc
+#[derive(Debug)]
+pub(super) struct CircuitMetadata {
+    gates_unary_count: HashMap<GateTypeUnary, usize>,
+    gates_binary_count: HashMap<GateTypeBinary, usize>,
+}
+
+impl CircuitMetadata {
+    pub(super) fn new() -> Self {
+        Self {
+            gates_unary_count: HashMap::new(),
+            gates_binary_count: HashMap::new(),
+        }
+    }
+
+    pub(super) fn increment_unary_gate(&mut self, gate_type: &GateTypeUnary) {
+        self.gates_unary_count
+            .entry(gate_type.clone())
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
+
+    pub(super) fn increment_binary_gate(&mut self, gate_type: &GateTypeBinary) {
+        self.gates_binary_count
+            .entry(gate_type.clone())
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
 }
 
 #[cfg(test)]

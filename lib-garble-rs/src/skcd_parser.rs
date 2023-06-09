@@ -1,7 +1,7 @@
 use crate::circuit::WireRef;
 use crate::circuit::{
-    Circuit, CircuitInternal, DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs,
-    GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
+    Circuit, CircuitInternal, CircuitMetadata, DisplayConfig, EvaluatorInputs, EvaluatorInputsType,
+    GarblerInputs, GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
 use alloc::vec::Vec;
 use core::convert::TryFrom;
@@ -224,6 +224,24 @@ impl Circuit {
         // TODO
         // assert!(skcd.gates.len() == gates.len(), "invalid gates.len()!");
 
+        // compute stats etc
+        let mut metadata = CircuitMetadata::new();
+        for gate in gates.iter() {
+            match gate.get_type() {
+                crate::circuit::GateType::Binary {
+                    gate_type,
+                    input_a,
+                    input_b,
+                } => metadata.increment_binary_gate(gate_type.as_ref().unwrap()),
+                crate::circuit::GateType::Unary { gate_type, input_a } => {
+                    metadata.increment_unary_gate(gate_type.as_ref().unwrap())
+                }
+                crate::circuit::GateType::Constant { value } => {}
+            }
+        }
+
+        println!("circuit metadata: {:?}", metadata);
+
         Ok(Circuit {
             circuit: CircuitInternal {
                 inputs,
@@ -232,6 +250,7 @@ impl Circuit {
                 wires: skcd_to_wire_ref_converter.get_all_wires(),
             },
             config,
+            metadata,
         })
     }
 }

@@ -131,7 +131,11 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
     // As we are looping on the gates in order, this will be built step by step
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
-    let mut wire_labels = encoded_info.x.clone();
+    let mut wire_labels: Vec<Option<WireLabel>> = Vec::new();
+    wire_labels.resize_with(circuit.wires.len(), Default::default);
+    for (wire_ref, wire_label) in encoded_info.x.iter() {
+        wire_labels[wire_ref.id] = Some(wire_label.clone());
+    }
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
@@ -144,8 +148,8 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
                 input_a,
                 input_b,
             } => {
-                let l_a = wire_labels.get(input_a).unwrap();
-                let l_b = wire_labels.get(input_b).unwrap();
+                let l_a = wire_labels[input_a.id].as_ref().unwrap();
+                let l_b = wire_labels[input_b.id].as_ref().unwrap();
 
                 (l_a.get_block(), Some(l_b.get_block()))
             }
@@ -153,7 +157,7 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
                 gate_type: r#type,
                 input_a,
             } => {
-                let l_a = wire_labels.get(input_a).unwrap();
+                let l_a = wire_labels[input_a.id].as_ref().unwrap();
                 (l_a.get_block(), None)
             }
             // [constant gate special case]
@@ -173,9 +177,7 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
         let l_g_full = BlockP::new_projection(&r, delta_g.get_block());
         let l_g: BlockL = l_g_full.into();
 
-        wire_labels
-            .try_insert(wire_ref.clone(), WireLabel::new(&l_g))
-            .unwrap();
+        wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));
 
         // "if g is a circuit output wire then"
         // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)

@@ -1,8 +1,10 @@
+use core::mem::size_of;
+
 use bitvec::prelude::*;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 
-use super::block::{BitsInternal, BlockL, BlockP, KAPPA_BYTES, KAPPA_NB_ELEMENTS};
+use super::block::{BitsInternal, BlockL, BlockP, KAPPA_NB_ELEMENTS};
 use super::constant::KAPPA_FACTOR;
 
 pub(crate) struct RandomOracle {
@@ -43,10 +45,10 @@ impl RandomOracle {
         // TODO! what do we do with a 256bits hash but a 128bits Block?
         let mut hash2 = hasher.finalize_xof();
         // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
-        let mut hash2_bytes = [0u8; KAPPA_BYTES * KAPPA_FACTOR];
+        let mut hash2_bytes = [0u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()];
         hash2.fill(&mut hash2_bytes);
 
-        BlockP::new_with2(hash2_bytes)
+        BlockP::new_with_raw_bytes(hash2_bytes)
     }
 
     pub(super) fn new_random_block_l(&mut self) -> BlockL {
@@ -83,7 +85,7 @@ impl RandomOracle {
         hasher.update(l0_l1.as_bytes());
         hasher.update(dj.as_bytes());
         // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let mut hash2 = hasher.finalize();
+        let hash2 = hasher.finalize();
 
         // Extract the least significant bit from the hash
         // let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];

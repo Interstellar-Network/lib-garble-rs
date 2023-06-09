@@ -9,72 +9,123 @@ use super::{
 };
 
 // TODO u128? would it be faster?
-pub(super) type BitsInternal = usize;
+pub(super) type BitsInternal = u64;
 
-type MyBitArrayL = BitArr!(for KAPPA, in BitsInternal, Lsb0);
-type MyBitArrayP = BitArr!(for KAPPA * KAPPA_FACTOR, in BitsInternal, Lsb0);
+type MyBitArrayL = [BitsInternal; KAPPA_NB_ELEMENTS];
+type MyBitArrayP = [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR];
 
 /// The number of Bytes needed to store `MyBitArrayL`/`BlockL`
 /// Typically this would be 8 b/c we are using `u64` internally for `bitvec`
 /// eg KAPPA = 128 and sizeof(u64) = 8 => KAPPA_BYTES = 128 / 8 => 16
-pub(super) const KAPPA_BYTES: usize = size_of::<MyBitArrayL>();
+// pub(super) const KAPPA_BYTES: usize = size_of::<MyBitArrayL>();
 /// That is the number of "internal element"(eg BitsInternal = u64) needed
 /// to represent a `MyBitArrayL`
-/// eg KAPPA = 128 + BitsInternal = u64 => 128 / 64 => 2 elements
-pub(super) const KAPPA_NB_ELEMENTS: usize = size_of::<MyBitArrayL>() / size_of::<BitsInternal>();
+/// eg KAPPA = 128 bits  //  BitsInternal = u64 = 64 bits => 128 / 64 => 2 elements
+pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / (size_of::<BitsInternal>() * 8);
 
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct BlockL {
-    bits: MyBitArrayL,
+    bits_words: MyBitArrayL,
 }
 
 /// The "internal" Block,
 /// "a random string of length l'" (l' <=> 8 * l <=> 8 * KAPPA)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct BlockP {
-    bits: MyBitArrayP,
+    bits_words: MyBitArrayP,
+    // TODO?
+    // bits_arr: [BlockL; KAPPA_FACTOR],
 }
 
 impl BlockL {
     // TODO should it instead be refactored into "new_random()"+moved to RandomOracle
-    pub(super) fn new_with(initial_value: [BitsInternal; KAPPA_NB_ELEMENTS]) -> Self {
+    pub(super) fn new_with(initial_value: MyBitArrayL) -> Self {
         Self {
-            bits: MyBitArrayL::from(initial_value),
+            bits_words: initial_value,
         }
     }
 
     pub(super) fn as_bytes(&self) -> &[u8] {
-        let slice: &[BitsInternal] = self.bits.as_raw_slice();
-        let ptr = slice.as_ptr() as *const u8;
-        let len = slice.len() * std::mem::size_of::<BitsInternal>();
-        unsafe { std::slice::from_raw_parts(ptr, len) }
+        // let slice: &[BitsInternal] = self.bits.as_raw_slice();
+        // let ptr = slice.as_ptr() as *const u8;
+        // let len = slice.len() * std::mem::size_of::<BitsInternal>();
+        // unsafe { std::slice::from_raw_parts(ptr, len) }
+        //
+
+        // [
+        //     self.bits_words[0].to_be_bytes(),
+        //     self.bits_words[1].to_be_bytes(),
+        // ]
+        // .concat()
+        // .as_slice()
+        // let bits = self.bits_words.view_bits::<Lsb0>();
+        // let bytes = bits.as_raw_slice();
+        // bytes
+
+        let ptr = self.bits_words.as_ptr() as *const u8;
+        let len = self.bits_words.len() * size_of::<u64>();
+        unsafe { alloc::slice::from_raw_parts(ptr, len) }
     }
 }
 
 impl BlockP {
-    pub(super) fn new_with2(initial_value: [u8; KAPPA_BYTES * KAPPA_FACTOR]) -> Self {
+    /// Crate a new instance with the given value
+    /// NOTE: Called by `random_oracle_g` so the input is (pseudo) random,
+    /// so using to_be_bytes vs to_le_bytes does not really matter
+    #[cfg(test)]
+    pub(super) fn new_with2(initial_value: MyBitArrayP) -> Self {
+        // TODO or use `from_be_bytes`? For the use case(which is creating new random blocks, it should not really matter)
+        // let words: Vec<BitsInternal> = initial_value
+        //     .chunks(size_of::<BitsInternal>())
+        //     .map(|c| BitsInternal::from_le_bytes(c.try_into().unwrap()))
+        //     .collect();
+        // let words: [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR] = words.try_into().unwrap();
+
+        Self {
+            bits_words: initial_value,
+        }
+    }
+
+    /// Crate a new instance with the given value
+    /// NOTE: Called by `random_oracle_g` so the input is (pseudo) random,
+    /// so using to_be_bytes vs to_le_bytes does not really matter
+    pub(super) fn new_with_raw_bytes(
+        initial_value: [u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()],
+    ) -> Self {
         // TODO or use `from_be_bytes`? For the use case(which is creating new random blocks, it should not really matter)
         let words: Vec<BitsInternal> = initial_value
             .chunks(size_of::<BitsInternal>())
             .map(|c| BitsInternal::from_le_bytes(c.try_into().unwrap()))
             .collect();
-        let words: [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR] = words.try_into().unwrap();
+        // let words: [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR] = words.try_into().unwrap();
 
         Self {
-            bits: MyBitArrayP::from(words),
+            bits_words: words.try_into().unwrap(),
         }
     }
 
     pub(super) fn new_zero() -> Self {
         Self {
-            bits: MyBitArrayP::ZERO,
+            bits_words: [0; KAPPA_NB_ELEMENTS * KAPPA_FACTOR],
         }
     }
 
+    /// It REALLY important that `get_bit` and `set_bit` use exactly the same
+    /// order, endianness, etc
+    fn get_bits_internal_mut(&mut self) -> &mut BitSlice<u64> {
+        self.bits_words.view_bits_mut::<Lsb0>()
+    }
+
+    fn get_bits_internal(&self) -> &BitSlice<u64> {
+        self.bits_words.view_bits::<Lsb0>()
+    }
+
     pub(super) fn get_bit(&self, index: usize) -> WireValue {
-        self.bits
+        let self_bits = self.get_bits_internal();
+
+        self_bits
             .get(index)
             .expect("get_bit: outside of range?")
             .as_ref()
@@ -84,13 +135,22 @@ impl BlockP {
 
     /// Set the `index` to `true`
     pub(super) fn set_bit(&mut self, index: usize) {
-        self.bits.set(index, true);
+        self.get_bits_internal_mut().set(index, true);
     }
 
     /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
     pub(crate) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
+        // let bits_words = Self::new_zero();
+
+        let bits_words: Vec<BitsInternal> = left
+            .bits_words
+            .iter()
+            .zip(right.bits_words.iter())
+            .map(|(left, right)| left & right)
+            .collect();
+
         Self {
-            bits: left.bits.bitand(right.bits),
+            bits_words: bits_words.try_into().unwrap(),
         }
     }
 }
@@ -99,9 +159,16 @@ impl From<BlockP> for BlockL {
     /// Truncate a `BlockP` into a `BlockL`
     // TODO is this needed? is there a better way to get L0/L1 from Delta and CompressedSet?
     fn from(block_p: BlockP) -> Self {
-        let mut bits_l_array = MyBitArrayL::ZERO;
-        bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
-        Self { bits: bits_l_array }
+        // let mut bits_l_array = MyBitArrayL::ZERO;
+        // bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
+        Self {
+            bits_words: block_p
+                .bits_words
+                .split_at(KAPPA_NB_ELEMENTS)
+                .0
+                .try_into()
+                .expect("BlockL::from slice with incorrect length"),
+        }
     }
 }
 
@@ -111,26 +178,59 @@ mod tests {
 
     fn get_test_blocks() -> (BlockP, BlockP, BlockP, BlockP) {
         let zero = BlockP::new_zero();
-        let one = BlockP::new_with2([u8::MAX; KAPPA_BYTES * KAPPA_FACTOR]);
+        let one = BlockP::new_with2([u64::MAX; KAPPA_NB_ELEMENTS * KAPPA_FACTOR]);
         // NOTE: generated on Rust Playground
+        //
+        // use rand::{Rng, thread_rng};
+        //
+        // fn main() {
+        //     let mut rng = thread_rng();
+        //     let mut random_numbers: Vec<u64> = Vec::new();
+        //
+        //     for _ in 0..16 {
+        //         let random_number = rng.gen();
+        //         random_numbers.push(random_number);
+        //     }
+        //
+        //     println!("Random numbers: {:?}", random_numbers);
+        // }
+
         let test1 = BlockP::new_with2([
-            243, 108, 244, 60, 108, 187, 206, 32, 89, 240, 106, 139, 37, 186, 147, 52, 7, 147, 74,
-            93, 45, 65, 40, 141, 2, 37, 250, 215, 246, 210, 54, 193, 250, 169, 180, 2, 8, 244, 170,
-            44, 13, 230, 176, 90, 162, 170, 133, 176, 159, 217, 148, 70, 26, 102, 143, 136, 22,
-            168, 55, 25, 211, 59, 139, 22, 21, 101, 144, 36, 211, 181, 31, 144, 26, 190, 175, 134,
-            213, 61, 203, 50, 163, 249, 206, 131, 132, 174, 204, 171, 65, 237, 4, 244, 101, 98, 85,
-            232, 81, 138, 85, 195, 66, 108, 142, 8, 11, 57, 10, 243, 162, 216, 208, 217, 218, 235,
-            168, 214, 229, 92, 46, 251, 153, 52, 242, 198, 26, 34, 27, 70,
+            3951001893725728678,
+            17561894908598795415,
+            3273299927427316065,
+            4016781436536637665,
+            3759867147464905433,
+            4273494230197193221,
+            3529531907751757055,
+            16273736933959562170,
+            16977210453145070413,
+            4260534243702315869,
+            8876721923944456293,
+            6706553457839696430,
+            11459371310689979744,
+            17420813315993560429,
+            16645214173008843092,
+            1335969637496639684,
         ]);
         // NOTE: generated on Rust Playground
         let test2 = BlockP::new_with2([
-            247, 165, 155, 149, 68, 116, 58, 1, 2, 23, 18, 177, 131, 152, 56, 13, 128, 5, 85, 45,
-            176, 128, 41, 247, 35, 166, 4, 69, 68, 70, 153, 52, 195, 77, 70, 113, 79, 92, 247, 52,
-            156, 188, 83, 229, 253, 240, 225, 224, 219, 158, 175, 106, 119, 226, 241, 199, 150,
-            155, 104, 196, 233, 246, 118, 180, 206, 193, 213, 90, 137, 158, 243, 51, 101, 182, 17,
-            42, 84, 120, 207, 32, 157, 19, 18, 170, 24, 192, 203, 82, 175, 34, 217, 215, 174, 90,
-            216, 233, 73, 171, 246, 157, 17, 129, 81, 51, 141, 65, 216, 252, 51, 98, 239, 179, 97,
-            248, 251, 200, 45, 102, 63, 111, 243, 77, 161, 4, 220, 112, 203, 93,
+            9449436712766709104,
+            3648953883981184573,
+            14898637992720905965,
+            17363463440617121051,
+            7750060861933093186,
+            14007631929040371275,
+            5938564052276943847,
+            10629746254474597517,
+            3232167171266494280,
+            4891434532817971135,
+            14814410512354217645,
+            16902468201008627571,
+            15996213338535303994,
+            2018280331266639914,
+            3514537016880298159,
+            17460098548274586993,
         ]);
 
         (zero, one, test1, test2)

@@ -141,24 +141,40 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
 
     // "for each gate g ∈ [q] in a topological order do"
     for gate in circuit.gates.iter() {
-        // "LA, LB ← active labels associated with the input wires of gate g"
-        let (l_a, l_b) = match gate.get_type() {
+        let wire_ref = WireRef { id: gate.get_id() };
+
+        let l_g: BlockL = match gate.get_type() {
+            // STANDARD CASE: cf `garble_internal`
             GateType::Binary {
                 gate_type: r#type,
                 input_a,
                 input_b,
             } => {
+                // "LA, LB ← active labels associated with the input wires of gate g"
                 let l_a = wire_labels[input_a.id].as_ref().unwrap();
                 let l_b = wire_labels[input_b.id].as_ref().unwrap();
 
-                (l_a.get_block(), Some(l_b.get_block()))
+                // "extract ∇g ← F [g]"
+                let delta_g = f.f.get(&wire_ref).unwrap();
+
+                // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
+                let r = RandomOracle::random_oracle_g(
+                    l_a.get_block(),
+                    Some(l_b.get_block()),
+                    gate.get_id(),
+                );
+                let l_g_full = BlockP::new_projection(&r, delta_g.get_block());
+                let l_g: BlockL = l_g_full.into();
+
+                l_g
             }
+            // SPECIAL CASE: cf `garble_internal`
             GateType::Unary {
                 gate_type: r#type,
                 input_a,
             } => {
                 let l_a = wire_labels[input_a.id].as_ref().unwrap();
-                (l_a.get_block(), None)
+                l_a.get_block().clone()
             }
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
@@ -166,16 +182,6 @@ fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInf
                 unimplemented!("evaluate_internal for Constant gates is a special case!")
             }
         };
-
-        let wire_ref = WireRef { id: gate.get_id() };
-
-        // "extract ∇g ← F [g]"
-        let delta_g = f.f.get(&wire_ref).unwrap();
-
-        // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
-        let r = RandomOracle::random_oracle_g(l_a, l_b, gate.get_id());
-        let l_g_full = BlockP::new_projection(&r, delta_g.get_block());
-        let l_g: BlockL = l_g_full.into();
 
         wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));
 

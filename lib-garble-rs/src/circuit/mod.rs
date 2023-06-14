@@ -302,6 +302,10 @@ impl Circuit {
                 garbler_inputs: vec![],
                 evaluator_inputs: vec![],
             },
+            metadata: CircuitMetadata {
+                gates_unary_count: HashMap::new(),
+                gates_binary_count: HashMap::new(),
+            },
         }
     }
 
@@ -324,6 +328,10 @@ impl Circuit {
                 garbler_inputs: vec![],
                 evaluator_inputs: vec![],
             },
+            metadata: CircuitMetadata {
+                gates_unary_count: HashMap::new(),
+                gates_binary_count: HashMap::new(),
+            },
         }
     }
 
@@ -342,6 +350,10 @@ impl Circuit {
                 display_config: None,
                 garbler_inputs: vec![],
                 evaluator_inputs: vec![],
+            },
+            metadata: CircuitMetadata {
+                gates_unary_count: HashMap::new(),
+                gates_binary_count: HashMap::new(),
             },
         }
     }

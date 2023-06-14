@@ -1,7 +1,7 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::{CircuitInternal, Gate, GateType, WireRef};
+use crate::circuit::{CircuitInternal, Gate, GateType, GateTypeUnary, WireRef};
 
 use super::{
     block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
@@ -190,12 +190,41 @@ fn garble_internal<'a>(
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        let compressed_set = f1_0_compress(&encoded_wires, gate);
-        let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
-
         let wire_ref = WireRef { id: gate.get_id() };
 
-        f.try_insert(wire_ref.clone(), delta).unwrap();
+        let compressed_set = f1_0_compress(&encoded_wires, gate);
+
+        let (l0, l1) = match gate.get_type() {
+            // STANDARD CASE: Binary Gates or using Delta etc
+            GateType::Binary {
+                gate_type,
+                input_a,
+                input_b,
+            } => {
+                let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
+                f.try_insert(wire_ref.clone(), delta).unwrap();
+                (l0, l1)
+            }
+            // SPECIAL CASE: Unary Gates are bypassing Delta (and therefore DO NOT need a RO call during eval)
+            GateType::Unary { gate_type, input_a } => match gate_type {
+                // https://www.cs.toronto.edu/~vlad/papers/XOR_ICALP08.pdf
+                // "We first note that NOT gates can be implemented “for free”
+                // by simply eliminating them and inverting the correspondence of the wires’ values
+                // and garblings."
+                Some(GateTypeUnary::INV) => (
+                    compressed_set.get_x1().clone(),
+                    compressed_set.get_x0().clone(),
+                ),
+                // We apply the same idea to BUF Gates: a simple "passthrough"
+                Some(GateTypeUnary::BUF) => (
+                    compressed_set.get_x0().clone(),
+                    compressed_set.get_x1().clone(),
+                ),
+                /// GateType::Unary is None only when deserializing
+                None => unimplemented!("garble_internal for None[GateType::Unary]!"),
+            },
+            _ => unimplemented!("garble_internal for None[GateType::Constant]!"),
+        };
 
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]

@@ -64,7 +64,7 @@ pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError>
     let circuit =
         circuit::Circuit::parse_skcd(skcd_buf).map_err(|e| InterstellarError::SkcdParserError)?;
 
-    let garbled = new_garbling_scheme::garble::garble(circuit.circuit)
+    let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata)
         .map_err(|_e| InterstellarError::GarblerError)?;
 
     Ok(GarbledCircuit {

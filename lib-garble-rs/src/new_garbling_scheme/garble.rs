@@ -1,7 +1,7 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::{CircuitInternal, Gate, GateType, GateTypeUnary, WireRef};
+use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
 
 use super::{
     block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
@@ -281,6 +281,7 @@ pub(crate) struct GarbledCircuitFinal {
     pub(super) garbled_circuit: GarbledCircuitInternal,
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,
+    pub(super) circuit_metadata: CircuitMetadata,
 }
 
 /// Grouping of all of the sequence:
@@ -289,7 +290,10 @@ pub(crate) struct GarbledCircuitFinal {
 /// (3) DecodingInfo(D) → d
 ///
 // TODO? how to group the garble part vs eval vs decoding?
-pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, GarblerError> {
+pub(crate) fn garble(
+    circuit: CircuitInternal,
+    circuit_metadata: CircuitMetadata,
+) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
     let e = init_internal(&circuit, &mut random_oracle);
@@ -303,6 +307,7 @@ pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, Ga
         garbled_circuit,
         d,
         e,
+        circuit_metadata,
     })
 }
 
@@ -310,7 +315,8 @@ pub(crate) fn garble(circuit: CircuitInternal) -> Result<GarbledCircuitFinal, Ga
 ///
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub(super) struct DecodedInfo {
-    pub(super) d: HashMap<WireRef, BlockL>,
+    /// One element per output
+    pub(super) d: Vec<BlockL>,
 }
 
 /// In https://eprint.iacr.org/2021/739.pdf
@@ -326,10 +332,10 @@ fn decoding_info(
     d_up: &D,
     random_oracle: &mut RandomOracle,
 ) -> DecodedInfo {
-    let mut d = HashMap::with_capacity(circuit_outputs.len());
+    let mut d = Vec::with_capacity(circuit_outputs.len());
 
     // "2: for output wire j ∈ [m] do"
-    for output_wire in circuit_outputs {
+    for (idx, output_wire) in circuit_outputs.iter().enumerate() {
         // "extract Lj0, Lj1 ← D[j]"
         let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
 
@@ -343,7 +349,7 @@ fn decoding_info(
             dj = random_oracle.new_random_block_l();
         }
 
-        d.insert(output_wire.clone(), dj);
+        d.push(dj);
     }
 
     DecodedInfo { d }
@@ -365,7 +371,7 @@ mod tests {
         let d = D { d: d_up };
 
         let d = decoding_info(&circuit_outputs, &d, &mut random_oracle);
-        let dj = &d.d.get(&circuit_outputs[0]).unwrap();
+        let dj = &d.d[0];
         assert_eq!(RandomOracle::random_oracle_prime(&l0, dj), false);
         assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);
     }

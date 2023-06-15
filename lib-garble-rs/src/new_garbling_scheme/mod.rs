@@ -73,7 +73,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -100,7 +100,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -127,7 +127,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -154,7 +154,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -181,7 +181,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -208,7 +208,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XNOR);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             println!("outputs : {outputs:?}");
@@ -233,7 +233,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
@@ -257,7 +257,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::BUF);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
@@ -281,7 +281,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit_constant(false);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
@@ -305,7 +305,7 @@ mod tests {
 
         for (inputs, expected_output) in tests {
             let circ = Circuit::new_test_circuit_constant(true);
-            let garbled = garble(circ.circuit).unwrap();
+            let garbled = garble(circ.circuit, circ.metadata).unwrap();
 
             let outputs = evaluate_full_chain(&garbled, &inputs);
             assert_eq!(
@@ -322,6 +322,6 @@ mod tests {
         let circ =
             Circuit::parse_skcd(include_bytes!("../../examples/data/adder.skcd.pb.bin")).unwrap();
 
-        garble(circ.circuit).unwrap();
+        garble(circ.circuit, circ.metadata).unwrap();
     }
 }

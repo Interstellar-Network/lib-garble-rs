@@ -1,4 +1,3 @@
-use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,14 +16,14 @@ use super::{
 ///
 /// For each Circuit.inputs this will be a `Block` referencing either `value0` or `value1`
 ///
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct EncodedInfo {
     /// NOTE: contrary to the papers, we added the concept of "Garbler inputs" vs "Evaluator inputs"
     /// so we have an `Option<>` here:
     /// - "garbler inputs" are typically set at garbling time (ie server-side)
     /// - "evaluator inputs" are typically set later when evaluating (client-side); these are init to `None`
     ///   when garbling
-    x: HashMap<WireRef, WireLabel>,
+    x: Vec<WireLabel>,
 }
 
 impl EncodedInfo {
@@ -86,9 +85,7 @@ fn encoding_internal<'a>(
         } else {
             encoded_wire.value0()
         };
-        encoded_info
-            .x
-            .insert(input_wire.clone(), WireLabel::new(block));
+        encoded_info.x.push(WireLabel::new(block));
     }
 
     // InputEncodingSet: SHOULD contain circuit.n elements
@@ -139,8 +136,8 @@ fn evaluate_internal(
     // Then we built all the other gates in subsequent iterations of the loop.
     let mut wire_labels: Vec<Option<WireLabel>> = Vec::new();
     wire_labels.resize_with(circuit.wires.len(), Default::default);
-    for (wire_ref, wire_label) in encoded_info.x.iter() {
-        wire_labels[wire_ref.id] = Some(wire_label.clone());
+    for (idx, wire_label) in encoded_info.x.iter().enumerate() {
+        wire_labels[idx] = Some(wire_label.clone());
     }
 
     // "for each gate g ∈ [q] in a topological order do"
@@ -241,7 +238,7 @@ pub(crate) fn evaluate_full_chain(
     inputs: &[WireValue],
 ) -> Vec<WireValue> {
     let mut encoded_info = EncodedInfo {
-        x: HashMap::with_capacity(inputs.len()),
+        x: Vec::with_capacity(inputs.len()),
     };
 
     encoding_internal(
@@ -296,7 +293,7 @@ pub(crate) fn encode_garbler_inputs(
     inputs_end_index: usize,
 ) -> EncodedInfo {
     let mut encoded_info = EncodedInfo {
-        x: HashMap::with_capacity(garbled.circuit.n()),
+        x: Vec::with_capacity(garbled.circuit.n()),
     };
 
     encoding_internal(

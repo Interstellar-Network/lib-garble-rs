@@ -118,7 +118,7 @@ impl GarbledCircuit {
 }
 
 /// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub struct EncodedGarblerInputs {
     pub(super) encoded: EncodedInfo,
 }

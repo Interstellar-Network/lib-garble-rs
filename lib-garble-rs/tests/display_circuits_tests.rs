@@ -132,7 +132,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
         "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
     ));
 
-    let mut encoded_garbler_inputs =
+    let encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
 
     let mut rng = thread_rng();
@@ -147,6 +147,8 @@ fn bench_eval_display_message_640x360_2digits_42() {
         // coz::progress!();
 
         let start = Instant::now();
+
+        let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
 
         eval_client(
             &mut garb,

@@ -14,6 +14,7 @@ use rand::rngs::ThreadRng;
 /// That costs around ~5ms...
 /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
 // #[profiling::function]
+// TODO(opt) EncodedGarblerInputs SHOULD NOT be mut; this forces up to clone it when evaluating repeatedly
 pub fn eval_client(
     garb: &mut GarbledCircuit,
     encoded_garbler_inputs: &mut EncodedGarblerInputs,

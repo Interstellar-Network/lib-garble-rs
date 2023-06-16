@@ -55,9 +55,48 @@ mod key_length;
 mod tests {
     use super::*;
     use crate::{
-        circuit::Circuit,
+        circuit::{Circuit, GateTypeBinary, GateTypeUnary},
         new_garbling_scheme::{evaluate::evaluate_full_chain, garble::garble},
     };
+
+    #[derive(Debug)]
+    enum TestGateType {
+        Binary(GateTypeBinary),
+        Unary(GateTypeUnary),
+        Constant(bool),
+    }
+
+    /// param `tests`: inputs, expected_output
+    fn aux_test_basic_circuit(
+        tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)>,
+        gate_type_to_test: TestGateType,
+    ) {
+        // to be on the safe side, we run each test multiple times
+        // that is b/c we so much random and bit/lsb/msb stuff, we can easily end up
+        // with a wrong algo that sometimes return a good output
+        for idx in 0..10 {
+            for (inputs, expected_output) in tests.clone() {
+                let circ = match &gate_type_to_test {
+                    TestGateType::Binary(gate_type) => Circuit::new_test_circuit(gate_type.clone()),
+                    TestGateType::Unary(gate_type) => {
+                        Circuit::new_test_circuit_unary(gate_type.clone())
+                    }
+                    TestGateType::Constant(value) => Circuit::new_test_circuit_constant(*value),
+                };
+                let garbled = garble(circ.circuit, circ.metadata).unwrap();
+
+                let outputs = evaluate_full_chain(&garbled, &inputs);
+                println!("outputs : {outputs:?} [{idx}]");
+                assert_eq!(
+                    outputs.len(),
+                    1,
+                    "{:?} gate so we SHOULD have only one output!",
+                    gate_type_to_test,
+                );
+                assert_eq!(outputs[0], expected_output);
+            }
+        }
+    }
 
     #[test]
     fn test_basic_or() {
@@ -71,19 +110,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::OR);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "OR gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::OR));
     }
 
     #[test]
@@ -98,19 +125,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::AND);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "AND gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::AND));
     }
 
     #[test]
@@ -125,19 +140,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XOR);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "XOR gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::XOR));
     }
 
     #[test]
@@ -152,19 +155,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NAND);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "NAND gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::NAND));
     }
 
     #[test]
@@ -179,19 +170,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::NOR);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "NOR gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::NOR));
     }
 
     #[test]
@@ -206,19 +185,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit(crate::circuit::GateTypeBinary::XNOR);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            println!("outputs : {outputs:?}");
-            assert_eq!(
-                outputs.len(),
-                1,
-                "XNOR gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::XNOR));
     }
 
     #[test]
@@ -231,18 +198,7 @@ mod tests {
             (vec![true.into()], false.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::INV);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            assert_eq!(
-                outputs.len(),
-                1,
-                "NOT gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Unary(GateTypeUnary::INV));
     }
 
     #[test]
@@ -255,18 +211,7 @@ mod tests {
             (vec![true.into()], true.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit_unary(crate::circuit::GateTypeUnary::BUF);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            assert_eq!(
-                outputs.len(),
-                1,
-                "BUF gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Unary(GateTypeUnary::BUF));
     }
 
     #[test]
@@ -279,18 +224,7 @@ mod tests {
             (vec![true.into()], false.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit_constant(false);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            assert_eq!(
-                outputs.len(),
-                1,
-                "0 gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Constant(false));
     }
 
     #[test]
@@ -303,18 +237,7 @@ mod tests {
             (vec![true.into()], true.into()),
         ];
 
-        for (inputs, expected_output) in tests {
-            let circ = Circuit::new_test_circuit_constant(true);
-            let garbled = garble(circ.circuit, circ.metadata).unwrap();
-
-            let outputs = evaluate_full_chain(&garbled, &inputs);
-            assert_eq!(
-                outputs.len(),
-                1,
-                "0 gate so we SHOULD have only one output!"
-            );
-            assert_eq!(outputs[0], expected_output);
-        }
+        aux_test_basic_circuit(tests, TestGateType::Constant(true));
     }
 
     #[test]

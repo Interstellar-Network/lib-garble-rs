@@ -83,7 +83,7 @@ mod tests {
                     }
                     TestGateType::Constant(value) => Circuit::new_test_circuit_constant(*value),
                 };
-                let garbled = garble(circ.circuit, circ.metadata).unwrap();
+                let garbled = garble(circ.circuit).unwrap();
 
                 let outputs = evaluate_full_chain(&garbled, &inputs);
                 println!("outputs : {outputs:?} [{idx}]");
@@ -245,6 +245,6 @@ mod tests {
         let circ =
             Circuit::parse_skcd(include_bytes!("../../examples/data/adder.skcd.pb.bin")).unwrap();
 
-        garble(circ.circuit, circ.metadata).unwrap();
+        garble(circ.circuit).unwrap();
     }
 }

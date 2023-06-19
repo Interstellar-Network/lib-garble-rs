@@ -1,7 +1,10 @@
+use hashbrown::hash_map::OccupiedError;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::{self, CircuitInternal, CircuitMetadata, GateType, WireRef},
+    circuit::{self, CircuitInternal, GateType, WireRef},
     new_garbling_scheme::{wire::WireLabel, GarblerError},
 };
 
@@ -100,8 +103,7 @@ fn encoding_internal<'a>(
 
 /// Noted `Y` in the paper
 struct OutputLabels {
-    /// One element per output
-    y: Vec<BlockL>,
+    y: HashMap<WireRef, BlockL>,
 }
 
 ///
@@ -113,12 +115,7 @@ struct OutputLabels {
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
-fn evaluate_internal(
-    circuit: &CircuitInternal,
-    f: &F,
-    encoded_info: &EncodedInfo,
-    circuit_metadata: &CircuitMetadata,
-) -> OutputLabels {
+fn evaluate_internal(circuit: &CircuitInternal, f: &F, encoded_info: &EncodedInfo) -> OutputLabels {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
         encoded_info.x.len(),
@@ -127,7 +124,7 @@ fn evaluate_internal(
     );
 
     let mut output_labels = OutputLabels {
-        y: Vec::with_capacity(circuit.outputs.len()),
+        y: HashMap::with_capacity(circuit.outputs.len()),
     };
 
     // same idea as `garble`:
@@ -140,8 +137,10 @@ fn evaluate_internal(
         wire_labels[idx] = Some(wire_label.clone());
     }
 
+    let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+
     // "for each gate g ∈ [q] in a topological order do"
-    for (idx, gate) in circuit.gates.iter().enumerate() {
+    for gate in circuit.gates.iter() {
         let wire_ref = WireRef { id: gate.get_id() };
 
         let l_g: BlockL = match gate.get_type() {
@@ -188,9 +187,13 @@ fn evaluate_internal(
 
         // "if g is a circuit output wire then"
         // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)
-        if circuit_metadata.gate_idx_is_output(idx) {
+        if let Some(wire_output) = outputs_set.get(&wire_ref) {
             // "Y [g] ← Lg"
-            output_labels.y.push(l_g);
+            match output_labels.y.try_insert(wire_ref, l_g) {
+                Err(OccupiedError { entry, value }) => Err(GarblerError::EvaluateDuplicatedWire),
+                // The key WAS NOT already present; everything is fine
+                Ok(wire) => Ok(()),
+            };
         }
     }
 
@@ -214,11 +217,10 @@ fn decoding_internal(
     let mut outputs = vec![];
 
     // "for j ∈ [m] do"
-    // TODO(opt) parallelize
-    for (idx, output) in circuit.outputs.iter().enumerate() {
+    for output in circuit.outputs.iter() {
         // "y[j] ← lsb(RO′(Y [j], dj ))"
-        let yj = &output_labels.y[idx];
-        let dj = &decoded_info.d[idx];
+        let yj = output_labels.y.get(output).unwrap();
+        let dj = decoded_info.d.get(output).unwrap();
         let r = RandomOracle::random_oracle_prime(yj, dj);
         // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
         outputs.push(WireValue { value: r });
@@ -251,12 +253,8 @@ pub(crate) fn evaluate_full_chain(
         garbled.circuit.inputs.len(),
     );
 
-    let output_labels = evaluate_internal(
-        &garbled.circuit,
-        &garbled.garbled_circuit.f,
-        &encoded_info,
-        &garbled.circuit_metadata,
-    );
+    let output_labels =
+        evaluate_internal(&garbled.circuit, &garbled.garbled_circuit.f, &encoded_info);
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }
@@ -273,12 +271,8 @@ pub(crate) fn evaluate_with_encoded_info(
     garbled: &GarbledCircuitFinal,
     encoded_info: &EncodedInfo,
 ) -> Vec<WireValue> {
-    let output_labels = evaluate_internal(
-        &garbled.circuit,
-        &garbled.garbled_circuit.f,
-        &encoded_info,
-        &garbled.circuit_metadata,
-    );
+    let output_labels =
+        evaluate_internal(&garbled.circuit, &garbled.garbled_circuit.f, &encoded_info);
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
 }

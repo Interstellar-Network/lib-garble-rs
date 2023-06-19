@@ -5,7 +5,6 @@ use crate::circuit::{
 };
 use alloc::vec::Vec;
 use core::convert::TryFrom;
-use hashbrown::HashSet;
 use rand::Rng;
 
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
@@ -148,12 +147,8 @@ impl Circuit {
         let mut outputs = Vec::with_capacity(skcd.outputs.len());
         for skcd_output in skcd.outputs.iter() {
             skcd_to_wire_ref_converter.insert(skcd_output);
-            let output_wire_ref = skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone();
-            outputs.push(output_wire_ref);
+            outputs.push(skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone());
         }
-
-        let outputs_clone = outputs.clone();
-        let outputs_set: HashSet<&WireRef> = HashSet::from_iter(outputs_clone.iter());
 
         // TODO? [constant gate special case]
         // we add two wires to represent constant 0 and 1
@@ -175,9 +170,8 @@ impl Circuit {
 
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
-        let mut outputs_start_end_indexes = (usize::MAX, usize::MIN);
         // TODO constant_gate
-        for (idx, skcd_gate) in skcd.gates.into_iter().enumerate() {
+        for skcd_gate in skcd.gates {
             // But `output` MUST always be set; this is what we use as Gate ID
             skcd_to_wire_ref_converter.insert(&skcd_gate.o);
 
@@ -201,25 +195,16 @@ impl Circuit {
                 _ => {}
             }
 
-            let output_wire_ref =
+            gates.push(Gate::new_from_skcd_gate_type(
+                skcd_gate.r#type,
                 skcd_to_wire_ref_converter
                     .get(&skcd_gate.o)
                     .ok_or_else(|| CircuitParserError::OutputInvalidGateId {
                         gate_id: skcd_gate.o.clone(),
-                    })?;
-
-            gates.push(Gate::new_from_skcd_gate_type(
-                skcd_gate.r#type,
-                output_wire_ref,
+                    })?,
                 x_ref,
                 y_ref,
             )?);
-
-            // if gate is a circuit output wire then update the min/max indices
-            if outputs_set.contains(&output_wire_ref) {
-                outputs_start_end_indexes.0 = outputs_start_end_indexes.0.min(idx);
-                outputs_start_end_indexes.1 = outputs_start_end_indexes.1.max(idx);
-            }
         }
 
         // config
@@ -240,7 +225,7 @@ impl Circuit {
         // assert!(skcd.gates.len() == gates.len(), "invalid gates.len()!");
 
         // compute stats etc
-        let mut metadata = CircuitMetadata::new(outputs_start_end_indexes);
+        let mut metadata = CircuitMetadata::new();
         for gate in gates.iter() {
             match gate.get_type() {
                 crate::circuit::GateType::Binary {

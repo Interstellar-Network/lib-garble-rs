@@ -68,6 +68,19 @@ impl BlockL {
         let len = self.bits_words.len() * size_of::<u64>();
         unsafe { alloc::slice::from_raw_parts(ptr, len) }
     }
+
+    pub(super) fn xor(&self, other: &BlockL) -> BlockL {
+        let bits_words: Vec<BitsInternal> = self
+            .bits_words
+            .iter()
+            .zip(other.bits_words.iter())
+            .map(|(left, right)| left ^ right)
+            .collect();
+
+        Self {
+            bits_words: bits_words.try_into().unwrap(),
+        }
+    }
 }
 
 impl BlockP {

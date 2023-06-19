@@ -83,8 +83,8 @@ impl GarbledCircuit {
     /// or initially when garbling!
     /// In the latter case it means the circuit is a dud and nothing can be done!
     pub fn eval(
-        &mut self,
-        encoded_garbler_inputs: &mut EncodedGarblerInputs,
+        &self,
+        encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<u8>,
     ) -> Result<(), InterstellarEvaluatorError> {
@@ -92,19 +92,20 @@ impl GarbledCircuit {
         let evaluator_inputs_wire_value: Vec<WireValue> =
             evaluator_inputs.iter().map(|input| input.into()).collect();
 
+        // TODO(opt) remove clone
+        let mut encoded_info = encoded_garbler_inputs.encoded.clone();
+
         new_garbling_scheme::evaluate::encode_evaluator_inputs(
             &self.garbled,
             &evaluator_inputs_wire_value,
-            &mut encoded_garbler_inputs.encoded,
+            &mut encoded_info,
             self.num_garbler_inputs() as usize,
             self.num_garbler_inputs() as usize + self.num_evaluator_inputs() as usize,
         );
 
         // TODO this SHOULD have `outputs` in-place [1]
-        let outputs_wire_value = new_garbling_scheme::evaluate::evaluate_with_encoded_info(
-            &self.garbled,
-            &encoded_garbler_inputs.encoded,
-        );
+        let outputs_wire_value =
+            new_garbling_scheme::evaluate::evaluate_with_encoded_info(&self.garbled, &encoded_info);
 
         // Convert Vec<WireValue> -> Vec<u8>
         let outputs_u8: Vec<u8> = outputs_wire_value

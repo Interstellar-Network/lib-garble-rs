@@ -120,7 +120,13 @@ pub(super) struct InputEncodingSet {
 /// 6:  end for
 /// 7: Return e
 ///
-fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) -> InputEncodingSet {
+/// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
+///
+fn init_internal(
+    circuit: &CircuitInternal,
+    random_oracle: &mut RandomOracle,
+    r: &BlockL,
+) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n());
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
@@ -129,7 +135,7 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
             "Wires MUST be iterated in topological order!"
         );
 
-        insert_new_wire_random_labels(random_oracle, &mut w, input_wire);
+        insert_new_wire_random_labels(random_oracle, &mut w, input_wire, r);
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -144,16 +150,27 @@ fn init_internal(circuit: &CircuitInternal, random_oracle: &mut RandomOracle) ->
     InputEncodingSet { e: w }
 }
 
+/// Generate a new RANDOM wire
+/// [Supporting Free-XOR]
+/// - l0 is random
+/// - l1 is based on XOR l0 and `r`
+///   "invariant that for the output wire of the XOR gate, L0 ⊕ L1 = ∆"
+///   5 Supporting Free-XOR; https://eprint.iacr.org/2021/739.pdf
+///
+/// param: r: [Supporting Free-XOR] "delta"
 fn insert_new_wire_random_labels(
     random_oracle: &mut RandomOracle,
     w: &mut HashMap<WireRef, Wire>,
     input_wire: &WireRef,
+    r: &BlockL,
 ) {
     let lw0 = random_oracle.new_random_block_l();
-    let lw1 = random_oracle.new_random_block_l();
+    let lw1 = lw0.xor(r);
 
     // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
     assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
+    // [Supporting Free-XOR]
+    assert_eq!(&lw0.xor(&lw1), r, "LW0 and LW1 SHOULD match `r` XOR!");
 
     w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
 }
@@ -293,7 +310,10 @@ pub(crate) fn garble(
 ) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut random_oracle = RandomOracle::new();
 
-    let e = init_internal(&circuit, &mut random_oracle);
+    // [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
+    let r = random_oracle.new_random_block_l();
+
+    let e = init_internal(&circuit, &mut random_oracle, &r);
 
     let garbled_circuit = garble_internal(&circuit, &e, &mut random_oracle)?;
 

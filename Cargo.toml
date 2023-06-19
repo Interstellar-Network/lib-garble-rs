@@ -19,3 +19,7 @@ members = [
 [profile.dev]
 # without optimizations the tests with display circuits(even the small 120x52) are REALLY slow
 opt-level = 1
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true

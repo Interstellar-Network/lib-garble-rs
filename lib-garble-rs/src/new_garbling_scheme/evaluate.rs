@@ -15,6 +15,9 @@ use super::{
     wire_value::WireValue,
 };
 
+#[cfg(feature = "std")]
+use rayon::prelude::*;
+
 /// Noted `X`
 ///
 /// For each Circuit.inputs this will be a `Block` referencing either `value0` or `value1`
@@ -214,17 +217,24 @@ fn decoding_internal(
     output_labels: &OutputLabels,
     decoded_info: &DecodedInfo,
 ) -> Vec<WireValue> {
-    let mut outputs = vec![];
+    // TODO(rayon) make it work in work in no_std
+    // #[cfg(not(feature = "std"))]
+    // for output in circuit.outputs.iter() {
 
     // "for j ∈ [m] do"
-    for output in circuit.outputs.iter() {
-        // "y[j] ← lsb(RO′(Y [j], dj ))"
-        let yj = output_labels.y.get(output).unwrap();
-        let dj = decoded_info.d.get(output).unwrap();
-        let r = RandomOracle::random_oracle_prime(yj, dj);
-        // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
-        outputs.push(WireValue { value: r });
-    }
+    #[cfg(feature = "std")]
+    let outputs: Vec<WireValue> = circuit
+        .outputs
+        .par_iter()
+        .map(|output| {
+            // "y[j] ← lsb(RO′(Y [j], dj ))"
+            let yj = output_labels.y.get(output).unwrap();
+            let dj = decoded_info.d.get(output).unwrap();
+            let r = RandomOracle::random_oracle_prime(yj, dj);
+            // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
+            WireValue { value: r }
+        })
+        .collect();
 
     outputs
 }

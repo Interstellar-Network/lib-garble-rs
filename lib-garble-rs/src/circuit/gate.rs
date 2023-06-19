@@ -281,7 +281,7 @@ impl Gate {
     }
 
     pub(crate) fn get_id(&self) -> usize {
-        self.output.id
+        self.get_output().id
     }
 
     pub(crate) fn get_output(&self) -> &WireRef {

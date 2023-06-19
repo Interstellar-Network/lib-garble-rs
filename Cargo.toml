@@ -18,8 +18,11 @@ members = [
 
 [profile.dev]
 # without optimizations the tests with display circuits(even the small 120x52) are REALLY slow
-opt-level = 1
+opt-level = 0
 
+# custom profile use for profiling:
+# - release optimisations
+# - BUT with debug to have nice stacktrace and profiling data
 [profile.release-with-debug]
 inherits = "release"
 debug = true

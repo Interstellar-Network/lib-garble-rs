@@ -59,18 +59,31 @@ pub(crate) struct Circuit {
 
 /// Various stats, min/max indexes for other fields, etc
 /// This is useful both for debugging/info, and for eg optimising alloc
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct CircuitMetadata {
+    /// When garbling and evaluating, we iterate on the `gates` in topological order
+    /// and we need to know if a gate is an output to perform special treatment on it.
+    /// So instead of having to look-up inside `outputs`(or a temp corresponding hashset), we directly
+    /// store the indices.
+    /// NOTE: these are essentially INDICES refering to `gates`
+    outputs_start_end_indexes: (usize, usize),
+    // BELOW fields are mostly for Debug/Stats/etc
     gates_unary_count: HashMap<GateTypeUnary, usize>,
     gates_binary_count: HashMap<GateTypeBinary, usize>,
 }
 
 impl CircuitMetadata {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(outputs_start_end_indexes: (usize, usize)) -> Self {
         Self {
+            outputs_start_end_indexes,
             gates_unary_count: HashMap::new(),
             gates_binary_count: HashMap::new(),
         }
+    }
+
+    /// param `idx`: SHOULD be an index from `CircuitInternal.gates`
+    pub(super) fn gate_idx_is_output(&self, idx: usize) -> bool {
+        (idx >= self.outputs_start_end_indexes.0) && (idx <= self.outputs_start_end_indexes.1)
     }
 
     pub(super) fn increment_unary_gate(&mut self, gate_type: &GateTypeUnary) {
@@ -85,6 +98,13 @@ impl CircuitMetadata {
             .entry(gate_type.clone())
             .and_modify(|count| *count += 1)
             .or_insert(1);
+    }
+
+    /// When building `output_labels`, we need to insert elements base on
+    /// the current gate ID; but in `decoding_internal` we directly loop on the outputs, NOT on the gates.
+    /// So we need to map eg "gate ID" vs "output index"
+    pub(crate) fn convert_gate_id_to_outputs_index(&self, id: usize) -> usize {
+        id - self.outputs_start_end_indexes.0
     }
 }
 
@@ -303,6 +323,7 @@ impl Circuit {
                 evaluator_inputs: vec![],
             },
             metadata: CircuitMetadata {
+                outputs_start_end_indexes: (2, 2),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
             },
@@ -329,6 +350,7 @@ impl Circuit {
                 evaluator_inputs: vec![],
             },
             metadata: CircuitMetadata {
+                outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
             },
@@ -352,6 +374,7 @@ impl Circuit {
                 evaluator_inputs: vec![],
             },
             metadata: CircuitMetadata {
+                outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
             },

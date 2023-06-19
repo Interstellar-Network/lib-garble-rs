@@ -217,17 +217,19 @@ mod tests {
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
 
-        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
-            garb.eval(&mut encoded_garbler_inputs, inputs, &mut outputs)
-                .unwrap();
+        for test_idx in 0..10 {
+            for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
+                let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
+                garb.eval(&mut encoded_garbler_inputs, inputs, &mut outputs)
+                    .unwrap();
 
-            let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
-            println!(
-                "inputs = {:?}, outputs = {:?}, expected_outputs = {:?}",
-                inputs, outputs, expected_outputs
-            );
-            assert_eq!(outputs, expected_outputs);
+                let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
+                assert_eq!(
+                    outputs, expected_outputs,
+                    "inputs = {:?}, outputs = {:?}, expected_outputs = {:?}, at test nb [{},{}]",
+                    inputs, outputs, expected_outputs, test_idx, i
+                );
+            }
         }
     }
 

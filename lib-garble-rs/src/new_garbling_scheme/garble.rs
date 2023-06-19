@@ -165,12 +165,12 @@ fn insert_new_wire_random_labels(
     r: &BlockL,
 ) {
     let lw0 = random_oracle.new_random_block_l();
-    let lw1 = lw0.xor(r);
+    let lw1 = random_oracle.new_random_block_l();
 
     // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
     assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
     // [Supporting Free-XOR]
-    assert_eq!(&lw0.xor(&lw1), r, "LW0 and LW1 SHOULD match `r` XOR!");
+    // assert_eq!(&lw0.xor(&lw1), r, "LW0 and LW1 SHOULD match `r` XOR!");
 
     w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
 }

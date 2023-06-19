@@ -94,6 +94,7 @@ impl RandomOracle {
         // this is NOT random at all; mostly a true as a result!
         let last_byte = hash2.as_bytes()[hash2.as_bytes().len() / 2];
 
+        // TODO????
         // (last_byte & 1) => is a u8
         // so Convert u8 -> bool
         // (last_byte >> 8) & 1

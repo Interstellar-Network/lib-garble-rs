@@ -214,6 +214,7 @@ fn decoding_internal(
     let mut outputs = vec![];
 
     // "for j ∈ [m] do"
+    // TODO(opt) parallelize
     for (idx, output) in circuit.outputs.iter().enumerate() {
         // "y[j] ← lsb(RO′(Y [j], dj ))"
         let yj = &output_labels.y[idx];

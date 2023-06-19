@@ -142,6 +142,8 @@ impl Delta {
                 gate_type: r#type,
                 input_a,
             } => match r#type {
+                // TODO(opt); probably not needed if we don't use it in `evaluate_internal`
+                // but it's never called since "free BUF/NOT" so it should not matter
                 Some(GateTypeUnary::INV) => (
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),

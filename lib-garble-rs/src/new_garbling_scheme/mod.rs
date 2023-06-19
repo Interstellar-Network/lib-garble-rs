@@ -74,7 +74,7 @@ mod tests {
         // to be on the safe side, we run each test multiple times
         // that is b/c we so much random and bit/lsb/msb stuff, we can easily end up
         // with a wrong algo that sometimes return a good output
-        for idx in 0..10 {
+        for idx in 0..100 {
             for (inputs, expected_output) in tests.clone() {
                 let circ = match &gate_type_to_test {
                     TestGateType::Binary(gate_type) => Circuit::new_test_circuit(gate_type.clone()),

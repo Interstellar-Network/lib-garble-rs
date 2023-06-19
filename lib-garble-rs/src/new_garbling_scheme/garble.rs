@@ -192,44 +192,41 @@ fn garble_internal<'a>(
     for gate in circuit.gates.iter() {
         let wire_ref = WireRef { id: gate.get_id() };
 
-        let compressed_set = f1_0_compress(&encoded_wires, gate);
-
-        let (l0, l1) = match gate.get_type() {
+        let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {
                 gate_type,
                 input_a,
                 input_b,
             } => {
+                let compressed_set = f1_0_compress(&encoded_wires, gate);
                 let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
                 f.try_insert(wire_ref.clone(), delta).unwrap();
-                (l0, l1)
+                (l0.into(), l1.into())
             }
             // SPECIAL CASE: Unary Gates are bypassing Delta (and therefore DO NOT need a RO call during eval)
-            GateType::Unary { gate_type, input_a } => match gate_type {
-                // https://www.cs.toronto.edu/~vlad/papers/XOR_ICALP08.pdf
-                // "We first note that NOT gates can be implemented “for free”
-                // by simply eliminating them and inverting the correspondence of the wires’ values
-                // and garblings."
-                Some(GateTypeUnary::INV) => (
-                    compressed_set.get_x1().clone(),
-                    compressed_set.get_x0().clone(),
-                ),
-                // We apply the same idea to BUF Gates: a simple "passthrough"
-                Some(GateTypeUnary::BUF) => (
-                    compressed_set.get_x0().clone(),
-                    compressed_set.get_x1().clone(),
-                ),
-                /// GateType::Unary is None only when deserializing
-                None => unimplemented!("garble_internal for None[GateType::Unary]!"),
-            },
+            GateType::Unary { gate_type, input_a } => {
+                let wire_a: &Wire = &encoded_wires[input_a];
+
+                match gate_type {
+                    // https://www.cs.toronto.edu/~vlad/papers/XOR_ICALP08.pdf
+                    // "We first note that NOT gates can be implemented “for free”
+                    // by simply eliminating them and inverting the correspondence of the wires’ values
+                    // and garblings."
+                    Some(GateTypeUnary::INV) => (wire_a.value1().clone(), wire_a.value0().clone()),
+                    // We apply the same idea to BUF Gates: a simple "passthrough"
+                    Some(GateTypeUnary::BUF) => (wire_a.value0().clone(), wire_a.value1().clone()),
+                    /// GateType::Unary is None only when deserializing
+                    None => unimplemented!("garble_internal for None[GateType::Unary]!"),
+                }
+            }
             _ => unimplemented!("garble_internal for None[GateType::Constant]!"),
         };
 
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
-        match encoded_wires.try_insert(wire_ref, Wire::new(l0.into(), l1.into())) {
+        match encoded_wires.try_insert(wire_ref, Wire::new(l0, l1)) {
             Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
             // The key WAS NOT already present; everything is fine
             Ok(wire) => {

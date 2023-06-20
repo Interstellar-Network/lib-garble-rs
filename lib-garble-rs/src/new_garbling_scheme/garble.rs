@@ -1,4 +1,6 @@
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
@@ -122,11 +124,7 @@ pub(super) struct InputEncodingSet {
 ///
 /// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
 ///
-fn init_internal(
-    circuit: &CircuitInternal,
-    random_oracle: &mut RandomOracle,
-    r: &BlockL,
-) -> InputEncodingSet {
+fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> InputEncodingSet {
     let mut w = HashMap::with_capacity(circuit.n());
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
@@ -135,7 +133,7 @@ fn init_internal(
             "Wires MUST be iterated in topological order!"
         );
 
-        insert_new_wire_random_labels(random_oracle, &mut w, input_wire, r);
+        insert_new_wire_random_labels(rng, &mut w, input_wire, r);
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -159,13 +157,13 @@ fn init_internal(
 ///
 /// param: r: [Supporting Free-XOR] "delta"
 fn insert_new_wire_random_labels(
-    random_oracle: &mut RandomOracle,
+    rng: &mut ChaChaRng,
     w: &mut HashMap<WireRef, Wire>,
     input_wire: &WireRef,
     r: &BlockL,
 ) {
-    let lw0 = random_oracle.new_random_block_l();
-    let lw1 = random_oracle.new_random_block_l();
+    let lw0 = RandomOracle::new_random_block_l(rng);
+    let lw1 = RandomOracle::new_random_block_l(rng);
 
     // NOTE: if this fails: add a diff(cf pseudocode) or xor or something like that
     assert!(lw0 != lw1, "LW0 and LW1 MUST NOT be the same!");
@@ -191,7 +189,6 @@ fn insert_new_wire_random_labels(
 fn garble_internal<'a>(
     circuit: &'a CircuitInternal,
     e: &InputEncodingSet,
-    random_oracle: &mut RandomOracle,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
     let mut f = HashMap::with_capacity(circuit.gates.len());
@@ -309,16 +306,16 @@ pub(crate) fn garble(
     circuit: CircuitInternal,
     circuit_metadata: CircuitMetadata,
 ) -> Result<GarbledCircuitFinal, GarblerError> {
-    let mut random_oracle = RandomOracle::new();
+    let mut rng = ChaChaRng::from_entropy();
 
     // [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
-    let r = random_oracle.new_random_block_l();
+    let r = RandomOracle::new_random_block_l(&mut rng);
 
-    let e = init_internal(&circuit, &mut random_oracle, &r);
+    let e = init_internal(&circuit, &mut rng, &r);
 
-    let garbled_circuit = garble_internal(&circuit, &e, &mut random_oracle)?;
+    let garbled_circuit = garble_internal(&circuit, &e)?;
 
-    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut random_oracle);
+    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng);
 
     Ok(GarbledCircuitFinal {
         circuit,
@@ -345,11 +342,7 @@ pub(super) struct DecodedInfo {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-fn decoding_info(
-    circuit_outputs: &[WireRef],
-    d_up: &D,
-    random_oracle: &mut RandomOracle,
-) -> DecodedInfo {
+fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> DecodedInfo {
     let mut d = Vec::with_capacity(circuit_outputs.len());
 
     // "2: for output wire j ∈ [m] do"
@@ -357,14 +350,14 @@ fn decoding_info(
         // "extract Lj0, Lj1 ← D[j]"
         let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
 
-        let mut dj = random_oracle.new_random_block_l();
+        let mut dj = RandomOracle::new_random_block_l(rng);
         loop {
             let a = !RandomOracle::random_oracle_prime(lj0, &dj);
             let b = RandomOracle::random_oracle_prime(lj1, &dj);
             if a && b {
                 break;
             }
-            dj = random_oracle.new_random_block_l();
+            dj = RandomOracle::new_random_block_l(rng);
         }
 
         d.push(dj);
@@ -375,20 +368,23 @@ fn decoding_info(
 
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
+
     use super::*;
 
     #[test]
     fn test_decoding_info() {
         let circuit_outputs = vec![WireRef { id: 42 }];
-        let mut random_oracle = RandomOracle::new();
         let mut d_up = HashMap::new();
-        let l0 = random_oracle.new_random_block_l();
-        let l1 = random_oracle.new_random_block_l();
+        let mut rng = ChaChaRng::from_entropy();
+        let l0 = RandomOracle::new_random_block_l(&mut rng);
+        let l1 = RandomOracle::new_random_block_l(&mut rng);
         d_up.insert(circuit_outputs[0].clone(), (l0.clone(), l1.clone()));
 
         let d = D { d: d_up };
 
-        let d = decoding_info(&circuit_outputs, &d, &mut random_oracle);
+        let d = decoding_info(&circuit_outputs, &d, &mut rng);
         let dj = &d.d[0];
         assert_eq!(RandomOracle::random_oracle_prime(&l0, dj), false);
         assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);

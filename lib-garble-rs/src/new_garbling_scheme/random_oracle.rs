@@ -3,13 +3,12 @@ use core::mem::size_of;
 use bitvec::prelude::*;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
+use xxhash_rust::xxh3::xxh3_128;
 
 use super::block::{BitsInternal, BlockL, BlockP, KAPPA_NB_ELEMENTS};
 use super::constant::KAPPA_FACTOR;
 
-pub(crate) struct RandomOracle {
-    rng: ChaChaRng,
-}
+pub(crate) struct RandomOracle {}
 
 impl RandomOracle {
     /// First Random Oracle = RO0
@@ -36,30 +35,53 @@ impl RandomOracle {
         // or maybe some MAC? cf `keyed_hash`?
         // TODO! how to properly pass "tweak"?
         let tweak_bytes = tweak.to_le_bytes();
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&tweak_bytes);
-        hasher.update(label_a.as_bytes());
-        if let Some(label_b_block) = label_b {
-            hasher.update(label_b_block.as_bytes());
-        }
+        let data = if let Some(label_b_block) = label_b {
+            [
+                tweak_bytes.as_slice(),
+                label_a.as_bytes(),
+                label_b_block.as_bytes(),
+            ]
+            .concat()
+        } else {
+            [tweak_bytes.as_slice(), label_a.as_bytes()].concat()
+        };
+
         // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let mut hash2 = hasher.finalize_xof();
-        // TODO! is filling 8 * 128 bits OK from a 256 bits hash???
-        let mut hash2_bytes = [0u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()];
-        hash2.fill(&mut hash2_bytes);
+        let hash_0 = xxh3_128(&data);
 
-        BlockP::new_with_raw_bytes(hash2_bytes)
+        // We need to construct the final `[u8; 128]` so for now we just concat
+        // `[u8; 128]` == `[0u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()]`
+        // -> We should re-hash in loop: https://github.com/Cyan4973/xxHash/issues/680
+        //
+        // TODO! is filling 8 * 128 bits OK from a 128 bits hash???
+        let hash_1 = xxh3_128(&hash_0.to_be_bytes());
+        let hash_2 = xxh3_128(&hash_1.to_be_bytes());
+        let hash_3 = xxh3_128(&hash_2.to_be_bytes());
+        let hash_4 = xxh3_128(&hash_3.to_be_bytes());
+        let hash_5 = xxh3_128(&hash_4.to_be_bytes());
+        let hash_6 = xxh3_128(&hash_5.to_be_bytes());
+        let hash_7 = xxh3_128(&hash_6.to_be_bytes());
+
+        let mut hash_bytes_big: [u8; 128] = [
+            hash_0.to_le_bytes(),
+            hash_1.to_le_bytes(),
+            hash_2.to_le_bytes(),
+            hash_3.to_le_bytes(),
+            hash_4.to_le_bytes(),
+            hash_5.to_le_bytes(),
+            hash_6.to_le_bytes(),
+            hash_7.to_le_bytes(),
+        ]
+        .concat()
+        .try_into()
+        .unwrap();
+
+        BlockP::new_with_raw_bytes(hash_bytes_big)
     }
 
-    pub(super) fn new_random_block_l(&mut self) -> BlockL {
-        let arr1: [BitsInternal; KAPPA_NB_ELEMENTS] = self.rng.gen();
+    pub(super) fn new_random_block_l(rng: &mut ChaChaRng) -> BlockL {
+        let arr1: [BitsInternal; KAPPA_NB_ELEMENTS] = rng.gen();
         BlockL::new_with(arr1)
-    }
-
-    pub(super) fn new() -> Self {
-        Self {
-            rng: ChaChaRng::from_entropy(),
-        }
     }
 
     ///
@@ -81,18 +103,16 @@ impl RandomOracle {
         // TODO(random_oracle) what should we use here???
         // l0_l1.lsb(dj)
 
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(l0_l1.as_bytes());
-        hasher.update(dj.as_bytes());
-        // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let hash2 = hasher.finalize();
+        let data = [l0_l1.as_bytes(), dj.as_bytes()].concat();
+        let hash = xxh3_128(&data);
 
         // Extract the least significant bit from the hash
         // let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
         // FAIL: the internal buffer is 64 bytes, but at this point only 16+16 are filled
         // so it always extracts a 0? --> NO! random-ish byte, but clearly when masking with `& 1` after
         // this is NOT random at all; mostly a true as a result!
-        let last_byte = hash2.as_bytes()[hash2.as_bytes().len() / 2];
+        let hash_bytes = hash.to_le_bytes();
+        let last_byte = hash_bytes[hash_bytes.len() / 2];
 
         // TODO????
         // (last_byte & 1) => is a u8
@@ -100,7 +120,7 @@ impl RandomOracle {
         // (last_byte >> 8) & 1
         // (1 << 8) & last_byte
 
-        let bits = hash2.as_bytes().view_bits::<Lsb0>();
+        let bits = hash_bytes.view_bits::<Lsb0>();
         let x = *bits.last().unwrap();
 
         // println!("random_oracle_prime: {:?}", x);
@@ -200,13 +220,13 @@ mod tests {
 
     #[test]
     fn test_random_oracle_prime_distribution_1() {
-        let mut random_oracle = RandomOracle::new();
+        let mut rng = ChaChaRng::from_entropy();
 
         let mut results = vec![];
-        let lj0 = random_oracle.new_random_block_l();
+        let lj0 = RandomOracle::new_random_block_l(&mut rng);
 
         for i in 0..1000 {
-            let dj = random_oracle.new_random_block_l();
+            let dj = RandomOracle::new_random_block_l(&mut rng);
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }
@@ -218,13 +238,13 @@ mod tests {
 
     #[test]
     fn test_random_oracle_prime_distribution_2() {
-        let mut random_oracle = RandomOracle::new();
+        let mut rng = ChaChaRng::from_entropy();
 
         let mut results = vec![];
-        let dj = random_oracle.new_random_block_l();
+        let dj = RandomOracle::new_random_block_l(&mut rng);
 
         for i in 0..1000 {
-            let lj0 = random_oracle.new_random_block_l();
+            let lj0 = RandomOracle::new_random_block_l(&mut rng);
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
             results.push(a);
         }

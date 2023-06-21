@@ -55,12 +55,12 @@ impl RandomOracle {
         //
         // TODO! is filling 8 * 128 bits OK from a 128 bits hash???
         let hash_1 = xxh3_128(&hash_0.to_be_bytes());
-        let hash_2 = xxh3_128(&hash_1.to_be_bytes());
-        let hash_3 = xxh3_128(&hash_2.to_be_bytes());
-        let hash_4 = xxh3_128(&hash_3.to_be_bytes());
-        let hash_5 = xxh3_128(&hash_4.to_be_bytes());
-        let hash_6 = xxh3_128(&hash_5.to_be_bytes());
-        let hash_7 = xxh3_128(&hash_6.to_be_bytes());
+        let hash_2 = hash_1 ^ hash_0;
+        let hash_3 = hash_2 ^ hash_0;
+        let hash_4 = hash_3 ^ hash_0;
+        let hash_5 = hash_4 ^ hash_0;
+        let hash_6 = hash_5 ^ hash_0;
+        let hash_7 = hash_6 ^ hash_0;
 
         let mut hash_bytes_big: [u8; 128] = [
             hash_0.to_le_bytes(),
@@ -112,9 +112,9 @@ impl RandomOracle {
         // so it always extracts a 0? --> NO! random-ish byte, but clearly when masking with `& 1` after
         // this is NOT random at all; mostly a true as a result!
         let hash_bytes = hash.to_le_bytes();
-        let last_byte = hash_bytes[hash_bytes.len() / 2];
 
         // TODO????
+        // let last_byte = hash_bytes[hash_bytes.len() / 2];
         // (last_byte & 1) => is a u8
         // so Convert u8 -> bool
         // (last_byte >> 8) & 1

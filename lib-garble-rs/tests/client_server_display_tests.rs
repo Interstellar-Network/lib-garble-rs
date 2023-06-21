@@ -10,7 +10,9 @@ use rand::thread_rng;
 
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
-use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
+use lib_garble_rs::{
+    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, OutputLabels,
+};
 use png_tests_utils::png_utils::read_png_to_bytes;
 
 #[test]
@@ -38,6 +40,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         let rand_0_1 = Uniform::from(0..=1);
 
         let mut outputs = vec![0u8; width * height];
+        let mut outputs_labels = OutputLabels::new();
 
         // [client 2]
         let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
@@ -48,6 +51,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
             &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut outputs,
+            &mut outputs_labels,
             &mut rng,
             &rand_0_1,
             false,

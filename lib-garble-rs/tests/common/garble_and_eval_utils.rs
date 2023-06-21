@@ -2,6 +2,7 @@ use lib_garble_rs::garble_skcd;
 use lib_garble_rs::EncodedGarblerInputs;
 use lib_garble_rs::EvaluatorInput;
 use lib_garble_rs::GarbledCircuit;
+use lib_garble_rs::OutputLabels;
 
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
@@ -19,7 +20,8 @@ pub fn eval_client(
     garb: &mut GarbledCircuit,
     encoded_garbler_inputs: &mut EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
-    data: &mut Vec<u8>,
+    outputs: &mut Vec<u8>,
+    output_labels: &mut OutputLabels,
     rng: &mut ThreadRng,
     rand_0_1: &Uniform<u8>,
     should_randomize_evaluator_inputs: bool,
@@ -34,8 +36,13 @@ pub fn eval_client(
 
     // coz::scope!("eval_client");
 
-    garb.eval(encoded_garbler_inputs, evaluator_inputs, data)
-        .unwrap();
+    garb.eval(
+        encoded_garbler_inputs,
+        evaluator_inputs,
+        outputs,
+        output_labels,
+    )
+    .unwrap();
 }
 
 /// garble then eval a test .skcd

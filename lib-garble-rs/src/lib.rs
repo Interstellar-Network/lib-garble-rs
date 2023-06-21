@@ -18,6 +18,7 @@ use snafu::prelude::*;
 
 // re-export
 pub use garble::{EncodedGarblerInputs, EvaluatorInput, GarbledCircuit};
+pub use new_garbling_scheme::evaluate::OutputLabels;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
 mod circuit;
@@ -220,8 +221,14 @@ mod tests {
         for test_idx in 0..10 {
             for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
                 let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
-                garb.eval(&mut encoded_garbler_inputs, inputs, &mut outputs)
-                    .unwrap();
+                let mut output_labels = OutputLabels::new();
+                garb.eval(
+                    &mut encoded_garbler_inputs,
+                    inputs,
+                    &mut outputs,
+                    &mut output_labels,
+                )
+                .unwrap();
 
                 let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
                 assert_eq!(

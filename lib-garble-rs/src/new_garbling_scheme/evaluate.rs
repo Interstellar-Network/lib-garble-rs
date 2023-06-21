@@ -102,9 +102,16 @@ fn encoding_internal<'a>(
 }
 
 /// Noted `Y` in the paper
-struct OutputLabels {
+#[derive(Clone)]
+pub struct OutputLabels {
     /// One element per output
     y: Vec<Option<BlockL>>,
+}
+
+impl OutputLabels {
+    pub fn new() -> Self {
+        Self { y: Vec::new() }
+    }
 }
 
 ///
@@ -121,7 +128,8 @@ fn evaluate_internal(
     f: &F,
     encoded_info: &EncodedInfo,
     circuit_metadata: &CircuitMetadata,
-) -> OutputLabels {
+    output_labels: &mut OutputLabels,
+) {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
         encoded_info.x.len(),
@@ -129,7 +137,6 @@ fn evaluate_internal(
         "encoding: `encoded_info` inputs len MUST match the Circuit's inputs len!"
     );
 
-    let mut output_labels = OutputLabels { y: Vec::new() };
     output_labels
         .y
         .resize_with(circuit.outputs.len(), Default::default);
@@ -198,8 +205,6 @@ fn evaluate_internal(
                 Some(l_g);
         }
     }
-
-    output_labels
 }
 
 ///
@@ -263,11 +268,14 @@ pub(crate) fn evaluate_full_chain(
         garbled.circuit.inputs.len(),
     );
 
-    let output_labels = evaluate_internal(
+    let mut output_labels = OutputLabels { y: Vec::new() };
+
+    evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         &encoded_info,
         &garbled.circuit_metadata,
+        &mut output_labels,
     );
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
@@ -284,12 +292,14 @@ pub(crate) fn evaluate_full_chain(
 pub(crate) fn evaluate_with_encoded_info(
     garbled: &GarbledCircuitFinal,
     encoded_info: &EncodedInfo,
+    output_labels: &mut OutputLabels,
 ) -> Vec<WireValue> {
-    let output_labels = evaluate_internal(
+    evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         &encoded_info,
         &garbled.circuit_metadata,
+        output_labels,
     );
 
     decoding_internal(&garbled.circuit, &output_labels, &garbled.d)

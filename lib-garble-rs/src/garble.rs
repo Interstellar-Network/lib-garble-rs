@@ -1,5 +1,5 @@
 use crate::circuit::{Circuit, SkcdConfig};
-use crate::new_garbling_scheme::evaluate::EncodedInfo;
+use crate::new_garbling_scheme::evaluate::{EncodedInfo, OutputLabels};
 use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
 use crate::new_garbling_scheme::wire_value::WireValue;
 use crate::new_garbling_scheme::{self, GarblerError};
@@ -87,6 +87,7 @@ impl GarbledCircuit {
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<u8>,
+        output_labels: &mut OutputLabels,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
         let evaluator_inputs_wire_value: Vec<WireValue> =
@@ -104,8 +105,11 @@ impl GarbledCircuit {
         );
 
         // TODO this SHOULD have `outputs` in-place [1]
-        let outputs_wire_value =
-            new_garbling_scheme::evaluate::evaluate_with_encoded_info(&self.garbled, &encoded_info);
+        let outputs_wire_value = new_garbling_scheme::evaluate::evaluate_with_encoded_info(
+            &self.garbled,
+            &encoded_info,
+            output_labels,
+        );
 
         // Convert Vec<WireValue> -> Vec<u8>
         let outputs_u8: Vec<u8> = outputs_wire_value

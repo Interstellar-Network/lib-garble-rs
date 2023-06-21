@@ -4,7 +4,9 @@ use std::time::Instant;
 
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
-use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
+use lib_garble_rs::{
+    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, OutputLabels,
+};
 use png_tests_utils::png_utils::read_png_to_bytes;
 
 /// MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
@@ -20,6 +22,7 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
     let rand_0_1 = Uniform::from(0..=1);
 
     let mut temp_outputs = vec![0u8; width * height];
+    let mut output_labels = OutputLabels::new();
 
     let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
@@ -31,6 +34,7 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
             &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut temp_outputs,
+            &mut output_labels,
             &mut rng,
             &rand_0_1,
             true,
@@ -80,7 +84,7 @@ fn test_garble_display_pinpad_590x50() {
 
 #[test]
 fn test_garble_display_message_120x52_2digits_zeros() {
-    let (mut garb, _width, _height) = garble_skcd_helper(include_bytes!(
+    let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
     let mut encoded_garbler_inputs =
@@ -89,8 +93,14 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
     let mut outputs = vec![0u8; width * height];
-    garb.eval(&mut encoded_garbler_inputs, &evaluator_inputs, &mut outputs)
-        .unwrap();
+    let mut output_labels = OutputLabels::new();
+    garb.eval(
+        &mut encoded_garbler_inputs,
+        &evaluator_inputs,
+        &mut outputs,
+        &mut output_labels,
+    )
+    .unwrap();
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
@@ -140,7 +150,8 @@ fn bench_eval_display_message_640x360_2digits_42() {
 
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
-    let mut data = vec![0u8; width * height];
+    let mut outputs = vec![0u8; width * height];
+    let mut output_labels = OutputLabels::new();
 
     for _ in 0..NB_ITERATIONS {
         // profiling::scope!("Looped eval");
@@ -154,14 +165,15 @@ fn bench_eval_display_message_640x360_2digits_42() {
             &mut garb,
             &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
-            &mut data,
+            &mut outputs,
+            &mut output_labels,
             &mut rng,
             &rand_0_1,
             true,
         );
 
-        core::hint::black_box(&data);
-        assert!(data.len() > 0);
+        core::hint::black_box(&outputs);
+        assert!(outputs.len() > 0);
 
         let duration = start.elapsed();
 

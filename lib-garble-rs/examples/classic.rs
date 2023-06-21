@@ -1,3 +1,4 @@
+use lib_garble_rs::OutputLabels;
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
 use rand::thread_rng;
@@ -32,6 +33,7 @@ fn main() {
 
     let mut merged_outputs = vec![0u8; width * height];
     let mut temp_outputs = vec![0u8; width * height];
+    let mut outputs_labels = OutputLabels::new();
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
@@ -52,6 +54,7 @@ fn main() {
             &mut encoded_garbler_inputs,
             &evaluator_inputs,
             &mut temp_outputs,
+            &mut outputs_labels,
         )
         .unwrap();
         assert_eq!(

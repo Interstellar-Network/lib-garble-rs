@@ -182,6 +182,7 @@ impl Circuit {
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
         let mut outputs_start_end_indexes = (usize::MAX, usize::MIN);
+        let mut max_gate_id = usize::MIN;
         // TODO constant_gate
         for skcd_gate in skcd.gates.into_iter() {
             // But `output` MUST always be set; this is what we use as Gate ID
@@ -226,6 +227,7 @@ impl Circuit {
                 outputs_start_end_indexes.0 = outputs_start_end_indexes.0.min(output_wire_ref.id);
                 outputs_start_end_indexes.1 = outputs_start_end_indexes.1.max(output_wire_ref.id);
             }
+            max_gate_id = max_gate_id.max(output_wire_ref.id);
         }
 
         // config
@@ -246,7 +248,7 @@ impl Circuit {
         // assert!(skcd.gates.len() == gates.len(), "invalid gates.len()!");
 
         // compute stats etc
-        let mut metadata = CircuitMetadata::new(outputs_start_end_indexes);
+        let mut metadata = CircuitMetadata::new(outputs_start_end_indexes, max_gate_id);
         for gate in gates.iter() {
             match gate.get_type() {
                 crate::circuit::GateType::Binary {

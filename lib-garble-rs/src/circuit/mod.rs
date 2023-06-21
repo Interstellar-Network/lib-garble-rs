@@ -70,14 +70,18 @@ pub(super) struct CircuitMetadata {
     // BELOW fields are mostly for Debug/Stats/etc
     gates_unary_count: HashMap<GateTypeUnary, usize>,
     gates_binary_count: HashMap<GateTypeBinary, usize>,
+    /// The max gate.get_id() we can find in circuit.gates(typically get_id() == gate.output)
+    /// We need this to init the proper vec to store "deltas"
+    max_gate_id: usize,
 }
 
 impl CircuitMetadata {
-    pub(super) fn new(outputs_start_end_indexes: (usize, usize)) -> Self {
+    pub(super) fn new(outputs_start_end_indexes: (usize, usize), max_gate_id: usize) -> Self {
         Self {
             outputs_start_end_indexes,
             gates_unary_count: HashMap::new(),
             gates_binary_count: HashMap::new(),
+            max_gate_id,
         }
     }
 
@@ -105,6 +109,10 @@ impl CircuitMetadata {
     /// So we need to map eg "gate ID" vs "output index"
     pub(crate) fn convert_gate_id_to_outputs_index(&self, id: usize) -> usize {
         id - self.outputs_start_end_indexes.0
+    }
+
+    pub(super) fn get_max_gate_id(&self) -> usize {
+        self.max_gate_id
     }
 }
 
@@ -326,6 +334,7 @@ impl Circuit {
                 outputs_start_end_indexes: (2, 2),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                max_gate_id: 2,
             },
         }
     }
@@ -353,6 +362,7 @@ impl Circuit {
                 outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                max_gate_id: 1,
             },
         }
     }
@@ -377,6 +387,7 @@ impl Circuit {
                 outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                max_gate_id: 1,
             },
         }
     }

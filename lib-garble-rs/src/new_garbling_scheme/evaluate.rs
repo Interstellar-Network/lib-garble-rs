@@ -82,7 +82,7 @@ fn encoding_internal<'a>(
         .iter()
         .zip(inputs)
     {
-        let encoded_wire = e.e.get(input_wire).unwrap();
+        let encoded_wire = &e.e[input_wire.id];
         let block = if input_value.value {
             encoded_wire.value1()
         } else {
@@ -160,7 +160,7 @@ fn evaluate_internal(
                 let l_b = wire_labels[input_b.id].as_ref().unwrap();
 
                 // "extract ∇g ← F [g]"
-                let delta_g = f.f.get(&wire_ref).unwrap();
+                let delta_g = f.f[wire_ref.id].as_ref().unwrap();
 
                 // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
                 let r = RandomOracle::random_oracle_g(

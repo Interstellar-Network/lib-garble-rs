@@ -43,7 +43,7 @@ pub(crate) enum GarblerError {
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 ///
-fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLabelsSet {
+fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate) -> WireLabelsSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -52,8 +52,8 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
             input_a,
             input_b,
         } => {
-            let wire_a: &Wire = &encoded_wires[input_a];
-            let wire_b: &Wire = &encoded_wires[input_b];
+            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
+            let wire_b: &Wire = encoded_wires[input_b.id].as_ref().unwrap();
 
             WireLabelsSet::new_binary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
@@ -66,7 +66,7 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
             gate_type: r#type,
             input_a,
         } => {
-            let wire_a: &Wire = &encoded_wires[input_a];
+            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
 
             WireLabelsSet::new_unary(
                 RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
@@ -95,7 +95,8 @@ fn f1_0_compress(encoded_wires: &HashMap<WireRef, Wire>, gate: &Gate) -> WireLab
 ///
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct InputEncodingSet {
-    pub(super) e: HashMap<WireRef, Wire>,
+    /// One per input
+    pub(super) e: Vec<Wire>,
 }
 
 /// Initialize the `W` which is the set of wires:
@@ -125,7 +126,7 @@ pub(super) struct InputEncodingSet {
 /// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
 ///
 fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> InputEncodingSet {
-    let mut w = HashMap::with_capacity(circuit.n());
+    let mut w = Vec::with_capacity(circuit.n());
     for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
         assert_eq!(
@@ -133,7 +134,7 @@ fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> 
             "Wires MUST be iterated in topological order!"
         );
 
-        insert_new_wire_random_labels(rng, &mut w, input_wire, r);
+        insert_new_wire_random_labels(rng, &mut w, r);
     }
 
     assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
@@ -156,12 +157,7 @@ fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> 
 ///   5 Supporting Free-XOR; https://eprint.iacr.org/2021/739.pdf
 ///
 /// param: r: [Supporting Free-XOR] "delta"
-fn insert_new_wire_random_labels(
-    rng: &mut ChaChaRng,
-    w: &mut HashMap<WireRef, Wire>,
-    input_wire: &WireRef,
-    r: &BlockL,
-) {
+fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, r: &BlockL) {
     let lw0 = RandomOracle::new_random_block_l(rng);
     let lw1 = RandomOracle::new_random_block_l(rng);
 
@@ -170,7 +166,7 @@ fn insert_new_wire_random_labels(
     // [Supporting Free-XOR]
     // assert_eq!(&lw0.xor(&lw1), r, "LW0 and LW1 SHOULD match `r` XOR!");
 
-    w.insert(WireRef { id: input_wire.id }, Wire::new(lw0, lw1));
+    wires.push(Wire::new(lw0, lw1));
 }
 
 /// Garble
@@ -189,9 +185,12 @@ fn insert_new_wire_random_labels(
 fn garble_internal<'a>(
     circuit: &'a CircuitInternal,
     e: &InputEncodingSet,
+    circuit_metadata: &CircuitMetadata,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
-    let mut f = HashMap::with_capacity(circuit.gates.len());
+    let mut f = Vec::new();
+    // "+ 1" b/c get_max_gate_id is a valid ID to be processed!
+    f.resize_with(circuit_metadata.get_max_gate_id() + 1, Default::default);
     // also noted as: ∇g
     // TODO should this (semantically) be instead `HashMap<&WireRef, Wire>`(or `HashMap<&WireRef, &Wire>`)
     let mut deltas = HashMap::with_capacity(circuit.outputs.len());
@@ -199,13 +198,20 @@ fn garble_internal<'a>(
     // As we are looping on the gates in order, this will be built step by step
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
-    let mut encoded_wires = e.e.clone();
+    let mut encoded_wires: Vec<Option<Wire>> = Vec::new();
+    encoded_wires.resize_with(circuit.wires().len(), Default::default);
+    for (idx, input_wire) in e.e.iter().enumerate() {
+        encoded_wires[idx] = Some(input_wire.clone());
+    }
+
+    // DEBUG `InputEncodingSet`
+    // let all_wires: Vec<usize> = Vec::from_iter(e.e.keys().map(|w| w.id));
+    // let mut all_wires_sorted = all_wires.clone();
+    // all_wires_sorted.sort();
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
 
     for gate in circuit.gates.iter() {
-        let wire_ref = WireRef { id: gate.get_id() };
-
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {
@@ -215,12 +221,12 @@ fn garble_internal<'a>(
             } => {
                 let compressed_set = f1_0_compress(&encoded_wires, gate);
                 let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
-                f.try_insert(wire_ref.clone(), delta).unwrap();
+                f[gate.get_id()] = Some(delta);
                 (l0.into(), l1.into())
             }
             // SPECIAL CASE: Unary Gates are bypassing Delta (and therefore DO NOT need a RO call during eval)
             GateType::Unary { gate_type, input_a } => {
-                let wire_a: &Wire = &encoded_wires[input_a];
+                let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
 
                 match gate_type {
                     // https://www.cs.toronto.edu/~vlad/papers/XOR_ICALP08.pdf
@@ -240,24 +246,19 @@ fn garble_internal<'a>(
         // TODO what index should we use?
         // w is init with [0,n], and as size [0,n+q]
         // what about Gate's index? (== output)
-        match encoded_wires.try_insert(wire_ref, Wire::new(l0, l1)) {
-            Err(OccupiedError { entry, value }) => Err(GarblerError::GateIdOutputMismatch),
-            // The key WAS NOT already present; everything is fine
-            Ok(wire) => {
-                // "12: if g is an output gate then"
-                // TODO(opt) if circuit_metadata.gate_idx_is_output(wire_ref.id) { (cf `evaluate_internal`)
-                if let Some(wire_output) = outputs_set.get(gate.get_output()) {
-                    deltas
-                        .try_insert(
-                            wire_output.clone().clone(),
-                            (wire.value0().clone(), wire.value1().clone()),
-                        )
-                        .unwrap();
-                }
+        let new_wires = Wire::new(l0, l1);
+        encoded_wires[gate.get_id()] = Some(new_wires.clone());
 
-                Ok(())
-            }
-        };
+        // "12: if g is an output gate then"
+        // TODO(opt) if circuit_metadata.gate_idx_is_output(wire_ref.id) { (cf `evaluate_internal`)
+        if let Some(wire_output) = outputs_set.get(gate.get_output()) {
+            deltas
+                .try_insert(
+                    wire_output.clone().clone(),
+                    (new_wires.value0().clone(), new_wires.value1().clone()),
+                )
+                .unwrap();
+        }
     }
 
     // assert_eq!(encoded_wires, deltas);
@@ -270,8 +271,9 @@ fn garble_internal<'a>(
 /// Noted `F` in the paper
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct F {
-    /// One per Gate
-    pub(super) f: HashMap<WireRef, delta::Delta>,
+    /// One per Gate, or rather per [free-XOR] non-free Gate
+    /// But for ease of implementation we use Option<> and f.len() == "nb of gates"
+    pub(super) f: Vec<Option<delta::Delta>>,
 }
 
 /// Noted `D` in the paper
@@ -313,7 +315,7 @@ pub(crate) fn garble(
 
     let e = init_internal(&circuit, &mut rng, &r);
 
-    let garbled_circuit = garble_internal(&circuit, &e)?;
+    let garbled_circuit = garble_internal(&circuit, &e, &circuit_metadata)?;
 
     let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng);
 

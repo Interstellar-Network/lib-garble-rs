@@ -38,6 +38,7 @@ png = "0.17"
 rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 png-tests-utils = { path = "png_tests_utils" }
 boolean_expression = "0.4.4"
+clap = { version = "3", features = ["derive"] }
 
 # # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
 # # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!

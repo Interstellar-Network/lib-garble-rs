@@ -1,6 +1,7 @@
 use core::mem::size_of;
 
 use bitvec::prelude::*;
+use bytes::BytesMut;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use xxhash_rust::xxh3::xxh3_128;
@@ -119,32 +120,42 @@ impl RandomOracle {
     ///
     /// param:
     /// - `L0` or `L1` Block for the current output Gate
-    pub(super) fn random_oracle_prime(l0_l1: &BlockL, dj: &BlockL) -> bool {
-        // TODO(random_oracle) what should we use here???
-        // l0_l1.lsb(dj)
-
-        let data = [l0_l1.as_bytes(), dj.as_bytes()].concat();
-        let hash = xxh3_128(&data);
+    pub(super) fn random_oracle_prime(l0_l1: &BlockL, dj: &BlockL, buf: &mut BytesMut) -> bool {
+        // prepare the data: append `l0_l1` with `dj`
+        // reuse `buf` to avoid alloc!
+        buf.clear();
+        let l0_l1_bytes = l0_l1.as_bytes();
+        let dj_bytes = dj.as_bytes();
+        buf.reserve(l0_l1_bytes.len() + dj_bytes.len());
+        buf.extend_from_slice(l0_l1.as_bytes());
+        buf.extend_from_slice(dj.as_bytes());
+        let hash = xxh3_128(&buf);
 
         // Extract the least significant bit from the hash
-        // let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
-        // FAIL: the internal buffer is 64 bytes, but at this point only 16+16 are filled
-        // so it always extracts a 0? --> NO! random-ish byte, but clearly when masking with `& 1` after
-        // this is NOT random at all; mostly a true as a result!
-        let hash_bytes = hash.to_le_bytes();
+        // Technically we DO NOT need the LSB; we just need to be consistant b/w garbling and eval
+        // ie we DO NOT care about big endian vs little endian
+        let x = hash & 1;
+        x == 1
 
-        // TODO????
-        // let last_byte = hash_bytes[hash_bytes.len() / 2];
-        // (last_byte & 1) => is a u8
-        // so Convert u8 -> bool
-        // (last_byte >> 8) & 1
-        // (1 << 8) & last_byte
+        // // Extract the least significant bit from the hash
+        // // let last_byte = hash2.as_bytes()[hash2.as_bytes().len() - 1];
+        // // FAIL: the internal buffer is 64 bytes, but at this point only 16+16 are filled
+        // // so it always extracts a 0? --> NO! random-ish byte, but clearly when masking with `& 1` after
+        // // this is NOT random at all; mostly a true as a result!
+        // let hash_bytes = hash.to_le_bytes();
 
-        let bits = hash_bytes.view_bits::<Lsb0>();
-        let x = *bits.last().unwrap();
+        // // TODO????
+        // // let last_byte = hash_bytes[hash_bytes.len() / 2];
+        // // (last_byte & 1) => is a u8
+        // // so Convert u8 -> bool
+        // // (last_byte >> 8) & 1
+        // // (1 << 8) & last_byte
 
-        // println!("random_oracle_prime: {:?}", x);
-        x
+        // let bits = hash_bytes.view_bits::<Lsb0>();
+        // let x = *bits.last().unwrap();
+
+        // // println!("random_oracle_prime: {:?}", x);
+        // x
     }
 
     // /// Second Random Oracle = RO1
@@ -244,10 +255,11 @@ mod tests {
 
         let mut results = vec![];
         let lj0 = RandomOracle::new_random_block_l(&mut rng);
+        let mut buf = BytesMut::new();
 
         for i in 0..1000 {
             let dj = RandomOracle::new_random_block_l(&mut rng);
-            let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
+            let a = !RandomOracle::random_oracle_prime(&lj0, &dj, &mut buf);
             results.push(a);
         }
 
@@ -262,10 +274,11 @@ mod tests {
 
         let mut results = vec![];
         let dj = RandomOracle::new_random_block_l(&mut rng);
+        let mut buf = BytesMut::new();
 
         for i in 0..1000 {
             let lj0 = RandomOracle::new_random_block_l(&mut rng);
-            let a = !RandomOracle::random_oracle_prime(&lj0, &dj);
+            let a = !RandomOracle::random_oracle_prime(&lj0, &dj, &mut buf);
             results.push(a);
         }
 

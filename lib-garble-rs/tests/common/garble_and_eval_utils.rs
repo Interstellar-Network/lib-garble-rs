@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::EncodedGarblerInputs;
 use lib_garble_rs::EvaluatorInput;
@@ -22,6 +23,7 @@ pub fn eval_client(
     evaluator_inputs: &mut [EvaluatorInput],
     outputs: &mut Vec<u8>,
     output_labels: &mut OutputLabels,
+    outputs_bufs: &mut Vec<BytesMut>,
     rng: &mut ThreadRng,
     rand_0_1: &Uniform<u8>,
     should_randomize_evaluator_inputs: bool,
@@ -41,6 +43,7 @@ pub fn eval_client(
         evaluator_inputs,
         outputs,
         output_labels,
+        outputs_bufs,
     )
     .unwrap();
 }

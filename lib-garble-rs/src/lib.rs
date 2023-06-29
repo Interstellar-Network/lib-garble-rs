@@ -217,6 +217,7 @@ mod tests {
         let encoded_garbler_inputs = garb.encode_garbler_inputs(&[]);
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
+        let mut outputs_bufs = Vec::new();
 
         for test_idx in 0..10 {
             for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
@@ -227,6 +228,7 @@ mod tests {
                     inputs,
                     &mut outputs,
                     &mut output_labels,
+                    &mut outputs_bufs,
                 )
                 .unwrap();
 

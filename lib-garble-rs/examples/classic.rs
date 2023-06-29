@@ -34,6 +34,7 @@ fn main() {
     let mut merged_outputs = vec![0u8; width * height];
     let mut temp_outputs = vec![0u8; width * height];
     let mut outputs_labels = OutputLabels::new();
+    let mut outputs_bufs = Vec::new();
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
@@ -55,6 +56,7 @@ fn main() {
             &evaluator_inputs,
             &mut temp_outputs,
             &mut outputs_labels,
+            &mut outputs_bufs,
         )
         .unwrap();
         assert_eq!(

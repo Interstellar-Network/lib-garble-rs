@@ -41,6 +41,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
 
         let mut outputs = vec![0u8; width * height];
         let mut outputs_labels = OutputLabels::new();
+        let mut outputs_bufs = Vec::new();
 
         // [client 2]
         let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
@@ -52,6 +53,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
             &mut evaluator_inputs,
             &mut outputs,
             &mut outputs_labels,
+            &mut outputs_bufs,
             &mut rng,
             &rand_0_1,
             false,

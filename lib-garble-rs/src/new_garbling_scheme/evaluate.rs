@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -216,7 +217,7 @@ fn evaluate_internal(
 /// "De(Y, d) := {⊥, y}: returns either the failure symbol ⊥ or a value y = f (x)."
 ///
 fn decoding_internal(
-    circuit: &CircuitInternal,
+    outputs_bufs: &mut Vec<BytesMut>,
     output_labels: &OutputLabels,
     decoded_info: &DecodedInfo,
 ) -> Vec<WireValue> {
@@ -226,15 +227,14 @@ fn decoding_internal(
 
     // "for j ∈ [m] do"
     #[cfg(feature = "std")]
-    let outputs: Vec<WireValue> = circuit
-        .outputs
-        .par_iter()
+    let outputs: Vec<WireValue> = outputs_bufs
+        .par_iter_mut()
         .enumerate()
-        .map(|(idx, output)| {
+        .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"
             let yj = output_labels.y[idx].as_ref().unwrap();
             let dj = &decoded_info.d[idx];
-            let r = RandomOracle::random_oracle_prime(yj, dj);
+            let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
             // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
             WireValue { value: r }
         })
@@ -277,7 +277,11 @@ pub(crate) fn evaluate_full_chain(
         &mut output_labels,
     );
 
-    decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
+    // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
+    let mut outputs_bufs = Vec::new();
+    outputs_bufs.resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
+
+    decoding_internal(&mut outputs_bufs, &output_labels, &garbled.d)
 }
 
 /// "Standard" evaluate chain
@@ -292,6 +296,7 @@ pub(crate) fn evaluate_with_encoded_info(
     garbled: &GarbledCircuitFinal,
     encoded_info: &EncodedInfo,
     output_labels: &mut OutputLabels,
+    outputs_bufs: &mut Vec<BytesMut>,
 ) -> Vec<WireValue> {
     evaluate_internal(
         &garbled.circuit,
@@ -301,7 +306,11 @@ pub(crate) fn evaluate_with_encoded_info(
         output_labels,
     );
 
-    decoding_internal(&garbled.circuit, &output_labels, &garbled.d)
+    // The correct size MUST be set!
+    // Else we end up with the wrong number of outputs
+    outputs_bufs.resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
+
+    decoding_internal(outputs_bufs, &output_labels, &garbled.d)
 }
 
 /// encoded inputs

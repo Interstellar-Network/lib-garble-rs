@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -296,6 +297,13 @@ pub(crate) struct GarbledCircuitFinal {
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,
     pub(super) circuit_metadata: CircuitMetadata,
+    pub(crate) eval_metadata: EvalMetadata,
+}
+
+/// Similar to `CircuitMetadata` but only what is needed during evaluation(instead of during garbling)
+#[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
+pub(crate) struct EvalMetadata {
+    pub(crate) nb_outputs: usize,
 }
 
 /// Grouping of all of the sequence:
@@ -319,12 +327,17 @@ pub(crate) fn garble(
 
     let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng);
 
+    let eval_metadata = EvalMetadata {
+        nb_outputs: circuit.outputs.len(),
+    };
+
     Ok(GarbledCircuitFinal {
         circuit,
         garbled_circuit,
         d,
         e,
         circuit_metadata,
+        eval_metadata,
     })
 }
 
@@ -346,6 +359,7 @@ pub(super) struct DecodedInfo {
 ///
 fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> DecodedInfo {
     let mut d = Vec::with_capacity(circuit_outputs.len());
+    let mut buf = BytesMut::new();
 
     // "2: for output wire j ∈ [m] do"
     for (idx, output_wire) in circuit_outputs.iter().enumerate() {
@@ -354,8 +368,8 @@ fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> 
 
         let mut dj = RandomOracle::new_random_block_l(rng);
         loop {
-            let a = !RandomOracle::random_oracle_prime(lj0, &dj);
-            let b = RandomOracle::random_oracle_prime(lj1, &dj);
+            let a = !RandomOracle::random_oracle_prime(lj0, &dj, &mut buf);
+            let b = RandomOracle::random_oracle_prime(lj1, &dj, &mut buf);
             if a && b {
                 break;
             }
@@ -370,6 +384,7 @@ fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> 
 
 #[cfg(test)]
 mod tests {
+    use bytes::BytesMut;
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
@@ -388,7 +403,8 @@ mod tests {
 
         let d = decoding_info(&circuit_outputs, &d, &mut rng);
         let dj = &d.d[0];
-        assert_eq!(RandomOracle::random_oracle_prime(&l0, dj), false);
-        assert_eq!(RandomOracle::random_oracle_prime(&l1, dj), true);
+        let mut buf = BytesMut::new();
+        assert_eq!(RandomOracle::random_oracle_prime(&l0, dj, &mut buf), false);
+        assert_eq!(RandomOracle::random_oracle_prime(&l1, dj, &mut buf), true);
     }
 }

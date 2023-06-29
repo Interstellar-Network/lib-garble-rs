@@ -4,6 +4,7 @@ use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
 use crate::new_garbling_scheme::wire_value::WireValue;
 use crate::new_garbling_scheme::{self, GarblerError};
 
+use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
 pub type EvaluatorInput = u8;
@@ -48,6 +49,10 @@ impl GarbledCircuit {
         self.config.num_evaluator_inputs()
     }
 
+    pub fn num_outputs(&self) -> usize {
+        self.garbled.eval_metadata.nb_outputs
+    }
+
     pub(super) fn encode_garbler_inputs(
         &self,
         garbler_inputs: &[GarblerInput],
@@ -88,6 +93,7 @@ impl GarbledCircuit {
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<u8>,
         output_labels: &mut OutputLabels,
+        outputs_bufs: &mut Vec<BytesMut>,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
         let evaluator_inputs_wire_value: Vec<WireValue> =
@@ -109,6 +115,7 @@ impl GarbledCircuit {
             &self.garbled,
             &encoded_info,
             output_labels,
+            outputs_bufs,
         );
 
         // Convert Vec<WireValue> -> Vec<u8>

@@ -124,12 +124,16 @@ impl OutputLabels {
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
+// TODO(opt) `ro_buf` SHOULD instead be a Vec<BytesMut>(one per Gate) b/c
+//  - would allow parallel iteration on gates
+//  - different gate(unary vs binary) ends up with different buffer sizes so less efficient(?)
 fn evaluate_internal(
     circuit: &CircuitInternal,
     f: &F,
     encoded_info: &EncodedInfo,
     circuit_metadata: &CircuitMetadata,
     output_labels: &mut OutputLabels,
+    ro_buf: &mut BytesMut,
 ) {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
@@ -175,6 +179,7 @@ fn evaluate_internal(
                     l_a.get_block(),
                     Some(l_b.get_block()),
                     gate.get_id(),
+                    ro_buf,
                 );
                 let l_g: BlockL = BlockL::new_projection(&r, &delta_g_blockl);
 
@@ -268,6 +273,8 @@ pub(crate) fn evaluate_full_chain(
     );
 
     let mut output_labels = OutputLabels { y: Vec::new() };
+    // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
+    let mut ro_buf = BytesMut::new();
 
     evaluate_internal(
         &garbled.circuit,
@@ -275,6 +282,7 @@ pub(crate) fn evaluate_full_chain(
         &encoded_info,
         &garbled.circuit_metadata,
         &mut output_labels,
+        &mut ro_buf,
     );
 
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
@@ -297,6 +305,7 @@ pub(crate) fn evaluate_with_encoded_info(
     encoded_info: &EncodedInfo,
     output_labels: &mut OutputLabels,
     outputs_bufs: &mut Vec<BytesMut>,
+    ro_buf: &mut BytesMut,
 ) -> Vec<WireValue> {
     evaluate_internal(
         &garbled.circuit,
@@ -304,6 +313,7 @@ pub(crate) fn evaluate_with_encoded_info(
         &encoded_info,
         &garbled.circuit_metadata,
         output_labels,
+        ro_buf,
     );
 
     // The correct size MUST be set!

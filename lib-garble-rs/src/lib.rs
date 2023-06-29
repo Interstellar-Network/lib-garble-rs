@@ -181,6 +181,8 @@ pub fn prepare_evaluator_inputs(
 
 #[cfg(test)]
 mod tests {
+    use bytes::BytesMut;
+
     use super::*;
 
     // all_inputs/all_expected_outputs: standard full-adder 2 bits truth table(and expected results)
@@ -218,6 +220,7 @@ mod tests {
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
         let mut outputs_bufs = Vec::new();
+        let mut ro_buf = BytesMut::new();
 
         for test_idx in 0..10 {
             for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
@@ -229,6 +232,7 @@ mod tests {
                     &mut outputs,
                     &mut output_labels,
                     &mut outputs_bufs,
+                    &mut ro_buf,
                 )
                 .unwrap();
 

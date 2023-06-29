@@ -31,8 +31,9 @@ impl RandomOracle {
         label_a: &BlockL,
         label_b: Option<&BlockL>,
         tweak: usize,
+        buf: &mut BytesMut,
     ) -> BlockP {
-        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak);
+        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak, buf);
 
         // We need to construct the final `[u8; 128]` so for now we just concat
         // `[u8; 128]` == `[0u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()]`
@@ -72,8 +73,9 @@ impl RandomOracle {
         label_a: &BlockL,
         label_b: Option<&BlockL>,
         tweak: usize,
+        buf: &mut BytesMut,
     ) -> BlockL {
-        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak);
+        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak, buf);
 
         // https://stackoverflow.com/questions/75746412/copy-a-u128-into-u642
         let words: MyBitArrayL = unsafe { std::mem::transmute::<u128, MyBitArrayL>(hash_0) };
@@ -81,23 +83,40 @@ impl RandomOracle {
         BlockL::new_with(words)
     }
 
-    fn random_oracle_g_core(label_a: &BlockL, label_b: Option<&BlockL>, tweak: usize) -> u128 {
-        // TODO! which hash to use? sha2, sha256?
-        // or maybe some MAC? cf `keyed_hash`?
-        // TODO! how to properly pass "tweak"?
-        let tweak_bytes = tweak.to_le_bytes();
-        let data = if let Some(label_b_block) = label_b {
-            [
-                tweak_bytes.as_slice(),
-                label_a.as_bytes(),
-                label_b_block.as_bytes(),
-            ]
-            .concat()
+    fn random_oracle_g_core(
+        label_a: &BlockL,
+        label_b: Option<&BlockL>,
+        tweak: usize,
+        buf: &mut BytesMut,
+    ) -> u128 {
+        // prepare the data: append `label_a` with `label_b` and `tweak`
+        // reuse `buf` to avoid alloc!
+        buf.clear();
+
+        let tweak_bytes_arr = tweak.to_le_bytes();
+        let tweak_bytes = tweak_bytes_arr.as_slice();
+        let label_a_bytes = label_a.as_bytes();
+
+        if let Some(label_b_block) = label_b {
+            let label_b_block_bytes = label_b_block.as_bytes();
+
+            buf.reserve(tweak_bytes.len() + label_a_bytes.len() + label_b_block_bytes.len());
         } else {
-            [tweak_bytes.as_slice(), label_a.as_bytes()].concat()
+            buf.reserve(tweak_bytes.len() + label_a_bytes.len());
         };
 
-        xxh3_128(&data)
+        buf.extend_from_slice(tweak_bytes);
+        buf.extend_from_slice(label_a_bytes);
+
+        if let Some(label_b_block) = label_b {
+            let label_b_block_bytes = label_b_block.as_bytes();
+
+            buf.extend_from_slice(label_b_block_bytes);
+        };
+
+        // TODO! which hash to use? sha2, sha256?
+        // or maybe some MAC? cf `keyed_hash`?
+        xxh3_128(&buf)
     }
 
     pub(super) fn new_random_block_l(rng: &mut ChaChaRng) -> BlockL {
@@ -202,9 +221,10 @@ mod tests {
     #[test]
     fn test_random_oracle_0_same_blocks_different_tweaks_should_return_different_hashes() {
         let (block_a, block_b, block_common) = get_test_blocks();
+        let mut buf = BytesMut::new();
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 0);
-        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 1);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 0, &mut buf);
+        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 1, &mut buf);
 
         assert_ne!(hash1, hash2, "returning hashes SHOULD NOT be equal!");
     }
@@ -212,9 +232,10 @@ mod tests {
     #[test]
     fn test_random_oracle_0_same_blocks_same_tweaks_should_return_same_hashes() {
         let (block_a, block_b, block_common) = get_test_blocks();
+        let mut buf = BytesMut::new();
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2, &mut buf);
+        let hash2 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2, &mut buf);
 
         assert_eq!(hash1, hash2, "returning hashes SHOULD be equal!");
     }
@@ -222,9 +243,10 @@ mod tests {
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes() {
         let (block_a, block_b, block_common) = get_test_blocks();
+        let mut buf = BytesMut::new();
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_a), 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2, &mut buf);
+        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_a), 2, &mut buf);
 
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
     }
@@ -232,9 +254,10 @@ mod tests {
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_2() {
         let (block_a, block_b, block_common) = get_test_blocks();
+        let mut buf = BytesMut::new();
 
-        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_common), 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_common), 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_common), 2, &mut buf);
+        let hash2 = RandomOracle::random_oracle_g(&block_b, Some(&block_common), 2, &mut buf);
 
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
     }
@@ -242,9 +265,10 @@ mod tests {
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes_3() {
         let (block_a, block_b, block_common) = get_test_blocks();
+        let mut buf = BytesMut::new();
 
-        let hash1 = RandomOracle::random_oracle_g(&block_common, Some(&block_a), 2);
-        let hash2 = RandomOracle::random_oracle_g(&block_common, Some(&block_b), 2);
+        let hash1 = RandomOracle::random_oracle_g(&block_common, Some(&block_a), 2, &mut buf);
+        let hash2 = RandomOracle::random_oracle_g(&block_common, Some(&block_b), 2, &mut buf);
 
         assert!(hash1 != hash2, "returning hashes SHOULD NOT be equal!");
     }

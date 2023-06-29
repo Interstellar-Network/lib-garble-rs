@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use lib_garble_rs::OutputLabels;
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
@@ -35,6 +36,7 @@ fn main() {
     let mut temp_outputs = vec![0u8; width * height];
     let mut outputs_labels = OutputLabels::new();
     let mut outputs_bufs = Vec::new();
+    let mut ro_buf = BytesMut::new();
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
@@ -57,6 +59,7 @@ fn main() {
             &mut temp_outputs,
             &mut outputs_labels,
             &mut outputs_bufs,
+            &mut ro_buf,
         )
         .unwrap();
         assert_eq!(

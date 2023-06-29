@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 /// Test the client-side use case, or as close as possible:
 /// - [server 1] server garbles a circuit
 /// - [server 2] server prepares a "watermark" and encode the "garbler_inputs"
@@ -42,6 +43,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         let mut outputs = vec![0u8; width * height];
         let mut outputs_labels = OutputLabels::new();
         let mut outputs_bufs = Vec::new();
+        let mut ro_buf = BytesMut::new();
 
         // [client 2]
         let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
@@ -54,6 +56,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
             &mut outputs,
             &mut outputs_labels,
             &mut outputs_bufs,
+            &mut ro_buf,
             &mut rng,
             &rand_0_1,
             false,

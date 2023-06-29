@@ -94,6 +94,7 @@ impl GarbledCircuit {
         outputs: &mut Vec<u8>,
         output_labels: &mut OutputLabels,
         outputs_bufs: &mut Vec<BytesMut>,
+        ro_buf: &mut BytesMut,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
         let evaluator_inputs_wire_value: Vec<WireValue> =
@@ -116,6 +117,7 @@ impl GarbledCircuit {
             &encoded_info,
             output_labels,
             outputs_bufs,
+            ro_buf,
         );
 
         // Convert Vec<WireValue> -> Vec<u8>

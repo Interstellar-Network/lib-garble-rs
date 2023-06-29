@@ -24,6 +24,7 @@ pub fn eval_client(
     outputs: &mut Vec<u8>,
     output_labels: &mut OutputLabels,
     outputs_bufs: &mut Vec<BytesMut>,
+    ro_buf: &mut BytesMut,
     rng: &mut ThreadRng,
     rand_0_1: &Uniform<u8>,
     should_randomize_evaluator_inputs: bool,
@@ -44,6 +45,7 @@ pub fn eval_client(
         outputs,
         output_labels,
         outputs_bufs,
+        ro_buf,
     )
     .unwrap();
 }

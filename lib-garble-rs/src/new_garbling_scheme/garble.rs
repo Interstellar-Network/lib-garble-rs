@@ -44,7 +44,7 @@ pub(crate) enum GarblerError {
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 ///
-fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate) -> WireLabelsSet {
+fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut) -> WireLabelsSet {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -57,10 +57,10 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate) -> WireLabelsSet {
             let wire_b: &Wire = encoded_wires[input_b.id].as_ref().unwrap();
 
             WireLabelsSet::new_binary(
-                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value1()), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value0()), tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value1()), tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak, buf),
+                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value1()), tweak, buf),
+                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value0()), tweak, buf),
+                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value1()), tweak, buf),
             )
         }
         GateType::Unary {
@@ -70,8 +70,8 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate) -> WireLabelsSet {
             let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
 
             WireLabelsSet::new_unary(
-                RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak),
-                RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak),
+                RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak, buf),
+                RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak, buf),
             )
         }
         // [constant gate special case]
@@ -211,6 +211,7 @@ fn garble_internal<'a>(
     // all_wires_sorted.sort();
 
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+    let mut buf = BytesMut::new();
 
     for gate in circuit.gates.iter() {
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
@@ -220,7 +221,7 @@ fn garble_internal<'a>(
                 input_a,
                 input_b,
             } => {
-                let compressed_set = f1_0_compress(&encoded_wires, gate);
+                let compressed_set = f1_0_compress(&encoded_wires, gate, &mut buf);
                 let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
                 f[gate.get_id()] = Some(delta);
                 (l0.into(), l1.into())

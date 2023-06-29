@@ -5,7 +5,7 @@ use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use xxhash_rust::xxh3::xxh3_128;
 
-use super::block::{BitsInternal, BlockL, BlockP, KAPPA_NB_ELEMENTS};
+use super::block::{BitsInternal, BlockL, BlockP, MyBitArrayL, KAPPA_NB_ELEMENTS};
 use super::constant::KAPPA_FACTOR;
 
 pub(crate) struct RandomOracle {}
@@ -31,23 +31,7 @@ impl RandomOracle {
         label_b: Option<&BlockL>,
         tweak: usize,
     ) -> BlockP {
-        // TODO! which hash to use? sha2, sha256?
-        // or maybe some MAC? cf `keyed_hash`?
-        // TODO! how to properly pass "tweak"?
-        let tweak_bytes = tweak.to_le_bytes();
-        let data = if let Some(label_b_block) = label_b {
-            [
-                tweak_bytes.as_slice(),
-                label_a.as_bytes(),
-                label_b_block.as_bytes(),
-            ]
-            .concat()
-        } else {
-            [tweak_bytes.as_slice(), label_a.as_bytes()].concat()
-        };
-
-        // TODO! what do we do with a 256bits hash but a 128bits Block?
-        let hash_0 = xxh3_128(&data);
+        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak);
 
         // We need to construct the final `[u8; 128]` so for now we just concat
         // `[u8; 128]` == `[0u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()]`
@@ -77,6 +61,42 @@ impl RandomOracle {
         .unwrap();
 
         BlockP::new_with_raw_bytes(hash_bytes_big)
+    }
+
+    /// "Truncated" version of `random_oracle_g`
+    /// This is used by eval to avoid allocating a BlockP just to convert(ie truncate) it
+    /// into a BlockL right after.
+    /// Doing it that way avoids both an alloc, and more important: 7 rounds of xxh3_128(or XOR)
+    pub(super) fn random_oracle_g_truncated(
+        label_a: &BlockL,
+        label_b: Option<&BlockL>,
+        tweak: usize,
+    ) -> BlockL {
+        let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak);
+
+        // https://stackoverflow.com/questions/75746412/copy-a-u128-into-u642
+        let words: MyBitArrayL = unsafe { std::mem::transmute::<u128, MyBitArrayL>(hash_0) };
+
+        BlockL::new_with(words)
+    }
+
+    fn random_oracle_g_core(label_a: &BlockL, label_b: Option<&BlockL>, tweak: usize) -> u128 {
+        // TODO! which hash to use? sha2, sha256?
+        // or maybe some MAC? cf `keyed_hash`?
+        // TODO! how to properly pass "tweak"?
+        let tweak_bytes = tweak.to_le_bytes();
+        let data = if let Some(label_b_block) = label_b {
+            [
+                tweak_bytes.as_slice(),
+                label_a.as_bytes(),
+                label_b_block.as_bytes(),
+            ]
+            .concat()
+        } else {
+            [tweak_bytes.as_slice(), label_a.as_bytes()].concat()
+        };
+
+        xxh3_128(&data)
     }
 
     pub(super) fn new_random_block_l(rng: &mut ChaChaRng) -> BlockL {

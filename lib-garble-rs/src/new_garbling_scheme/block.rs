@@ -11,7 +11,7 @@ use super::{
 // TODO u128? would it be faster?
 pub(super) type BitsInternal = u64;
 
-type MyBitArrayL = [BitsInternal; KAPPA_NB_ELEMENTS];
+pub(super) type MyBitArrayL = [BitsInternal; KAPPA_NB_ELEMENTS];
 type MyBitArrayP = [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR];
 
 /// The number of Bytes needed to store `MyBitArrayL`/`BlockL`
@@ -79,6 +79,16 @@ impl BlockL {
 
         Self {
             bits_words: bits_words.try_into().unwrap(),
+        }
+    }
+
+    /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
+    pub(crate) fn new_projection(left: &BlockL, right: &BlockL) -> Self {
+        Self {
+            bits_words: [
+                left.bits_words[0] & right.bits_words[0],
+                left.bits_words[1] & right.bits_words[1],
+            ],
         }
     }
 }
@@ -153,8 +163,6 @@ impl BlockP {
 
     /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
     pub(crate) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
-        // let bits_words = Self::new_zero();
-
         let bits_words: Vec<BitsInternal> = left
             .bits_words
             .iter()
@@ -172,6 +180,23 @@ impl From<BlockP> for BlockL {
     /// Truncate a `BlockP` into a `BlockL`
     // TODO is this needed? is there a better way to get L0/L1 from Delta and CompressedSet?
     fn from(block_p: BlockP) -> Self {
+        // let mut bits_l_array = MyBitArrayL::ZERO;
+        // bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
+        Self {
+            bits_words: block_p
+                .bits_words
+                .split_at(KAPPA_NB_ELEMENTS)
+                .0
+                .try_into()
+                .expect("BlockL::from slice with incorrect length"),
+        }
+    }
+}
+
+impl From<&BlockP> for BlockL {
+    /// Truncate a `BlockP` into a `BlockL`
+    // TODO is this needed? is there a better way to get L0/L1 from Delta and CompressedSet?
+    fn from(block_p: &BlockP) -> Self {
         // let mut bits_l_array = MyBitArrayL::ZERO;
         // bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
         Self {

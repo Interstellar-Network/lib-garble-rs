@@ -167,16 +167,15 @@ fn evaluate_internal(
                 let l_b = wire_labels[input_b.id].as_ref().unwrap();
 
                 // "extract ∇g ← F [g]"
-                let delta_g = f.f[wire_ref.id].as_ref().unwrap();
+                let delta_g_blockl: BlockL = f.f[wire_ref.id].as_ref().unwrap().get_block().into();
 
                 // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
-                let r = RandomOracle::random_oracle_g(
+                let mut r = RandomOracle::random_oracle_g_truncated(
                     l_a.get_block(),
                     Some(l_b.get_block()),
                     gate.get_id(),
                 );
-                let l_g_full = BlockP::new_projection(&r, delta_g.get_block());
-                let l_g: BlockL = l_g_full.into();
+                let l_g: BlockL = BlockL::new_projection(&r, &delta_g_blockl);
 
                 l_g
             }

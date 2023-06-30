@@ -9,7 +9,7 @@ use super::block::{BlockL, BlockP};
 ///
 // TODO do this ^^^^ -> `value` SHOULD be ref
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct WireLabel {
+pub struct WireLabel {
     label: BlockL,
 }
 

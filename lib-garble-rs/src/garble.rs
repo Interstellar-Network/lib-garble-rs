@@ -1,8 +1,10 @@
 use crate::circuit::{Circuit, SkcdConfig};
-use crate::new_garbling_scheme::evaluate::{EncodedInfo, OutputLabels};
+use crate::new_garbling_scheme::evaluate::EncodedInfo;
 use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
+use crate::new_garbling_scheme::wire::WireLabel;
 use crate::new_garbling_scheme::wire_value::WireValue;
 use crate::new_garbling_scheme::{self, GarblerError};
+use crate::EvalCache;
 
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
@@ -92,9 +94,7 @@ impl GarbledCircuit {
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
         outputs: &mut Vec<u8>,
-        output_labels: &mut OutputLabels,
-        outputs_bufs: &mut Vec<BytesMut>,
-        ro_buf: &mut BytesMut,
+        eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
         let evaluator_inputs_wire_value: Vec<WireValue> =
@@ -115,9 +115,7 @@ impl GarbledCircuit {
         let outputs_wire_value = new_garbling_scheme::evaluate::evaluate_with_encoded_info(
             &self.garbled,
             &encoded_info,
-            output_labels,
-            outputs_bufs,
-            ro_buf,
+            eval_cache,
         );
 
         // Convert Vec<WireValue> -> Vec<u8>

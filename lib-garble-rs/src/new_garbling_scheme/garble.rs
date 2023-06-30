@@ -7,7 +7,11 @@ use serde::{Deserialize, Serialize};
 use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
 
 use super::{
-    block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
+    block::BlockL,
+    delta,
+    random_oracle::RandomOracle,
+    wire::{Wire, WireLabel},
+    wire_labels_set::WireLabelsSet,
 };
 
 #[derive(Debug)]

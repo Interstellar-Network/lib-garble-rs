@@ -6,7 +6,7 @@ use std::time::Instant;
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
 use lib_garble_rs::{
-    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, OutputLabels,
+    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, EvalCache,
 };
 use png_tests_utils::png_utils::read_png_to_bytes;
 
@@ -23,9 +23,7 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
     let rand_0_1 = Uniform::from(0..=1);
 
     let mut temp_outputs = vec![0u8; width * height];
-    let mut output_labels = OutputLabels::new();
-    let mut outputs_bufs = Vec::new();
-    let mut ro_buf = BytesMut::new();
+    let mut eval_cache = EvalCache::new();
 
     let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
@@ -37,9 +35,7 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
             &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut temp_outputs,
-            &mut output_labels,
-            &mut outputs_bufs,
-            &mut ro_buf,
+            &mut eval_cache,
             &mut rng,
             &rand_0_1,
             true,
@@ -98,16 +94,12 @@ fn test_garble_display_message_120x52_2digits_zeros() {
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
     let mut outputs = vec![0u8; width * height];
-    let mut output_labels = OutputLabels::new();
-    let mut outputs_bufs = Vec::new();
-    let mut ro_buf = BytesMut::new();
+    let mut eval_cache = EvalCache::new();
     garb.eval(
         &mut encoded_garbler_inputs,
         &evaluator_inputs,
         &mut outputs,
-        &mut output_labels,
-        &mut outputs_bufs,
-        &mut ro_buf,
+        &mut eval_cache,
     )
     .unwrap();
 
@@ -160,9 +152,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
     let mut outputs = vec![0u8; width * height];
-    let mut output_labels = OutputLabels::new();
-    let mut outputs_bufs = Vec::new();
-    let mut ro_buf = BytesMut::new();
+    let mut eval_cache = EvalCache::new();
 
     for _ in 0..NB_ITERATIONS {
         // profiling::scope!("Looped eval");
@@ -177,9 +167,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
             &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut outputs,
-            &mut output_labels,
-            &mut outputs_bufs,
-            &mut ro_buf,
+            &mut eval_cache,
             &mut rng,
             &rand_0_1,
             true,

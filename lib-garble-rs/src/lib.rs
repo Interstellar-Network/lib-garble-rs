@@ -18,7 +18,7 @@ use snafu::prelude::*;
 
 // re-export
 pub use garble::{EncodedGarblerInputs, EvaluatorInput, GarbledCircuit};
-pub use new_garbling_scheme::evaluate::OutputLabels;
+pub use new_garbling_scheme::evaluate::EvalCache;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
 mod circuit;
@@ -219,20 +219,15 @@ mod tests {
         let encoded_garbler_inputs = garb.encode_garbler_inputs(&[]);
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
-        let mut outputs_bufs = Vec::new();
-        let mut ro_buf = BytesMut::new();
+        let mut eval_cache = EvalCache::new();
 
         for test_idx in 0..10 {
             for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-                let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
-                let mut output_labels = OutputLabels::new();
                 garb.eval(
-                    &mut encoded_garbler_inputs,
+                    &encoded_garbler_inputs,
                     inputs,
                     &mut outputs,
-                    &mut output_labels,
-                    &mut outputs_bufs,
-                    &mut ro_buf,
+                    &mut eval_cache,
                 )
                 .unwrap();
 

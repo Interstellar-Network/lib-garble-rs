@@ -104,7 +104,7 @@ fn encoding_internal<'a>(
 
 /// Noted `Y` in the paper
 #[derive(Clone)]
-pub struct OutputLabels {
+pub(super) struct OutputLabels {
     /// One element per output
     y: Vec<Option<BlockL>>,
 }
@@ -112,6 +112,28 @@ pub struct OutputLabels {
 impl OutputLabels {
     pub fn new() -> Self {
         Self { y: Vec::new() }
+    }
+}
+
+/// This is what is needed to evaluate in-place as much as possible
+/// ie a bunch of "temp vec" and various "buffers"
+pub struct EvalCache {
+    output_labels: OutputLabels,
+    /// one per "output" (ie len() == circuit.outputs.len())
+    /// This is used to avoid alloc in `decoding_internal` during eval
+    outputs_bufs: Vec<BytesMut>,
+    ro_buf: BytesMut,
+    wire_labels: Vec<Option<WireLabel>>,
+}
+
+impl EvalCache {
+    pub fn new() -> Self {
+        Self {
+            output_labels: OutputLabels::new(),
+            outputs_bufs: Vec::new(),
+            ro_buf: BytesMut::new(),
+            wire_labels: Vec::new(),
+        }
     }
 }
 
@@ -134,6 +156,7 @@ fn evaluate_internal(
     circuit_metadata: &CircuitMetadata,
     output_labels: &mut OutputLabels,
     ro_buf: &mut BytesMut,
+    wire_labels: &mut Vec<Option<WireLabel>>,
 ) {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
@@ -150,7 +173,6 @@ fn evaluate_internal(
     // As we are looping on the gates in order, this will be built step by step
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
-    let mut wire_labels: Vec<Option<WireLabel>> = Vec::new();
     wire_labels.resize_with(circuit.wires.len(), Default::default);
     for (idx, wire_label) in encoded_info.x.iter().enumerate() {
         wire_labels[idx] = Some(wire_label.clone());
@@ -275,6 +297,7 @@ pub(crate) fn evaluate_full_chain(
     let mut output_labels = OutputLabels { y: Vec::new() };
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
     let mut ro_buf = BytesMut::new();
+    let mut wire_labels = Vec::new();
 
     evaluate_internal(
         &garbled.circuit,
@@ -283,6 +306,7 @@ pub(crate) fn evaluate_full_chain(
         &garbled.circuit_metadata,
         &mut output_labels,
         &mut ro_buf,
+        &mut wire_labels,
     );
 
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
@@ -303,24 +327,29 @@ pub(crate) fn evaluate_full_chain(
 pub(crate) fn evaluate_with_encoded_info(
     garbled: &GarbledCircuitFinal,
     encoded_info: &EncodedInfo,
-    output_labels: &mut OutputLabels,
-    outputs_bufs: &mut Vec<BytesMut>,
-    ro_buf: &mut BytesMut,
+    eval_cache: &mut EvalCache,
 ) -> Vec<WireValue> {
     evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         &encoded_info,
         &garbled.circuit_metadata,
-        output_labels,
-        ro_buf,
+        &mut eval_cache.output_labels,
+        &mut eval_cache.ro_buf,
+        &mut eval_cache.wire_labels,
     );
 
     // The correct size MUST be set!
     // Else we end up with the wrong number of outputs
-    outputs_bufs.resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
+    eval_cache
+        .outputs_bufs
+        .resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
 
-    decoding_internal(outputs_bufs, &output_labels, &garbled.d)
+    decoding_internal(
+        &mut eval_cache.outputs_bufs,
+        &eval_cache.output_labels,
+        &garbled.d,
+    )
 }
 
 /// encoded inputs

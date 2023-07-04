@@ -1,3 +1,6 @@
+use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
+
 use crate::circuit::{Circuit, SkcdConfig};
 use crate::new_garbling_scheme::evaluate::EncodedInfo;
 use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
@@ -5,9 +8,6 @@ use crate::new_garbling_scheme::wire::WireLabel;
 use crate::new_garbling_scheme::wire_value::WireValue;
 use crate::new_garbling_scheme::{self, GarblerError};
 use crate::EvalCache;
-
-use bytes::BytesMut;
-use serde::{Deserialize, Serialize};
 
 pub type EvaluatorInput = u8;
 pub(super) type GarblerInput = u8;

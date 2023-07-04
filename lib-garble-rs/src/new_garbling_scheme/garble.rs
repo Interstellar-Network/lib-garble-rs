@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use bytes::BytesMut;
 use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
 use rand::SeedableRng;

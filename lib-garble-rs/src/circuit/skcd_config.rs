@@ -1,11 +1,11 @@
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use hashbrown::HashMap;
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::WireRef;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
 
 // TODO!!! add the rest of skcd.proto
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

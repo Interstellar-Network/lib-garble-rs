@@ -3,19 +3,13 @@ use crate::circuit::{
     Circuit, CircuitInternal, CircuitMetadata, DisplayConfig, EvaluatorInputs, EvaluatorInputsType,
     GarblerInputs, GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
+use alloc::format;
+use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use hashbrown::HashSet;
 use rand::Rng;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-extern crate sgx_tstd as std;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::string::String;
-
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::string::ToString;
 
 // derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -263,7 +257,7 @@ impl Circuit {
             }
         }
 
-        println!("circuit metadata: {:?}", metadata);
+        log::info!("circuit metadata: {:?}", metadata);
 
         Ok(Circuit {
             circuit: CircuitInternal {

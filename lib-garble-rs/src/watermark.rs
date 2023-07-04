@@ -1,6 +1,5 @@
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
-
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};

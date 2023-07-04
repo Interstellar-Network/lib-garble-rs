@@ -78,7 +78,7 @@ impl RandomOracle {
         let hash_0 = Self::random_oracle_g_core(label_a, label_b, tweak, buf);
 
         // https://stackoverflow.com/questions/75746412/copy-a-u128-into-u642
-        let words: MyBitArrayL = unsafe { std::mem::transmute::<u128, MyBitArrayL>(hash_0) };
+        let words: MyBitArrayL = unsafe { core::mem::transmute::<u128, MyBitArrayL>(hash_0) };
 
         BlockL::new_with(words)
     }

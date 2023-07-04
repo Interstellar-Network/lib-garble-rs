@@ -1,3 +1,5 @@
+use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 use core::{mem::size_of, ops::BitAnd};
 
 use bitvec::prelude::*;

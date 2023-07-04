@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
@@ -256,6 +257,20 @@ fn decoding_internal(
     #[cfg(feature = "std")]
     let outputs: Vec<WireValue> = outputs_bufs
         .par_iter_mut()
+        .enumerate()
+        .map(|(idx, output_buf)| {
+            // "y[j] ← lsb(RO′(Y [j], dj ))"
+            let yj = output_labels.y[idx].as_ref().unwrap();
+            let dj = &decoded_info.d[idx];
+            let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
+            // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
+            WireValue { value: r }
+        })
+        .collect();
+
+    #[cfg(not(feature = "std"))]
+    let outputs: Vec<WireValue> = outputs_bufs
+        .iter_mut()
         .enumerate()
         .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"

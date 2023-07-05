@@ -8,11 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
 
 use super::{
-    block::BlockL,
-    delta,
-    random_oracle::RandomOracle,
-    wire::{Wire},
-    wire_labels_set::WireLabelsSet,
+    block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
 };
 
 #[derive(Debug)]
@@ -243,7 +239,7 @@ fn garble_internal(
                     Some(GateTypeUnary::INV) => (wire_a.value1().clone(), wire_a.value0().clone()),
                     // We apply the same idea to BUF Gates: a simple "passthrough"
                     Some(GateTypeUnary::BUF) => (wire_a.value0().clone(), wire_a.value1().clone()),
-                    /// GateType::Unary is None only when deserializing
+                    // GateType::Unary is None only when deserializing
                     None => unimplemented!("garble_internal for None[GateType::Unary]!"),
                 }
             }
@@ -261,7 +257,7 @@ fn garble_internal(
         if let Some(wire_output) = outputs_set.get(gate.get_output()) {
             deltas
                 .try_insert(
-                    wire_output.clone().clone(),
+                    (*wire_output).clone().clone(),
                     (new_wires.value0().clone(), new_wires.value1().clone()),
                 )
                 .unwrap();

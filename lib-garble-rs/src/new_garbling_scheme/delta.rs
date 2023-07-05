@@ -152,7 +152,7 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
                 ),
-                /// GateTypeUnary is None only when deserializing
+                // GateTypeUnary is None only when deserializing
                 None => unimplemented!("Delta::new for None[GateTypeUnary]!"),
             },
             // [constant gate special case]
@@ -552,7 +552,7 @@ impl TruthTable {
                         true, false, false, true,
                     ),
                 },
-                /// GateTypeBinary is None only when deserializing
+                // GateTypeBinary is None only when deserializing
                 None => unimplemented!("TruthTable for None[GateTypeBinary]!"),
             },
             GateType::Unary {
@@ -565,7 +565,7 @@ impl TruthTable {
                 Some(GateTypeUnary::BUF) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(true, false),
                 },
-                /// GateTypeUnary is None only when deserializing
+                // GateTypeUnary is None only when deserializing
                 None => unimplemented!("TruthTable for None[GateTypeUnary]!"),
             },
             // [constant gate special case]

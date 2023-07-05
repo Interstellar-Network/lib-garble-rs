@@ -85,7 +85,7 @@ mod tests {
                 };
                 let garbled = garble(circ.circuit, circ.metadata, None).unwrap();
 
-                let outputs = evaluate_full_chain(&garbled, &inputs);
+                let outputs = evaluate_full_chain(&garbled, &inputs).unwrap();
                 println!("outputs : {outputs:?} [{idx}]");
                 assert_eq!(
                     outputs.len(),

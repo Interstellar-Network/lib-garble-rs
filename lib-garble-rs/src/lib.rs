@@ -52,6 +52,16 @@ pub enum InterstellarError {
     WatermarkError { msg: String },
 }
 
+#[derive(Debug)]
+pub enum InterstellarEvaluatorError {
+    /// Error at `decoding_internal`
+    DecodingErrorMissingOutputLabel { idx: usize },
+    /// Error at `evaluate_internal`
+    EvaluateErrorMissingLabel { idx: usize },
+    /// Error at `evaluate_internal`
+    EvaluateErrorMissingDelta { idx: usize },
+}
+
 /// This is the main entry point of this function; meant to be called by the "pallet-ocw-garble"
 ///
 /// It:
@@ -203,7 +213,6 @@ pub fn prepare_evaluator_inputs(
 
 #[cfg(test)]
 mod tests {
-    
 
     use super::*;
 

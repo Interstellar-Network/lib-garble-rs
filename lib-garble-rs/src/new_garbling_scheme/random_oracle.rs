@@ -1,13 +1,9 @@
-
-
-
 use bytes::BytesMut;
 use rand::Rng;
-use rand_chacha::{ChaChaRng};
+use rand_chacha::ChaChaRng;
 use xxhash_rust::xxh3::xxh3_128;
 
 use super::block::{BitsInternal, BlockL, BlockP, MyBitArrayL, KAPPA_NB_ELEMENTS};
-
 
 pub(crate) struct RandomOracle {}
 
@@ -209,6 +205,7 @@ impl RandomOracle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::SeedableRng;
 
     fn get_test_blocks() -> (BlockL, BlockL, BlockL) {
         let block_a = BlockL::new_with([42, 0]);

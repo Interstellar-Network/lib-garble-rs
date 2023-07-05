@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     circuit::{CircuitInternal, CircuitMetadata, GateType, WireRef},
-    new_garbling_scheme::{wire::WireLabel},
+    new_garbling_scheme::wire::WireLabel,
+    InterstellarEvaluatorError,
 };
 
 use super::{
-    block::{BlockL},
+    block::BlockL,
     garble::{DecodedInfo, GarbledCircuitFinal, InputEncodingSet, F},
     random_oracle::RandomOracle,
     wire_value::WireValue,
@@ -128,7 +129,8 @@ pub struct EvalCache {
 }
 
 impl EvalCache {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             output_labels: OutputLabels::new(),
             outputs_bufs: Vec::new(),
@@ -158,7 +160,7 @@ fn evaluate_internal(
     output_labels: &mut OutputLabels,
     ro_buf: &mut BytesMut,
     wire_labels: &mut Vec<Option<WireLabel>>,
-) {
+) -> Result<(), InterstellarEvaluatorError> {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
         encoded_info.x.len(),
@@ -191,11 +193,21 @@ fn evaluate_internal(
                 input_b,
             } => {
                 // "LA, LB ← active labels associated with the input wires of gate g"
-                let l_a = wire_labels[input_a.id].as_ref().unwrap();
-                let l_b = wire_labels[input_b.id].as_ref().unwrap();
+                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
+                })?;
+                let l_b = wire_labels[input_b.id].as_ref().ok_or_else(|| {
+                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_b.id }
+                })?;
 
                 // "extract ∇g ← F [g]"
-                let delta_g_blockl: BlockL = f.f[wire_ref.id].as_ref().unwrap().get_block().into();
+                let delta_g_blockl: BlockL = f.f[wire_ref.id]
+                    .as_ref()
+                    .ok_or_else(|| InterstellarEvaluatorError::EvaluateErrorMissingDelta {
+                        idx: wire_ref.id,
+                    })?
+                    .get_block()
+                    .into();
 
                 // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
                 let r = RandomOracle::random_oracle_g_truncated(
@@ -213,7 +225,9 @@ fn evaluate_internal(
                 gate_type: _type,
                 input_a,
             } => {
-                let l_a = wire_labels[input_a.id].as_ref().unwrap();
+                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
+                })?;
                 l_a.get_block().clone()
             }
             // [constant gate special case]
@@ -233,6 +247,8 @@ fn evaluate_internal(
                 Some(l_g);
         }
     }
+
+    Ok(())
 }
 
 ///
@@ -248,37 +264,41 @@ fn decoding_internal(
     outputs_bufs: &mut Vec<BytesMut>,
     output_labels: &OutputLabels,
     decoded_info: &DecodedInfo,
-) -> Vec<WireValue> {
+) -> Result<Vec<WireValue>, InterstellarEvaluatorError> {
     // TODO(rayon) make it work in work in no_std
     // #[cfg(not(feature = "std"))]
     // for output in circuit.outputs.iter() {
 
     // "for j ∈ [m] do"
     #[cfg(feature = "std")]
-    let outputs: Vec<WireValue> = outputs_bufs
+    let outputs = outputs_bufs
         .par_iter_mut()
         .enumerate()
         .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"
-            let yj = output_labels.y[idx].as_ref().unwrap();
+            let yj = output_labels.y[idx].as_ref().ok_or_else(|| {
+                InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx }
+            })?;
             let dj = &decoded_info.d[idx];
             let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
             // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
-            WireValue { value: r }
+            Ok(WireValue { value: r })
         })
         .collect();
 
     #[cfg(not(feature = "std"))]
-    let outputs: Vec<WireValue> = outputs_bufs
+    let outputs = outputs_bufs
         .iter_mut()
         .enumerate()
         .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"
-            let yj = output_labels.y[idx].as_ref().unwrap();
+            let yj = output_labels.y[idx].as_ref().ok_or_else(|| {
+                InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx }
+            })?;
             let dj = &decoded_info.d[idx];
             let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
             // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here
-            WireValue { value: r }
+            Ok(WireValue { value: r })
         })
         .collect();
 
@@ -295,7 +315,7 @@ fn decoding_internal(
 pub(crate) fn evaluate_full_chain(
     garbled: &GarbledCircuitFinal,
     inputs: &[WireValue],
-) -> Vec<WireValue> {
+) -> Result<Vec<WireValue>, InterstellarEvaluatorError> {
     let mut encoded_info = EncodedInfo {
         x: Vec::with_capacity(inputs.len()),
     };
@@ -322,13 +342,17 @@ pub(crate) fn evaluate_full_chain(
         &mut output_labels,
         &mut ro_buf,
         &mut wire_labels,
-    );
+    )?;
 
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
     let mut outputs_bufs = Vec::new();
     outputs_bufs.resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
 
-    decoding_internal(&mut outputs_bufs, &output_labels, &garbled.d)
+    Ok(decoding_internal(
+        &mut outputs_bufs,
+        &output_labels,
+        &garbled.d,
+    )?)
 }
 
 /// "Standard" evaluate chain
@@ -343,7 +367,7 @@ pub(crate) fn evaluate_with_encoded_info(
     garbled: &GarbledCircuitFinal,
     encoded_info: &EncodedInfo,
     eval_cache: &mut EvalCache,
-) -> Vec<WireValue> {
+) -> Result<Vec<WireValue>, InterstellarEvaluatorError> {
     evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
@@ -352,7 +376,7 @@ pub(crate) fn evaluate_with_encoded_info(
         &mut eval_cache.output_labels,
         &mut eval_cache.ro_buf,
         &mut eval_cache.wire_labels,
-    );
+    )?;
 
     // The correct size MUST be set!
     // Else we end up with the wrong number of outputs
@@ -360,11 +384,11 @@ pub(crate) fn evaluate_with_encoded_info(
         .outputs_bufs
         .resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
 
-    decoding_internal(
+    Ok(decoding_internal(
         &mut eval_cache.outputs_bufs,
         &eval_cache.output_labels,
         &garbled.d,
-    )
+    )?)
 }
 
 /// encoded inputs

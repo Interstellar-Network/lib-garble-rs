@@ -1,9 +1,10 @@
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::{SkcdConfig};
+use crate::circuit::SkcdConfig;
 use crate::new_garbling_scheme::evaluate::EncodedInfo;
 use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
+use crate::InterstellarEvaluatorError;
 
 use crate::new_garbling_scheme::wire_value::WireValue;
 use crate::new_garbling_scheme::{self};
@@ -14,11 +15,6 @@ pub(super) type GarblerInput = u8;
 // TODO? proper struct to avoid implicit conversion?
 // pub struct EvaluatorInput(u8);
 // pub(super) struct GarblerInput(u8);
-
-#[derive(Debug)]
-pub enum InterstellarEvaluatorError {
-    EvaluatorError,
-}
 
 /// The main garbling part in mod `new_garbling_scheme` only handles "raw" circuits.
 /// But using `SkcdConfig` we have added the concept of `GarblerInputs`(for the watermark/otp)
@@ -34,15 +30,18 @@ pub struct GarbledCircuit {
 }
 
 impl GarbledCircuit {
-    #[must_use] pub fn num_garbler_inputs(&self) -> u32 {
+    #[must_use]
+    pub fn num_garbler_inputs(&self) -> u32 {
         self.config.num_garbler_inputs()
     }
 
-    #[must_use] pub fn num_evaluator_inputs(&self) -> u32 {
+    #[must_use]
+    pub fn num_evaluator_inputs(&self) -> u32 {
         self.config.num_evaluator_inputs()
     }
 
-    #[must_use] pub fn num_outputs(&self) -> usize {
+    #[must_use]
+    pub fn num_outputs(&self) -> usize {
         self.garbled.eval_metadata.nb_outputs
     }
 
@@ -58,8 +57,10 @@ impl GarbledCircuit {
         );
 
         // convert param `garbler_inputs` into `WireValue`
-        let garbler_inputs_wire_value: Vec<WireValue> =
-            garbler_inputs.iter().map(std::convert::Into::into).collect();
+        let garbler_inputs_wire_value: Vec<WireValue> = garbler_inputs
+            .iter()
+            .map(core::convert::Into::into)
+            .collect();
 
         EncodedGarblerInputs {
             encoded: new_garbling_scheme::evaluate::encode_garbler_inputs(
@@ -88,8 +89,10 @@ impl GarbledCircuit {
         eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
-        let evaluator_inputs_wire_value: Vec<WireValue> =
-            evaluator_inputs.iter().map(std::convert::Into::into).collect();
+        let evaluator_inputs_wire_value: Vec<WireValue> = evaluator_inputs
+            .iter()
+            .map(core::convert::Into::into)
+            .collect();
 
         // TODO(opt) remove clone
         let mut encoded_info = encoded_garbler_inputs.encoded.clone();
@@ -107,12 +110,12 @@ impl GarbledCircuit {
             &self.garbled,
             &encoded_info,
             eval_cache,
-        );
+        )?;
 
         // Convert Vec<WireValue> -> Vec<u8>
         let outputs_u8: Vec<u8> = outputs_wire_value
             .into_iter()
-            .map(std::convert::Into::into)
+            .map(core::convert::Into::into)
             .collect();
         outputs.copy_from_slice(&outputs_u8);
 

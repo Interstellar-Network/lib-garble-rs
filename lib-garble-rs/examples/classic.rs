@@ -26,7 +26,7 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let mut garb = garble_skcd(&buffer).unwrap();
+    let garb = garble_skcd(&buffer).unwrap();
 
     let display_config = garb.config.display_config.unwrap().clone();
     let width = display_config.width as usize;

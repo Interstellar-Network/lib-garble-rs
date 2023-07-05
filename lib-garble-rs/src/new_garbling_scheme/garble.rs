@@ -317,12 +317,22 @@ pub(crate) struct EvalMetadata {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
+/// # Arguments
+///
+/// * `rng_seed` - when None; will use the standard and secure `ChaChaRng::from_entropy`
+///     when given: wil use the NOT SECURE `seed_from_u64`
+///
 // TODO? how to group the garble part vs eval vs decoding?
 pub(crate) fn garble(
     circuit: CircuitInternal,
     circuit_metadata: CircuitMetadata,
+    rng_seed: Option<u64>,
 ) -> Result<GarbledCircuitFinal, GarblerError> {
-    let mut rng = ChaChaRng::from_entropy();
+    let mut rng = if let Some(rng_seed) = rng_seed {
+        ChaChaRng::seed_from_u64(rng_seed)
+    } else {
+        ChaChaRng::from_entropy()
+    };
 
     // [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
     let r = RandomOracle::new_random_block_l(&mut rng);

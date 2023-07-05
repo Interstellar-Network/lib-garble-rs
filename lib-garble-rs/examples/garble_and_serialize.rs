@@ -18,6 +18,7 @@ use clap::Parser;
 
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::serialize_for_evaluator;
+use lib_garble_rs::garble_skcd_with_seed;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -45,6 +46,12 @@ struct Args {
     /// Path to the OUTPUT .garbled
     #[clap(long, default_value = "output.garbled")]
     garbled_path: String,
+
+    /// The seed passed to ChaChaRng
+    /// Useful to have repeatable outputs; eg golden tests
+    /// NOTE: passed via `seed_from_u64` for simplicity so NOT secure!
+    #[clap(long, required = false)]
+    rng_seed: Option<u64>,
 }
 
 fn main() {
@@ -59,7 +66,11 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let mut garb = garble_skcd(&buffer).unwrap();
+    let garb = if let Some(rng_seed) = args.rng_seed {
+        garble_skcd_with_seed(&buffer, rng_seed).unwrap()
+    } else {
+        garble_skcd(&buffer).unwrap()
+    };
 
     // ex-"packsmg"
     let encoded_garbler_inputs = lib_garble_rs::garbled_display_circuit_prepare_garbler_inputs(

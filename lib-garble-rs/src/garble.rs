@@ -34,15 +34,6 @@ pub struct GarbledCircuit {
 }
 
 impl GarbledCircuit {
-    /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
-    pub(super) fn garble(circuit: Circuit) -> Result<Self, GarblerError> {
-        let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata)?;
-        Ok(Self {
-            garbled,
-            config: circuit.config,
-        })
-    }
-
     pub fn num_garbler_inputs(&self) -> u32 {
         self.config.num_garbler_inputs()
     }

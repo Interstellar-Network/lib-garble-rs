@@ -64,16 +64,36 @@ pub enum InterstellarError {
 ///
 // TODO it SHOULD return a serialized GC, with "encoded inputs"
 pub fn garble_skcd(skcd_buf: &[u8]) -> Result<GarbledCircuit, InterstellarError> {
+    garble_skcd_aux(skcd_buf, None)
+}
+
+fn garble_skcd_aux(
+    skcd_buf: &[u8],
+    rng_seed: Option<u64>,
+) -> Result<GarbledCircuit, InterstellarError> {
     let circuit =
         circuit::Circuit::parse_skcd(skcd_buf).map_err(|e| InterstellarError::SkcdParserError)?;
 
-    let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata)
+    let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata, rng_seed)
         .map_err(|_e| InterstellarError::GarblerError)?;
 
     Ok(GarbledCircuit {
         garbled,
         config: circuit.config,
     })
+}
+
+/// Variant of `garble_skcd` used for tests
+///
+/// # Arguments
+///
+/// * `rng_seed` - when None; it will use the standard and secure `ChaChaRng::from_entropy`
+///     when given: it will use the NOT SECURE `seed_from_u64`
+pub fn garble_skcd_with_seed(
+    skcd_buf: &[u8],
+    rng_seed: u64,
+) -> Result<GarbledCircuit, InterstellarError> {
+    garble_skcd_aux(skcd_buf, Some(rng_seed))
 }
 
 /// Prepare the `garbler_inputs`; it contains both:

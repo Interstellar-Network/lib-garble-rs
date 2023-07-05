@@ -79,7 +79,9 @@ pub fn deserialize_for_evaluator(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::garble_skcd;
+    use crate::{
+        garble_skcd, garble_skcd_with_seed, garbled_display_circuit_prepare_garbler_inputs,
+    };
 
     /// test that specific(=postcard) (de)serialization works
     #[test]
@@ -119,6 +121,29 @@ mod tests {
             new_garb.num_evaluator_inputs()
         );
         assert_eq!(ref_garb.config, new_garb.config);
+    }
+
+    #[test]
+    fn test_serialize_golden_display_message_120x52_2digits() {
+        let ref_garb = garble_skcd_with_seed(
+            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
+            424242,
+        )
+        .unwrap();
+        let garbler_inputs = vec![4, 2];
+        let encoded_garbler_inputs = garbled_display_circuit_prepare_garbler_inputs(
+            &ref_garb,
+            &garbler_inputs,
+            "test message",
+        )
+        .unwrap();
+
+        let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
+
+        let ref_buf =
+            include_bytes!("../examples/data/display_message_120x52_2digits.garbled.pb.bin");
+
+        assert_eq!(buf, ref_buf, "failed {:#?} vs {:#?}", buf, ref_buf);
     }
 
     /// test that the client DOES NOT have access to Encoder's garbler_inputs

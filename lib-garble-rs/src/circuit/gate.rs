@@ -30,8 +30,8 @@ pub(crate) struct WireRef {
 /// - `lib_circuits/src/blif/gate_types.h`
 /// - `lib_garble/src/justgarble/gate_types.h`
 ///
-/// IMPORTANT: "ONE" and "ZERO" are special cases: they are mapped to GateInternal::Constant
-/// The rest is parsed as-is into a GateInternal::Standard
+/// IMPORTANT: "ONE" and "ZERO" are special cases: they are mapped to `GateInternal::Constant`
+/// The rest is parsed as-is into a `GateInternal::Standard`
 /*
 
 Can you rewrite all logic gates (eg NAND, NOR, OR, etc) using only XOR and AND (and constant 0 and 1) ?

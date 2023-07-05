@@ -143,14 +143,14 @@ impl Circuit {
         num_inputs
     }
 
-    /// Evaluate (clear text version == UNGARBLED) using crate "boolean_expression"
-    /// For simplicity, this only supports "evaluator_inputs" b/c this is only
+    /// Evaluate (clear text version == UNGARBLED) using crate "`boolean_expression`"
+    /// For simplicity, this only supports "`evaluator_inputs`" b/c this is only
     /// used to test basic circuits(eg adders, etc) so no point in having 2PC.
     ///
-    /// NOTE: "expected_outputs" are passed as param b/c of the way "evaluate" from the crate "boolean_expression" works
+    /// NOTE: "`expected_outputs`" are passed as param b/c of the way "evaluate" from the crate "`boolean_expression`" works
     /// See also: https://stackoverflow.com/questions/59109453/how-do-i-use-the-rust-crate-boolean-expression-to-implement-a-simple-logic-cir
     pub(crate) fn eval_plain(&self, evaluator_inputs: &[u8]) -> Result<Vec<u8>, EvaluateError> {
-        use boolean_expression::*;
+        use boolean_expression::{BDDFunc, BDD_ONE, BDD_ZERO};
 
         assert!(
             self.num_evaluator_inputs() == self.circuit.n(),
@@ -180,26 +180,22 @@ impl Circuit {
                     input_b,
                 } => match r#type {
                     Some(GateTypeBinary::XOR) => circuit.xor(
-                        bdd_map
+                        *bdd_map
                             .get(&input_a.id)
-                            .expect("GateType::XOR missing input a!")
-                            .clone(),
-                        bdd_map
+                            .expect("GateType::XOR missing input a!"),
+                        *bdd_map
                             .get(&input_b.id)
-                            .expect("GateType::XOR missing input b!")
-                            .clone(),
+                            .expect("GateType::XOR missing input b!"),
                     ),
                     Some(GateTypeBinary::XNOR) => {
                         // XNOR is a XOR, whose output is NOTed
                         let xor_output = circuit.xor(
-                            bdd_map
+                            *bdd_map
                                 .get(&input_a.id)
-                                .expect("GateType::XOR missing input a!")
-                                .clone(),
-                            bdd_map
+                                .expect("GateType::XOR missing input a!"),
+                            *bdd_map
                                 .get(&input_b.id)
-                                .expect("GateType::XOR missing input b!")
-                                .clone(),
+                                .expect("GateType::XOR missing input b!"),
                         );
 
                         circuit.not(xor_output)
@@ -207,14 +203,12 @@ impl Circuit {
                     Some(GateTypeBinary::NAND) => {
                         // NAND is a AND, whose output is NOTed
                         let and_output = circuit.and(
-                            bdd_map
+                            *bdd_map
                                 .get(&input_a.id)
-                                .expect("GateType::NAND missing input a!")
-                                .clone(),
-                            bdd_map
+                                .expect("GateType::NAND missing input a!"),
+                            *bdd_map
                                 .get(&input_b.id)
-                                .expect("GateType::NAND missing input b!")
-                                .clone(),
+                                .expect("GateType::NAND missing input b!"),
                         );
 
                         circuit.not(and_output)
@@ -222,37 +216,31 @@ impl Circuit {
                     Some(GateTypeBinary::NOR) => {
                         // NOR is a OR, whose output is NOTed
                         let or_output = circuit.or(
-                            bdd_map
+                            *bdd_map
                                 .get(&input_a.id)
-                                .expect("GateType::NOR missing input a!")
-                                .clone(),
-                            bdd_map
+                                .expect("GateType::NOR missing input a!"),
+                            *bdd_map
                                 .get(&input_b.id)
-                                .expect("GateType::NOR missing input b!")
-                                .clone(),
+                                .expect("GateType::NOR missing input b!"),
                         );
 
                         circuit.not(or_output)
                     }
                     Some(GateTypeBinary::AND) => circuit.and(
-                        bdd_map
+                        *bdd_map
                             .get(&input_a.id)
-                            .expect("GateType::AND missing input a!")
-                            .clone(),
-                        bdd_map
+                            .expect("GateType::AND missing input a!"),
+                        *bdd_map
                             .get(&input_b.id)
-                            .expect("GateType::AND missing input b!")
-                            .clone(),
+                            .expect("GateType::AND missing input b!"),
                     ),
                     Some(GateTypeBinary::OR) => circuit.or(
-                        bdd_map
+                        *bdd_map
                             .get(&input_a.id)
-                            .expect("GateType::OR missing input a!")
-                            .clone(),
-                        bdd_map
+                            .expect("GateType::OR missing input a!"),
+                        *bdd_map
                             .get(&input_b.id)
-                            .expect("GateType::OR missing input b!")
-                            .clone(),
+                            .expect("GateType::OR missing input b!"),
                     ),
                     None => unimplemented!("eval_plain: None GateTypeBinary!"),
                 },
@@ -261,24 +249,22 @@ impl Circuit {
                     input_a,
                 } => match r#type {
                     Some(GateTypeUnary::INV) => circuit.not(
-                        bdd_map
+                        *bdd_map
                             .get(&input_a.id)
-                            .expect("GateType::NOT missing input a!")
-                            .clone(),
+                            .expect("GateType::NOT missing input a!"),
                     ),
                     // ite = If-Then-Else
                     // we define BUF as "if input == 1 then input; else 0"
                     Some(GateTypeUnary::BUF) => circuit.ite(
-                        bdd_map
+                        *bdd_map
                             .get(&input_a.id)
-                            .expect("GateType::NOT missing input a!")
-                            .clone(),
+                            .expect("GateType::NOT missing input a!"),
                         BDD_ONE,
                         BDD_ZERO,
                     ),
                     None => unimplemented!("eval_plain: None GateTypeUnary!"),
                 },
-                GateType::Constant { value } => circuit.constant(value.clone()),
+                GateType::Constant { value } => circuit.constant(*value),
             };
 
             bdd_map.insert(gate.get_output().id, bdd_gate);
@@ -293,7 +279,7 @@ impl Circuit {
         let hashmap_inputs = evaluator_inputs
             .iter()
             .enumerate()
-            .map(|(idx, input)| (idx, input.clone() == 1))
+            .map(|(idx, input)| (idx, *input == 1))
             .collect();
 
         let res_outputs: Vec<u8> = self
@@ -301,11 +287,11 @@ impl Circuit {
             .outputs
             .iter()
             .map(|output| {
-                let output_bddfunc = bdd_map.get(&output.id).expect("missing output!").clone();
-                circuit.evaluate(output_bddfunc, &hashmap_inputs) as u8
+                let output_bddfunc = *bdd_map.get(&output.id).expect("missing output!");
+                u8::from(circuit.evaluate(output_bddfunc, &hashmap_inputs))
             })
             .collect();
-        println!("########### evaluate : {:?}", res_outputs);
+        println!("########### evaluate : {res_outputs:?}");
 
         Ok(res_outputs)
     }

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use bytes::BytesMut;
-use hashbrown::{hash_map::OccupiedError, HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use super::{
     block::BlockL,
     delta,
     random_oracle::RandomOracle,
-    wire::{Wire, WireLabel},
+    wire::{Wire},
     wire_labels_set::WireLabelsSet,
 };
 
@@ -31,10 +31,10 @@ pub(crate) enum GarblerError {
 
 /// In https://eprint.iacr.org/2021/739.pdf
 /// this is the lines 1 to 4 of "Algorithm 5 Gate"
-/// 1: Xg00 = ROg (LA0 , LB0 )
-/// 2: Xg01 = ROg (LA0 , LB1 )
-/// 3: Xg10 = ROg (LA1 , LB0 )
-/// 4: Xg11 = ROg (LA1 , LB1 )
+/// 1: Xg00 = `ROg` (LA0 , LB0 )
+/// 2: Xg01 = `ROg` (LA0 , LB1 )
+/// 3: Xg10 = `ROg` (LA1 , LB0 )
+/// 4: Xg11 = `ROg` (LA1 , LB1 )
 ///
 /// Also called `Compress` in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
 /// The function f1,0, which we model as a random oracle, is used to
@@ -54,7 +54,7 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut
 
     match gate.get_type() {
         GateType::Binary {
-            gate_type: r#type,
+            gate_type: _type,
             input_a,
             input_b,
         } => {
@@ -62,26 +62,26 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut
             let wire_b: &Wire = encoded_wires[input_b.id].as_ref().unwrap();
 
             WireLabelsSet::new_binary(
-                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value0()), tweak, buf),
-                RandomOracle::random_oracle_g(&wire_a.value0(), Some(&wire_b.value1()), tweak, buf),
-                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value0()), tweak, buf),
-                RandomOracle::random_oracle_g(&wire_a.value1(), Some(&wire_b.value1()), tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value0()), tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value1()), tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value0()), tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value1()), tweak, buf),
             )
         }
         GateType::Unary {
-            gate_type: r#type,
+            gate_type: _type,
             input_a,
         } => {
             let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
 
             WireLabelsSet::new_unary(
-                RandomOracle::random_oracle_g(&wire_a.value0(), None, tweak, buf),
-                RandomOracle::random_oracle_g(&wire_a.value1(), None, tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value0(), None, tweak, buf),
+                RandomOracle::random_oracle_g(wire_a.value1(), None, tweak, buf),
             )
         }
         // [constant gate special case]
         // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-        GateType::Constant { value } => {
+        GateType::Constant { value: _ } => {
             unimplemented!("f1_0_compress for Constant gates is a special case!")
         }
     }
@@ -89,7 +89,7 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut
 
 /// "input encoding set e."
 ///
-/// NOTE: Contrary to the papers it is a HashMap instead of a Vec in topological order
+/// NOTE: Contrary to the papers it is a `HashMap` instead of a Vec in topological order
 /// b/c in `fn garble` when looping on `circuit.gates` the gate.id is NOT guaranteed to be in order!
 /// eg
 /// - circuits inputs: *should* indeed usually be in order => for instance 0..2
@@ -129,11 +129,11 @@ pub(super) struct InputEncodingSet {
 /// 6:  end for
 /// 7: Return e
 ///
-/// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random BlockL
+/// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random `BlockL`
 ///
 fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> InputEncodingSet {
     let mut w = Vec::with_capacity(circuit.n());
-    for (idx, input_wire) in circuit.wires()[0..circuit.n() as usize].iter().enumerate() {
+    for (idx, input_wire) in circuit.wires()[0..circuit.n()].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
         assert_eq!(
             input_wire.id, idx,
@@ -163,7 +163,7 @@ fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> 
 ///   5 Supporting Free-XOR; https://eprint.iacr.org/2021/739.pdf
 ///
 /// param: r: [Supporting Free-XOR] "delta"
-fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, r: &BlockL) {
+fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, _r: &BlockL) {
     let lw0 = RandomOracle::new_random_block_l(rng);
     let lw1 = RandomOracle::new_random_block_l(rng);
 
@@ -188,8 +188,8 @@ fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, r: 
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-fn garble_internal<'a>(
-    circuit: &'a CircuitInternal,
+fn garble_internal(
+    circuit: &CircuitInternal,
     e: &InputEncodingSet,
     circuit_metadata: &CircuitMetadata,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
@@ -218,13 +218,13 @@ fn garble_internal<'a>(
     let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
     let mut buf = BytesMut::new();
 
-    for gate in circuit.gates.iter() {
+    for gate in &circuit.gates {
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {
-                gate_type,
-                input_a,
-                input_b,
+                gate_type: _,
+                input_a: _,
+                input_b: _,
             } => {
                 let compressed_set = f1_0_compress(&encoded_wires, gate, &mut buf);
                 let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
@@ -295,7 +295,7 @@ pub(super) struct GarbledCircuitInternal {
     d: D,
 }
 
-/// This is the EVALUABLE GarbledCircuit; ie the result of the whole garbling pipeline.
+/// This is the EVALUABLE `GarbledCircuit`; ie the result of the whole garbling pipeline.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct GarbledCircuitFinal {
     pub(crate) circuit: CircuitInternal,
@@ -378,7 +378,7 @@ fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> 
     let mut buf = BytesMut::new();
 
     // "2: for output wire j ∈ [m] do"
-    for (idx, output_wire) in circuit_outputs.iter().enumerate() {
+    for (_idx, output_wire) in circuit_outputs.iter().enumerate() {
         // "extract Lj0, Lj1 ← D[j]"
         let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
 
@@ -420,7 +420,7 @@ mod tests {
         let d = decoding_info(&circuit_outputs, &d, &mut rng);
         let dj = &d.d[0];
         let mut buf = BytesMut::new();
-        assert_eq!(RandomOracle::random_oracle_prime(&l0, dj, &mut buf), false);
-        assert_eq!(RandomOracle::random_oracle_prime(&l1, dj, &mut buf), true);
+        assert!(!RandomOracle::random_oracle_prime(&l0, dj, &mut buf));
+        assert!(RandomOracle::random_oracle_prime(&l1, dj, &mut buf));
     }
 }

@@ -1,4 +1,4 @@
-use alloc::string::ToString;
+
 use alloc::vec::Vec;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;

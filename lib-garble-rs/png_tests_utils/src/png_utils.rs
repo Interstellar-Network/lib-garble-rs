@@ -18,7 +18,7 @@ pub fn read_png_to_bytes(buf: &[u8]) -> Vec<u8> {
 /// return: the raw bytes of .png corresponding to the GarbledCircuit's eval outputs
 /// Typically the is "output[i] = eval[i] * 255"
 pub fn write_png(path: &str, width: usize, height: usize, data: &[u8]) {
-    write_png_direct(path, width, height, &data);
+    write_png_direct(path, width, height, data);
 }
 
 pub fn write_png_direct(path: &str, width: usize, height: usize, data: &[u8]) {

@@ -84,8 +84,8 @@ impl WireLabelsSet {
 
     pub(super) fn get_x00(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x00.get_block(),
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => {
+            WireLabelsSetInternal::BinaryGate { x00, x01: _, x10: _, x11: _ } => x00.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
         }
@@ -93,8 +93,8 @@ impl WireLabelsSet {
 
     pub(super) fn get_x01(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x01.get_block(),
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => {
+            WireLabelsSetInternal::BinaryGate { x00: _, x01, x10: _, x11: _ } => x01.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
         }
@@ -102,8 +102,8 @@ impl WireLabelsSet {
 
     pub(super) fn get_x10(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x10.get_block(),
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => {
+            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10, x11: _ } => x10.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
         }
@@ -111,8 +111,8 @@ impl WireLabelsSet {
 
     pub(super) fn get_x11(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => x11.get_block(),
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => {
+            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11 } => x11.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
         }
@@ -120,19 +120,19 @@ impl WireLabelsSet {
 
     pub(super) fn get_x0(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => {
+            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11: _ } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => x0.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0, x1: _ } => x0.get_block(),
         }
     }
 
     pub(super) fn get_x1(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => {
+            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11: _ } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => x1.get_block(),
+            WireLabelsSetInternal::UnaryGate { x0: _, x1 } => x1.get_block(),
         }
     }
 }

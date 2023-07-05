@@ -1,6 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::vec::Vec;
-use core::{mem::size_of, ops::BitAnd};
+use core::{mem::size_of};
 
 use bitvec::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -18,12 +18,12 @@ type MyBitArrayP = [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR];
 
 /// The number of Bytes needed to store `MyBitArrayL`/`BlockL`
 /// Typically this would be 8 b/c we are using `u64` internally for `bitvec`
-/// eg KAPPA = 128 and sizeof(u64) = 8 => KAPPA_BYTES = 128 / 8 => 16
+/// eg KAPPA = 128 and sizeof(u64) = 8 => `KAPPA_BYTES` = 128 / 8 => 16
 // pub(super) const KAPPA_BYTES: usize = size_of::<MyBitArrayL>();
-/// That is the number of "internal element"(eg BitsInternal = u64) needed
+/// That is the number of "internal element"(eg `BitsInternal` = u64) needed
 /// to represent a `MyBitArrayL`
-/// eg KAPPA = 128 bits  //  BitsInternal = u64 = 64 bits => 128 / 64 => 2 elements
-pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / (size_of::<BitsInternal>() * 8);
+/// eg KAPPA = 128 bits  //  `BitsInternal` = u64 = 64 bits => 128 / 64 => 2 elements
+pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / BitsInternal::BITS as usize;
 
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
@@ -66,7 +66,7 @@ impl BlockL {
         // let bytes = bits.as_raw_slice();
         // bytes
 
-        let ptr = self.bits_words.as_ptr() as *const u8;
+        let ptr = self.bits_words.as_ptr().cast::<u8>();
         let len = self.bits_words.len() * size_of::<u64>();
         unsafe { alloc::slice::from_raw_parts(ptr, len) }
     }
@@ -98,7 +98,7 @@ impl BlockL {
 impl BlockP {
     /// Crate a new instance with the given value
     /// NOTE: Called by `random_oracle_g` so the input is (pseudo) random,
-    /// so using to_be_bytes vs to_le_bytes does not really matter
+    /// so using `to_be_bytes` vs `to_le_bytes` does not really matter
     #[cfg(test)]
     pub(super) fn new_with2(initial_value: MyBitArrayP) -> Self {
         // TODO or use `from_be_bytes`? For the use case(which is creating new random blocks, it should not really matter)
@@ -115,7 +115,7 @@ impl BlockP {
 
     /// Crate a new instance with the given value
     /// NOTE: Called by `random_oracle_g` so the input is (pseudo) random,
-    /// so using to_be_bytes vs to_le_bytes does not really matter
+    /// so using `to_be_bytes` vs `to_le_bytes` does not really matter
     pub(super) fn new_with_raw_bytes(
         initial_value: [u8; KAPPA_NB_ELEMENTS * KAPPA_FACTOR * size_of::<BitsInternal>()],
     ) -> Self {
@@ -236,41 +236,41 @@ mod tests {
         // }
 
         let test1 = BlockP::new_with2([
-            3951001893725728678,
-            17561894908598795415,
-            3273299927427316065,
-            4016781436536637665,
-            3759867147464905433,
-            4273494230197193221,
-            3529531907751757055,
-            16273736933959562170,
-            16977210453145070413,
-            4260534243702315869,
-            8876721923944456293,
-            6706553457839696430,
-            11459371310689979744,
-            17420813315993560429,
-            16645214173008843092,
-            1335969637496639684,
+            3_951_001_893_725_728_678,
+            17_561_894_908_598_795_415,
+            3_273_299_927_427_316_065,
+            4_016_781_436_536_637_665,
+            3_759_867_147_464_905_433,
+            4_273_494_230_197_193_221,
+            3_529_531_907_751_757_055,
+            16_273_736_933_959_562_170,
+            16_977_210_453_145_070_413,
+            4_260_534_243_702_315_869,
+            8_876_721_923_944_456_293,
+            6_706_553_457_839_696_430,
+            11_459_371_310_689_979_744,
+            17_420_813_315_993_560_429,
+            16_645_214_173_008_843_092,
+            1_335_969_637_496_639_684,
         ]);
         // NOTE: generated on Rust Playground
         let test2 = BlockP::new_with2([
-            9449436712766709104,
-            3648953883981184573,
-            14898637992720905965,
-            17363463440617121051,
-            7750060861933093186,
-            14007631929040371275,
-            5938564052276943847,
-            10629746254474597517,
-            3232167171266494280,
-            4891434532817971135,
-            14814410512354217645,
-            16902468201008627571,
-            15996213338535303994,
-            2018280331266639914,
-            3514537016880298159,
-            17460098548274586993,
+            9_449_436_712_766_709_104,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            7_750_060_861_933_093_186,
+            14_007_631_929_040_371_275,
+            5_938_564_052_276_943_847,
+            10_629_746_254_474_597_517,
+            3_232_167_171_266_494_280,
+            4_891_434_532_817_971_135,
+            14_814_410_512_354_217_645,
+            16_902_468_201_008_627_571,
+            15_996_213_338_535_303_994,
+            2_018_280_331_266_639_914,
+            3_514_537_016_880_298_159,
+            17_460_098_548_274_586_993,
         ]);
 
         (zero, one, test1, test2)
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_projection_zero_with_one() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (zero, one, _test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&zero, &one);
 
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_projection_one_with_zero() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (zero, one, _test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&one, &zero);
 
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_projection_one_with_one() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (_zero, one, _test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&one, &one);
 
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_projection_one_with_test() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (_zero, one, test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&one, &test1);
 
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_projection_test_with_one() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (_zero, one, test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&test1, &one);
 
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_projection_test_with_test() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (_zero, _one, test1, _test2) = get_test_blocks();
 
         let result = BlockP::new_projection(&test1, &test1);
 
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_projection_different() {
-        let (zero, one, test1, test2) = get_test_blocks();
+        let (_zero, one, test1, test2) = get_test_blocks();
 
         let result1 = BlockP::new_projection(&test1, &one);
         let result2 = BlockP::new_projection(&test2, &one);

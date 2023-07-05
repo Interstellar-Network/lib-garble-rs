@@ -17,7 +17,7 @@ pub(super) struct Delta {
 }
 
 impl Delta {
-    /// Build a new `Delta` from the desired GateType
+    /// Build a new `Delta` from the desired `GateType`
     ///
     /// In https://eprint.iacr.org/2021/739.pdf
     /// this is the main loop of "Algorithm 5 Gate" up to line 17/18
@@ -108,8 +108,8 @@ impl Delta {
         let (l0_full, l1_full) = match gate_type {
             GateType::Binary {
                 gate_type: r#type,
-                input_a,
-                input_b,
+                input_a: _,
+                input_b: _,
             } => match r#type {
                 Some(GateTypeBinary::XOR) => (
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
@@ -140,7 +140,7 @@ impl Delta {
             },
             GateType::Unary {
                 gate_type: r#type,
-                input_a,
+                input_a: _,
             } => match r#type {
                 // TODO(opt); probably not needed if we don't use it in `evaluate_internal`
                 // but it's never called since "free BUF/NOT" so it should not matter
@@ -157,7 +157,7 @@ impl Delta {
             },
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-            GateType::Constant { value } => {
+            GateType::Constant { value: _ } => {
                 unimplemented!("Delta::new for Constant gates is a special case!")
             }
         };
@@ -519,8 +519,8 @@ impl TruthTable {
             // GateType::INV => todo!(),
             GateType::Binary {
                 gate_type: r#type,
-                input_a,
-                input_b,
+                input_a: _,
+                input_b: _,
             } => match r#type {
                 Some(GateTypeBinary::XOR) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_binary_gate_from_bool(
@@ -557,7 +557,7 @@ impl TruthTable {
             },
             GateType::Unary {
                 gate_type: r#type,
-                input_a,
+                input_a: _,
             } => match r#type {
                 Some(GateTypeUnary::INV) => TruthTable {
                     truth_table: WireLabelsSetBitSlice::new_unary_gate_from_bool(false, true),
@@ -570,7 +570,7 @@ impl TruthTable {
             },
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-            GateType::Constant { value } => {
+            GateType::Constant { value: _ } => {
                 unimplemented!("TruthTable for Constant gates is a special case!")
             }
         }
@@ -598,7 +598,7 @@ mod tests {
     /// Minimal Reprodocible Example for Delta for a NAND Gate
     /// Helpful to visualize of the algorithm works if we hardcoded all the truth tables etc
     ///
-    /// For this we use l = 16 and l_prime = 64
+    /// For this we use l = 16 and `l_prime` = 64
     /// Techinically not OK vs the security parameter but does not really matter here.
     ///
     fn mre_delta_binary_gate_aux() {
@@ -657,7 +657,7 @@ mod tests {
     #[test]
     #[ignore]
     fn mre_delta_nand_gate() {
-        for i in 0..1000 {
+        for _i in 0..1000 {
             mre_delta_binary_gate_aux()
         }
     }
@@ -666,7 +666,7 @@ mod tests {
         let mut arr = [0u8; 16];
         for i in 0..16 {
             let r: u8 = rng.gen();
-            arr[i] = (r > 127) as u8;
+            arr[i] = u8::from(r > 127);
         }
 
         arr

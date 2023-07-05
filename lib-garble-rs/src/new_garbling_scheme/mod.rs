@@ -66,7 +66,7 @@ mod tests {
         Constant(bool),
     }
 
-    /// param `tests`: inputs, expected_output
+    /// param `tests`: inputs, `expected_output`
     fn aux_test_basic_circuit(
         tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)>,
         gate_type_to_test: TestGateType,
@@ -90,8 +90,7 @@ mod tests {
                 assert_eq!(
                     outputs.len(),
                     1,
-                    "{:?} gate so we SHOULD have only one output!",
-                    gate_type_to_test,
+                    "{gate_type_to_test:?} gate so we SHOULD have only one output!",
                 );
                 assert_eq!(outputs[0], expected_output);
             }

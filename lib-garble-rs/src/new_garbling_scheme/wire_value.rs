@@ -39,12 +39,12 @@ impl From<u8> for WireValue {
 
 impl From<WireValue> for u8 {
     fn from(value: WireValue) -> Self {
-        value.value as u8
+        u8::from(value.value)
     }
 }
 
 impl From<&WireValue> for u8 {
     fn from(value: &WireValue) -> Self {
-        value.value as u8
+        u8::from(value.value)
     }
 }

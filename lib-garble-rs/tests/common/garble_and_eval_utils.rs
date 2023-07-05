@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::EncodedGarblerInputs;
 use lib_garble_rs::EvalCache;
@@ -51,7 +51,7 @@ pub fn eval_client(
 pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (GarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 
-    let display_config = garb.config.display_config.unwrap().clone();
+    let display_config = garb.config.display_config.unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 

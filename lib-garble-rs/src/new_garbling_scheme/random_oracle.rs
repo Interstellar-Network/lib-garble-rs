@@ -1,19 +1,19 @@
-use core::mem::size_of;
 
-use bitvec::prelude::*;
+
+
 use bytes::BytesMut;
 use rand::Rng;
-use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
+use rand_chacha::{ChaChaRng};
 use xxhash_rust::xxh3::xxh3_128;
 
 use super::block::{BitsInternal, BlockL, BlockP, MyBitArrayL, KAPPA_NB_ELEMENTS};
-use super::constant::KAPPA_FACTOR;
+
 
 pub(crate) struct RandomOracle {}
 
 impl RandomOracle {
     /// First Random Oracle = RO0
-    /// ROg : {0, 1}nℓ → {0, 1}ℓ′ in https://eprint.iacr.org/2021/739.pdf
+    /// `ROg` : {0, 1}nℓ → {0, 1}ℓ′ in https://eprint.iacr.org/2021/739.pdf
     /// "The random oracle
     /// RO takes as input the tweak g and two labels with total length 2ℓ, and outputs
     /// an ℓ′-length string"
@@ -48,7 +48,7 @@ impl RandomOracle {
         let hash_6 = hash_5 ^ hash_0;
         let hash_7 = hash_6 ^ hash_0;
 
-        let mut hash_bytes_big: [u8; 128] = [
+        let hash_bytes_big: [u8; 128] = [
             hash_0.to_le_bytes(),
             hash_1.to_le_bytes(),
             hash_2.to_le_bytes(),
@@ -66,9 +66,9 @@ impl RandomOracle {
     }
 
     /// "Truncated" version of `random_oracle_g`
-    /// This is used by eval to avoid allocating a BlockP just to convert(ie truncate) it
-    /// into a BlockL right after.
-    /// Doing it that way avoids both an alloc, and more important: 7 rounds of xxh3_128(or XOR)
+    /// This is used by eval to avoid allocating a `BlockP` just to convert(ie truncate) it
+    /// into a `BlockL` right after.
+    /// Doing it that way avoids both an alloc, and more important: 7 rounds of `xxh3_128(or` XOR)
     pub(super) fn random_oracle_g_truncated(
         label_a: &BlockL,
         label_b: Option<&BlockL>,
@@ -116,7 +116,7 @@ impl RandomOracle {
 
         // TODO! which hash to use? sha2, sha256?
         // or maybe some MAC? cf `keyed_hash`?
-        xxh3_128(&buf)
+        xxh3_128(buf)
     }
 
     pub(super) fn new_random_block_l(rng: &mut ChaChaRng) -> BlockL {
@@ -148,7 +148,7 @@ impl RandomOracle {
         buf.reserve(l0_l1_bytes.len() + dj_bytes.len());
         buf.extend_from_slice(l0_l1.as_bytes());
         buf.extend_from_slice(dj.as_bytes());
-        let hash = xxh3_128(&buf);
+        let hash = xxh3_128(buf);
 
         // Extract the least significant bit from the hash
         // Technically we DO NOT need the LSB; we just need to be consistant b/w garbling and eval
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_same_blocks_different_tweaks_should_return_different_hashes() {
-        let (block_a, block_b, block_common) = get_test_blocks();
+        let (block_a, block_b, _block_common) = get_test_blocks();
         let mut buf = BytesMut::new();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 0, &mut buf);
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_same_blocks_same_tweaks_should_return_same_hashes() {
-        let (block_a, block_b, block_common) = get_test_blocks();
+        let (block_a, block_b, _block_common) = get_test_blocks();
         let mut buf = BytesMut::new();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2, &mut buf);
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_random_oracle_0_different_blocks_same_tweaks_should_return_different_hashes() {
-        let (block_a, block_b, block_common) = get_test_blocks();
+        let (block_a, block_b, _block_common) = get_test_blocks();
         let mut buf = BytesMut::new();
 
         let hash1 = RandomOracle::random_oracle_g(&block_a, Some(&block_b), 2, &mut buf);
@@ -281,7 +281,7 @@ mod tests {
         let lj0 = RandomOracle::new_random_block_l(&mut rng);
         let mut buf = BytesMut::new();
 
-        for i in 0..1000 {
+        for _i in 0..1000 {
             let dj = RandomOracle::new_random_block_l(&mut rng);
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj, &mut buf);
             results.push(a);
@@ -300,7 +300,7 @@ mod tests {
         let dj = RandomOracle::new_random_block_l(&mut rng);
         let mut buf = BytesMut::new();
 
-        for i in 0..1000 {
+        for _i in 0..1000 {
             let lj0 = RandomOracle::new_random_block_l(&mut rng);
             let a = !RandomOracle::random_oracle_prime(&lj0, &dj, &mut buf);
             results.push(a);

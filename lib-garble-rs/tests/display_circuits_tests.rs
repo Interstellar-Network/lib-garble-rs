@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+
 use rand::distributions::Uniform;
 use rand::thread_rng;
 use std::time::Instant;
@@ -53,7 +53,7 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
 
     // Convert Vec<0/1u8> -> Vec<0/255u8>; needed to have a proper png-like image output
     for merged_output in merged_outputs.iter_mut() {
-        *merged_output = *merged_output * 255;
+        *merged_output *= 255;
     }
 
     merged_outputs
@@ -174,7 +174,7 @@ fn bench_eval_display_message_640x360_2digits_42() {
         );
 
         core::hint::black_box(&outputs);
-        assert!(outputs.len() > 0);
+        assert!(!outputs.is_empty());
 
         let duration = start.elapsed();
 

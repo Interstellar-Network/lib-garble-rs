@@ -98,8 +98,8 @@ mod tests {
         assert_eq!(ref_garb, new_garb);
     }
 
-    /// test that specific(=postcard) (de)serialization works with display_message_120x52_2digits
-    /// NOTE: contrary to "generic circuits"(cf above) we HAVE set some "garbler_inputs" in the Encoder and those SHOULD NOT
+    /// test that specific(=postcard) (de)serialization works with `display_message_120x52_2digits`
+    /// NOTE: contrary to "generic circuits"(cf above) we HAVE set some "`garbler_inputs`" in the Encoder and those SHOULD NOT
     /// be serialized(cf test after) so we compare manually
     #[test]
     fn test_serialize_deserialize_display_message_120x52_2digits() {
@@ -138,15 +138,15 @@ mod tests {
         )
         .unwrap();
 
-        let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
+        let buf = serialize_for_evaluator(ref_garb, encoded_garbler_inputs).unwrap();
 
         let ref_buf =
             include_bytes!("../examples/data/display_message_120x52_2digits.garbled.pb.bin");
 
-        assert_eq!(buf, ref_buf, "failed {:#?} vs {:#?}", buf, ref_buf);
+        assert_eq!(buf, ref_buf, "failed {buf:#?} vs {ref_buf:#?}");
     }
 
-    /// test that the client DOES NOT have access to Encoder's garbler_inputs
+    /// test that the client DOES NOT have access to Encoder's `garbler_inputs`
     #[test]
     // TODO(security) [security] we SHOULD NOT be able to call `encoding_internal` after `(de)serialize_for_evaluator`
     //  cf `InputEncodingSet` -> SHOULD probably be refactored(splitted) into "garbler" vs "evaluator"
@@ -167,21 +167,21 @@ mod tests {
         assert_eq!(new_garb.num_garbler_inputs(), 0);
     }
 
-    /// IMPORTANT: for security/privacy, we DO NOT serialize the GateType
+    /// IMPORTANT: for security/privacy, we DO NOT serialize the `GateType`
     /// so we must clean the Gate
     fn garbled_circuit_reset_gate_type(garbled: &mut GarbledCircuit) {
-        for gate in garbled.garbled.circuit.gates.iter_mut() {
+        for gate in &mut garbled.garbled.circuit.gates {
             match &mut gate.internal {
                 crate::circuit::GateType::Binary {
                     ref mut gate_type,
-                    input_a,
-                    input_b,
+                    input_a: _,
+                    input_b: _,
                 } => *gate_type = None,
                 crate::circuit::GateType::Unary {
                     ref mut gate_type,
-                    input_a,
+                    input_a: _,
                 } => *gate_type = None,
-                crate::circuit::GateType::Constant { value } => {}
+                crate::circuit::GateType::Constant { value: _ } => {}
             }
         }
     }

@@ -121,7 +121,7 @@ impl SkcdToWireRefConverter {
 
     /// Return the ORDERED list of all the wires.
     /// Used during garbling "init" function to create the "encoding".
-    /// WARNING: this calls "into_values" so the SkcdToWireRefConverter CAN NOT be used afterward!
+    /// WARNING: this calls "`into_values`" so the `SkcdToWireRefConverter` CAN NOT be used afterward!
     ///
     /// The ORDERING is CRITICAL (for now).
     /// Technically we should probably get away with splitting the wires in input+gates+outputs
@@ -142,10 +142,10 @@ mod tests {
         let mut converter = SkcdToWireRefConverter::new();
 
         let gate_id = "42";
-        converter.insert(&gate_id);
-        let a = converter.get(&gate_id).unwrap().clone();
-        converter.insert(&gate_id);
-        let b = converter.get(&gate_id).unwrap().clone();
+        converter.insert(gate_id);
+        let a = converter.get(gate_id).unwrap().clone();
+        converter.insert(gate_id);
+        let b = converter.get(gate_id).unwrap().clone();
 
         assert_eq!(a, b);
     }

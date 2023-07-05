@@ -72,7 +72,7 @@ fn garble_skcd_aux(
     rng_seed: Option<u64>,
 ) -> Result<GarbledCircuit, InterstellarError> {
     let circuit =
-        circuit::Circuit::parse_skcd(skcd_buf).map_err(|e| InterstellarError::SkcdParserError)?;
+        circuit::Circuit::parse_skcd(skcd_buf).map_err(|_e| InterstellarError::SkcdParserError)?;
 
     let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata, rng_seed)
         .map_err(|_e| InterstellarError::GarblerError)?;
@@ -203,7 +203,7 @@ pub fn prepare_evaluator_inputs(
 
 #[cfg(test)]
 mod tests {
-    use bytes::BytesMut;
+    
 
     use super::*;
 
@@ -256,8 +256,7 @@ mod tests {
                 let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
                 assert_eq!(
                     outputs, expected_outputs,
-                    "inputs = {:?}, outputs = {:?}, expected_outputs = {:?}, at test nb [{},{}]",
-                    inputs, outputs, expected_outputs, test_idx, i
+                    "inputs = {inputs:?}, outputs = {outputs:?}, expected_outputs = {expected_outputs:?}, at test nb [{test_idx},{i}]"
                 );
             }
         }

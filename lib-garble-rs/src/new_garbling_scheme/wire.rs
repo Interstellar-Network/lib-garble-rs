@@ -66,10 +66,10 @@ impl Wire {
     }
 
     pub(super) fn value0(&self) -> &BlockL {
-        &self.label0.get_block()
+        self.label0.get_block()
     }
 
     pub(super) fn value1(&self) -> &BlockL {
-        &self.label1.get_block()
+        self.label1.get_block()
     }
 }

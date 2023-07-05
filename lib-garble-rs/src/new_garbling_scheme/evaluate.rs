@@ -3,12 +3,12 @@ use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuit::{self, CircuitInternal, CircuitMetadata, GateType, WireRef},
-    new_garbling_scheme::{wire::WireLabel, GarblerError},
+    circuit::{CircuitInternal, CircuitMetadata, GateType, WireRef},
+    new_garbling_scheme::{wire::WireLabel},
 };
 
 use super::{
-    block::{BlockL, BlockP},
+    block::{BlockL},
     garble::{DecodedInfo, GarbledCircuitFinal, InputEncodingSet, F},
     random_oracle::RandomOracle,
     wire_value::WireValue,
@@ -41,8 +41,8 @@ impl EncodedInfo {
 ///
 /// NOTE: it is called both "server-side" when garling, and "client-side" when evaluating
 /// Therefore `wire_start_index` and `wire_end_index`:
-/// - "server-side" == "garbler inputs": SHOULD be 0..num_garbler_inputs()
-/// - "client-side" == "evaluator inputs": SHOULD be num_garbler_inputs()+1..num_garbler_inputs()+1+num_evaluator_inputs()
+/// - "server-side" == "garbler inputs": SHOULD be `0..num_garbler_inputs`()
+/// - "client-side" == "evaluator inputs": SHOULD be `num_garbler_inputs()+1..num_garbler_inputs()+1+num_evaluator_inputs`()
 ///
 /// In https://eprint.iacr.org/2021/739.pdf "Algorithm 7"
 ///
@@ -128,7 +128,7 @@ pub struct EvalCache {
 }
 
 impl EvalCache {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             output_labels: OutputLabels::new(),
             outputs_bufs: Vec::new(),
@@ -180,13 +180,13 @@ fn evaluate_internal(
     }
 
     // "for each gate g ∈ [q] in a topological order do"
-    for gate in circuit.gates.iter() {
+    for gate in &circuit.gates {
         let wire_ref = WireRef { id: gate.get_id() };
 
         let l_g: BlockL = match gate.get_type() {
             // STANDARD CASE: cf `garble_internal`
             GateType::Binary {
-                gate_type: r#type,
+                gate_type: _type,
                 input_a,
                 input_b,
             } => {
@@ -198,7 +198,7 @@ fn evaluate_internal(
                 let delta_g_blockl: BlockL = f.f[wire_ref.id].as_ref().unwrap().get_block().into();
 
                 // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
-                let mut r = RandomOracle::random_oracle_g_truncated(
+                let r = RandomOracle::random_oracle_g_truncated(
                     l_a.get_block(),
                     Some(l_b.get_block()),
                     gate.get_id(),
@@ -210,7 +210,7 @@ fn evaluate_internal(
             }
             // SPECIAL CASE: cf `garble_internal`
             GateType::Unary {
-                gate_type: r#type,
+                gate_type: _type,
                 input_a,
             } => {
                 let l_a = wire_labels[input_a.id].as_ref().unwrap();
@@ -218,7 +218,7 @@ fn evaluate_internal(
             }
             // [constant gate special case]
             // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-            GateType::Constant { value } => {
+            GateType::Constant { value: _ } => {
                 unimplemented!("evaluate_internal for Constant gates is a special case!")
             }
         };
@@ -347,7 +347,7 @@ pub(crate) fn evaluate_with_encoded_info(
     evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
-        &encoded_info,
+        encoded_info,
         &garbled.circuit_metadata,
         &mut eval_cache.output_labels,
         &mut eval_cache.ro_buf,

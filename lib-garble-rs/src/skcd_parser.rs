@@ -5,7 +5,7 @@ use crate::circuit::{
 };
 use alloc::format;
 use alloc::string::String;
-use alloc::string::ToString;
+
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use hashbrown::HashSet;
@@ -63,7 +63,7 @@ impl Circuit {
     /// [inputs/outputs are needed to walk the graph, and optimize/rewrite if desired]
     ///
     /// NOTE: due to the way the parsing is done(ie "inputs" first, then iterating on the "gates"
-    /// WITH InvalidGateId if not yet present), the resulting Gates SHOULD
+    /// WITH `InvalidGateId` if not yet present), the resulting Gates SHOULD
     /// be in topological(-ish) order.
     #[allow(clippy::too_many_lines)]
     pub(super) fn parse_skcd(buf: &[u8]) -> Result<Circuit, CircuitParserError> {
@@ -127,7 +127,7 @@ impl Circuit {
         );
 
         let mut inputs = Vec::with_capacity(skcd.inputs.len());
-        for skcd_input in skcd.inputs.iter() {
+        for skcd_input in &skcd.inputs {
             skcd_to_wire_ref_converter.insert(skcd_input);
             inputs.push(skcd_to_wire_ref_converter.get(skcd_input).unwrap().clone());
         }
@@ -140,7 +140,7 @@ impl Circuit {
         // If we set the bad ones, we get "FancyError::UninitializedValue" in fancy-garbling/src/circuit.rs at "fn eval"
         // eg L161 etc b/c the cache is not properly set
         let mut outputs = Vec::with_capacity(skcd.outputs.len());
-        for skcd_output in skcd.outputs.iter() {
+        for skcd_output in &skcd.outputs {
             skcd_to_wire_ref_converter.insert(skcd_output);
             let output_wire_ref = skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone();
             outputs.push(output_wire_ref);
@@ -178,7 +178,7 @@ impl Circuit {
         let mut outputs_start_end_indexes = (usize::MAX, usize::MIN);
         let mut max_gate_id = usize::MIN;
         // TODO constant_gate
-        for skcd_gate in skcd.gates.into_iter() {
+        for skcd_gate in skcd.gates {
             // But `output` MUST always be set; this is what we use as Gate ID
             skcd_to_wire_ref_converter.insert(&skcd_gate.o);
 
@@ -243,17 +243,17 @@ impl Circuit {
 
         // compute stats etc
         let mut metadata = CircuitMetadata::new(outputs_start_end_indexes, max_gate_id);
-        for gate in gates.iter() {
+        for gate in &gates {
             match gate.get_type() {
                 crate::circuit::GateType::Binary {
                     gate_type,
-                    input_a,
-                    input_b,
+                    input_a: _,
+                    input_b: _,
                 } => metadata.increment_binary_gate(gate_type.as_ref().unwrap()),
-                crate::circuit::GateType::Unary { gate_type, input_a } => {
+                crate::circuit::GateType::Unary { gate_type, input_a: _ } => {
                     metadata.increment_unary_gate(gate_type.as_ref().unwrap())
                 }
-                crate::circuit::GateType::Constant { value } => {}
+                crate::circuit::GateType::Constant { value: _ } => {}
             }
         }
 
@@ -277,10 +277,10 @@ fn generate_wire_with_fixed_id_and_random_prefix(
     skcd_to_wire_ref_converter: &mut SkcdToWireRefConverter,
     fixed_part: &str,
 ) -> WireRef {
-    let mut wire_id_with_rand: String = "".to_string();
+    let mut wire_id_with_rand: String = String::new();
     loop {
         let rand_int: u32 = rng.gen();
-        wire_id_with_rand = format!("{}_{}", fixed_part, rand_int);
+        wire_id_with_rand = format!("{fixed_part}_{rand_int}");
         if skcd_to_wire_ref_converter.get(&wire_id_with_rand).is_none() {
             skcd_to_wire_ref_converter.insert(&wire_id_with_rand);
             break;

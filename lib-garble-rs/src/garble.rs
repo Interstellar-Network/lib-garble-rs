@@ -85,7 +85,7 @@ impl GarbledCircuit {
         &self,
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
-        outputs: &mut [u8],
+        outputs: &mut Vec<u8>,
         eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`
@@ -117,7 +117,7 @@ impl GarbledCircuit {
             .into_iter()
             .map(core::convert::Into::into)
             .collect();
-        outputs.copy_from_slice(&outputs_u8);
+        *outputs = outputs_u8;
 
         Ok(())
     }

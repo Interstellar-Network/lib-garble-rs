@@ -207,7 +207,7 @@ fn evaluate_internal(
                 })?;
 
                 // "extract ∇g ← F [g]"
-                let delta_g_blockl: &BlockL = f.f[wire_ref.id]
+                let delta_g_blockl = f.f[wire_ref.id]
                     .as_ref()
                     .ok_or(InterstellarEvaluatorError::EvaluateErrorMissingDelta {
                         idx: wire_ref.id,
@@ -221,7 +221,7 @@ fn evaluate_internal(
                     gate.get_id(),
                     ro_buf,
                 );
-                let l_g: BlockL = BlockL::new_projection(&r, &delta_g_blockl);
+                let l_g: BlockL = BlockL::new_projection(&r, delta_g_blockl);
 
                 l_g
             }
@@ -317,6 +317,7 @@ fn decoding_internal(
 /// The "standard" API is to do "multi step" eval with Garbler Inputs vs Evaluator Inputs
 /// cf `encode_inputs` etc
 ///
+#[cfg(test)]
 pub(crate) fn evaluate_full_chain(
     garbled: &GarbledCircuitFinal,
     inputs: &[WireValue],

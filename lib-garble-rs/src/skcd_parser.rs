@@ -48,6 +48,9 @@ pub enum CircuitParserError {
     InvalidStateGateTypeNotSet,
     /// For the "[constant gate special case]" we use the first input as a special "wire ID"
     ConstantSpecialCaseMissingInput,
+    UnaryGateMissingInput,
+    BinaryGateMissingInputA,
+    BinaryGateMissingInputB,
 }
 
 impl Circuit {

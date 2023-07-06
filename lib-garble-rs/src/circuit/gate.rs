@@ -211,55 +211,90 @@ impl Gate {
             Some(skcd_gate_type) => match skcd_gate_type {
                 interstellarpbskcd::SkcdGateType::Inv => Ok(GateType::Unary {
                     gate_type: Some(GateTypeUnary::INV),
-                    input_a: input_a.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::UnaryGateMissingInput)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Buf => Ok(GateType::Unary {
                     gate_type: Some(GateTypeUnary::BUF),
-                    input_a: input_a.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::UnaryGateMissingInput)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xor => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::XOR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nand => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::NAND),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::And => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::AND),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Or => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::OR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Nor => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::NOR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 interstellarpbskcd::SkcdGateType::Xnor => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::XNOR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_b.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_b
+                        .ok_or(CircuitParserError::BinaryGateMissingInputB)?
+                        .clone(),
                 }),
                 // [constant gate special case] ZERO gate are rewritten as XOR(A,A) = 0
                 interstellarpbskcd::SkcdGateType::Zero => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::XOR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_a.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
                 }),
                 // [constant gate special case] ONE gate are rewritten as XNOR(A,A) = 1
                 interstellarpbskcd::SkcdGateType::One => Ok(GateType::Binary {
                     gate_type: Some(GateTypeBinary::XNOR),
-                    input_a: input_a.unwrap().clone(),
-                    input_b: input_a.unwrap().clone(),
+                    input_a: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
+                    input_b: input_a
+                        .ok_or(CircuitParserError::BinaryGateMissingInputA)?
+                        .clone(),
                 }),
-                interstellarpbskcd::SkcdGateType::One => unimplemented!("ONE constant gate"),
                 _ => Err(CircuitParserError::UnknownGateType {
                     gate_type: skcd_gate_type_i32,
                 }),

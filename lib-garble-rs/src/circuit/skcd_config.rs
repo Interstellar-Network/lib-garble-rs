@@ -109,13 +109,10 @@ impl SkcdToWireRefConverter {
     /// insert
     /// NOOP if already in the map
     pub(crate) fn insert(&mut self, skcd_gate_id: &str) {
-        match self.get(skcd_gate_id) {
-            Some(_) => {}
-            None => {
-                self.map_skcd_gate_id_to_circuit_ref
-                    .insert(skcd_gate_id.to_string(), WireRef { id: self.cur_len });
-                self.cur_len += 1;
-            }
+        if self.get(skcd_gate_id).is_none() {
+            self.map_skcd_gate_id_to_circuit_ref
+                .insert(skcd_gate_id.to_string(), WireRef { id: self.cur_len });
+            self.cur_len += 1;
         }
     }
 

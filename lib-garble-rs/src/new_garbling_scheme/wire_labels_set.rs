@@ -118,6 +118,7 @@ impl WireLabelsSet {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn get_x10(&self) -> &BlockP {
         match &self.internal {
             WireLabelsSetInternal::BinaryGate {
@@ -182,4 +183,166 @@ fn assert_four_different(a: &BlockP, b: &BlockP, c: &BlockP, d: &BlockP) {
     assert_ne!(b, c, "b and c are equal");
     assert_ne!(b, d, "b and d are equal");
     assert_ne!(c, d, "c and d are equal");
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    /// cf tests in lib-garble-rs/src/new_garbling_scheme/block.rs
+    /// for a way to generate new BlockP in case of refactor
+    ///
+    fn get_test_blocks() -> (BlockP, BlockP, BlockP, BlockP) {
+        let test1 = BlockP::new_with2([
+            3_951_001_893_725_728_678,
+            17_561_894_908_598_795_415,
+            3_273_299_927_427_316_065,
+            4_016_781_436_536_637_665,
+            3_759_867_147_464_905_433,
+            4_273_494_230_197_193_221,
+            3_529_531_907_751_757_055,
+            16_273_736_933_959_562_170,
+            16_977_210_453_145_070_413,
+            4_260_534_243_702_315_869,
+            8_876_721_923_944_456_293,
+            6_706_553_457_839_696_430,
+            11_459_371_310_689_979_744,
+            17_420_813_315_993_560_429,
+            16_645_214_173_008_843_092,
+            1_335_969_637_496_639_684,
+        ]);
+        // NOTE: generated on Rust Playground
+        let test2 = BlockP::new_with2([
+            9_449_436_712_766_709_104,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            7_750_060_861_933_093_186,
+            14_007_631_929_040_371_275,
+            5_938_564_052_276_943_847,
+            10_629_746_254_474_597_517,
+            3_232_167_171_266_494_280,
+            4_891_434_532_817_971_135,
+            14_814_410_512_354_217_645,
+            16_902_468_201_008_627_571,
+            15_996_213_338_535_303_994,
+            2_018_280_331_266_639_914,
+            3_514_537_016_880_298_159,
+            17_460_098_548_274_586_993,
+        ]);
+        let test1 = BlockP::new_with2([
+            3_951_001_893_725_728_678,
+            17_561_894_908_598_795_415,
+            3_273_299_927_427_316_065,
+            4_016_781_436_536_637_665,
+            3_759_867_147_464_905_433,
+            4_273_494_230_197_193_221,
+            3_529_531_907_751_757_055,
+            16_273_736_933_959_562_170,
+            16_977_210_453_145_070_413,
+            4_260_534_243_702_315_869,
+            8_876_721_923_944_456_293,
+            6_706_553_457_839_696_430,
+            11_459_371_310_689_979_744,
+            17_420_813_315_993_560_429,
+            16_645_214_173_008_843_092,
+            1_335_969_637_496_639_684,
+        ]);
+        let test3 = BlockP::new_with2([
+            3_273_299_927_427_316_065,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            7_750_060_861_933_093_186,
+            14_007_631_929_040_371_275,
+            5_938_564_052_276_943_847,
+            10_629_746_254_474_597_517,
+            3_232_167_171_266_494_280,
+            4_891_434_532_817_971_135,
+            16_902_468_201_008_627_571,
+            16_902_468_201_008_627_571,
+            15_996_213_338_535_303_994,
+            2_018_280_331_266_639_914,
+            3_514_537_016_880_298_159,
+            9_449_436_712_766_709_104,
+        ]);
+        let test4 = BlockP::new_with2([
+            3_273_299_927_427_316_065,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            3_273_299_927_427_316_065,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            3_273_299_927_427_316_065,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+            3_273_299_927_427_316_065,
+            3_648_953_883_981_184_573,
+            14_898_637_992_720_905_965,
+            17_363_463_440_617_121_051,
+        ]);
+
+        (test1, test2, test3, test4)
+    }
+
+    fn get_new_binary() -> (WireLabelsSet, BlockP, BlockP, BlockP, BlockP) {
+        let (test1, test2, test3, test4) = get_test_blocks();
+        let wire_labels_set =
+            WireLabelsSet::new_binary(test1.clone(), test2.clone(), test3.clone(), test4.clone());
+
+        (wire_labels_set, test1, test2, test3, test4)
+    }
+
+    fn get_new_unary() -> (WireLabelsSet, BlockP, BlockP) {
+        let (test1, test2, test3, test4) = get_test_blocks();
+        let wire_labels_set = WireLabelsSet::new_unary(test1.clone(), test2.clone());
+
+        (wire_labels_set, test1, test2)
+    }
+
+    #[test]
+    fn test_get_x00() {
+        let (wire_labels_set, test1, test2, test3, test4) = get_new_binary();
+
+        assert_eq!(wire_labels_set.get_x00().clone(), test1);
+    }
+
+    #[test]
+    fn test_get_x01() {
+        let (wire_labels_set, test1, test2, test3, test4) = get_new_binary();
+
+        assert_eq!(wire_labels_set.get_x01().clone(), test2);
+    }
+
+    #[test]
+    fn test_get_x10() {
+        let (wire_labels_set, test1, test2, test3, test4) = get_new_binary();
+
+        assert_eq!(wire_labels_set.get_x10().clone(), test3);
+    }
+
+    #[test]
+    fn test_get_x11() {
+        let (wire_labels_set, test1, test2, test3, test4) = get_new_binary();
+
+        assert_eq!(wire_labels_set.get_x11().clone(), test4);
+    }
+
+    #[test]
+    fn test_get_x0() {
+        let (wire_labels_set, test1, test2) = get_new_unary();
+
+        assert_eq!(wire_labels_set.get_x0().clone(), test1);
+    }
+
+    #[test]
+    fn test_get_x1() {
+        let (wire_labels_set, test1, test2) = get_new_unary();
+
+        assert_eq!(wire_labels_set.get_x1().clone(), test2);
+    }
 }

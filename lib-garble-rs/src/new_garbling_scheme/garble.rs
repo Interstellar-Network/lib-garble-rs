@@ -4,6 +4,7 @@ use hashbrown::{HashMap, HashSet};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
+use snafu::prelude::*;
 
 use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
 
@@ -11,7 +12,7 @@ use super::{
     block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Snafu)]
 pub(crate) enum GarblerError {
     /// During `fn garble`, when looping on the Gates in order,
     /// they SHOULD be processed in topological order.

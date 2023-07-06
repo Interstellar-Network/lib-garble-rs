@@ -60,7 +60,7 @@ impl Delta {
         // NOTE: the set will be definition always contain {0000, 1111}
         // the other 2 elements will depend on the truth table
         let truth_table = TruthTable::new_from_gate(gate_type);
-        let mut delta_slices = vec![
+        let delta_slices = vec![
             WireLabelsSetBitSlice::new_binary_gate_from_bool(false, false, false, false),
             truth_table.truth_table.clone(),
             truth_table.get_complement(),

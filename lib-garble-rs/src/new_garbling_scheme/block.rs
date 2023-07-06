@@ -35,7 +35,7 @@ pub(crate) struct BlockL {
 
 /// The "internal" Block,
 /// "a random string of length l'" (l' <=> 8 * l <=> 8 * KAPPA)
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct BlockP {
     bits_words: MyBitArrayP,
     // TODO?

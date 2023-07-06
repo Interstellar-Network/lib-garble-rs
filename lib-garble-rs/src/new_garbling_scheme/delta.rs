@@ -3,6 +3,7 @@ use alloc::vec;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    block::BlockL,
     block::BlockP,
     constant::{KAPPA, KAPPA_FACTOR},
     wire_labels_set::WireLabelsSet,
@@ -13,7 +14,7 @@ use crate::circuit::{GateType, GateTypeBinary, GateTypeUnary};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct Delta {
-    block: BlockP,
+    block: BlockL,
 }
 
 impl Delta {
@@ -90,10 +91,6 @@ impl Delta {
             });
         }
 
-        let delta = Self {
-            block: delta_g_block,
-        };
-
         // Following are after line 19: of "Algorithm 5 Gate"
         //
         // To know how to "project" cf docstring
@@ -110,28 +107,28 @@ impl Delta {
                 input_b: _,
             } => match r#type {
                 Some(GateTypeBinary::XOR) => (
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x01(), &delta_g_block),
                 ),
                 Some(GateTypeBinary::XNOR) => (
-                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x01(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
                 ),
                 Some(GateTypeBinary::AND) => (
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x11(), &delta_g_block),
                 ),
                 Some(GateTypeBinary::NAND) => (
-                    BlockP::new_projection(compressed_set.get_x11(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x11(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
                 ),
                 Some(GateTypeBinary::OR) => (
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x01(), &delta_g_block),
                 ),
                 Some(GateTypeBinary::NOR) => (
-                    BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x01(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x00(), &delta_g_block),
                 ),
                 // GateTypeBinary is None only when deserializing
                 None => unimplemented!("Delta::new for None[GateTypeBinary]!"),
@@ -143,12 +140,12 @@ impl Delta {
                 // TODO(opt); probably not needed if we don't use it in `evaluate_internal`
                 // but it's never called since "free BUF/NOT" so it should not matter
                 Some(GateTypeUnary::INV) => (
-                    BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x1(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x0(), &delta_g_block),
                 ),
                 Some(GateTypeUnary::BUF) => (
-                    BlockP::new_projection(compressed_set.get_x0(), delta.get_block()),
-                    BlockP::new_projection(compressed_set.get_x1(), delta.get_block()),
+                    BlockP::new_projection(compressed_set.get_x0(), &delta_g_block),
+                    BlockP::new_projection(compressed_set.get_x1(), &delta_g_block),
                 ),
                 // GateTypeUnary is None only when deserializing
                 None => unimplemented!("Delta::new for None[GateTypeUnary]!"),
@@ -160,12 +157,16 @@ impl Delta {
             }
         };
 
+        let delta = Self {
+            block: delta_g_block.into(),
+        };
+
         // cf `Wire::new` assert for why this is bad
         assert!(l0_full != l1_full, "`L0` and `L1` MUST be different!");
         Ok((l0_full, l1_full, delta))
     }
 
-    pub(super) fn get_block(&self) -> &BlockP {
+    pub(super) fn get_block(&self) -> &BlockL {
         &self.block
     }
 }

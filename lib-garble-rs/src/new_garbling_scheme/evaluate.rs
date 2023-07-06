@@ -207,13 +207,12 @@ fn evaluate_internal(
                 })?;
 
                 // "extract ∇g ← F [g]"
-                let delta_g_blockl: BlockL = f.f[wire_ref.id]
+                let delta_g_blockl: &BlockL = f.f[wire_ref.id]
                     .as_ref()
                     .ok_or(InterstellarEvaluatorError::EvaluateErrorMissingDelta {
                         idx: wire_ref.id,
                     })?
-                    .get_block()
-                    .into();
+                    .get_block();
 
                 // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
                 let r = RandomOracle::random_oracle_g_truncated(

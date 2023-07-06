@@ -4,7 +4,7 @@ use crate::circuit::{
     GarblerInputs, GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
 use alloc::string::String;
-
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use hashbrown::HashSet;

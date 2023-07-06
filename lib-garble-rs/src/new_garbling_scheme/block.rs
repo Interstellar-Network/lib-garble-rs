@@ -28,6 +28,11 @@ pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / BitsInternal::BITS as usize;
 
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
+///
+/// About `clippy::unsafe_derive_deserialize`: `unsafe` is NOT used for `new` or other
+/// serialization-related functions so we just ignore the warning.
+// TODO is using `clippy::unsafe_derive_deserialize` dangerous?
+#[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(super) struct BlockL {
     bits_words: MyBitArrayL,

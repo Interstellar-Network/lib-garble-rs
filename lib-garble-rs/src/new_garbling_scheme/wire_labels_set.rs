@@ -24,7 +24,7 @@ pub(super) enum WireLabelsSetInternal {
 /// X10 = (L1, L0)
 /// X11 = (L1, L1)
 ///
-/// Also noted in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// Also noted in <https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf>
 /// "The Label Sampling Function f0 This function assigns an l-bit label Kj to
 /// each possible value that wire j can take. Collectively, the set of labels associated
 /// with the wire is denoted by {Kj }. In particular, Yao’s scheme and all subsequent
@@ -58,7 +58,7 @@ impl WireLabelsSet {
         }
     }
 
-    /// In https://eprint.iacr.org/2021/739.pdf this is a helper for
+    /// In <https://eprint.iacr.org/2021/739.pdf> this is a helper for
     /// "Algorithm 5 Gate"
     /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
     ///
@@ -84,7 +84,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x00(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01: _, x10: _, x11: _ } => x00.get_block(),
+            WireLabelsSetInternal::BinaryGate {
+                x00,
+                x01: _,
+                x10: _,
+                x11: _,
+            } => x00.get_block(),
             WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -93,7 +98,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x01(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00: _, x01, x10: _, x11: _ } => x01.get_block(),
+            WireLabelsSetInternal::BinaryGate {
+                x00: _,
+                x01,
+                x10: _,
+                x11: _,
+            } => x01.get_block(),
             WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -102,7 +112,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x10(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10, x11: _ } => x10.get_block(),
+            WireLabelsSetInternal::BinaryGate {
+                x00: _,
+                x01: _,
+                x10,
+                x11: _,
+            } => x10.get_block(),
             WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -111,7 +126,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x11(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11 } => x11.get_block(),
+            WireLabelsSetInternal::BinaryGate {
+                x00: _,
+                x01: _,
+                x10: _,
+                x11,
+            } => x11.get_block(),
             WireLabelsSetInternal::UnaryGate { x0: _, x1: _ } => {
                 unimplemented!("CompressedSetInternal::UnaryGate")
             }
@@ -120,7 +140,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x0(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11: _ } => {
+            WireLabelsSetInternal::BinaryGate {
+                x00: _,
+                x01: _,
+                x10: _,
+                x11: _,
+            } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
             WireLabelsSetInternal::UnaryGate { x0, x1: _ } => x0.get_block(),
@@ -129,7 +154,12 @@ impl WireLabelsSet {
 
     pub(super) fn get_x1(&self) -> &BlockP {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00: _, x01: _, x10: _, x11: _ } => {
+            WireLabelsSetInternal::BinaryGate {
+                x00: _,
+                x01: _,
+                x10: _,
+                x11: _,
+            } => {
                 unimplemented!("CompressedSetInternal::BinaryGate")
             }
             WireLabelsSetInternal::UnaryGate { x0: _, x1 } => x1.get_block(),

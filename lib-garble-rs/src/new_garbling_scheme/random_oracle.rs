@@ -9,7 +9,7 @@ pub(crate) struct RandomOracle {}
 
 impl RandomOracle {
     /// First Random Oracle = RO0
-    /// `ROg` : {0, 1}nℓ → {0, 1}ℓ′ in https://eprint.iacr.org/2021/739.pdf
+    /// `ROg` : {0, 1}nℓ → {0, 1}ℓ′ in <https://eprint.iacr.org/2021/739.pdf>
     /// "The random oracle
     /// RO takes as input the tweak g and two labels with total length 2ℓ, and outputs
     /// an ℓ′-length string"
@@ -121,7 +121,7 @@ impl RandomOracle {
     }
 
     ///
-    /// In: https://eprint.iacr.org/2021/739.pdf
+    /// In: <https://eprint.iacr.org/2021/739.pdf>
     /// "In our construction, we employ another
     /// random oracle RO′ for this. In the subroutine that creates the decoding informa-
     /// tion, for every output wire j, we sample an ℓ-bit string dj . This string has the

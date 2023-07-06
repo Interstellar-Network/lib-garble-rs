@@ -9,6 +9,7 @@ use super::block::{BlockL, BlockP};
 ///
 // TODO do this ^^^^ -> `value` SHOULD be ref
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(clippy::module_name_repetitions)]
 pub struct WireLabel {
     label: BlockL,
 }
@@ -38,12 +39,12 @@ impl WireLabelInternal {
     }
 }
 
-/// Called "wire label set W" in https://eprint.iacr.org/2021/739.pdf
+/// Called "wire label set W" in <https://eprint.iacr.org/2021/739.pdf>
 /// This is a pair of random label of l-size, one representing a 0 on the Wire,
 /// and one for 1.
 ///
 /// Alternatively noted "Collectively, the set of labels associated with the wire is denoted by {Kj}"
-/// in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// in <https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf>
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(super) struct Wire {
     label0: WireLabel,

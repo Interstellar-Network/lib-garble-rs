@@ -32,16 +32,6 @@ impl CircuitInternal {
         self.inputs.len()
     }
 
-    /// Return "m" ie the number of wires
-    pub(crate) fn m(&self) -> u32 {
-        self.wires.len().try_into().unwrap()
-    }
-
-    /// Return "q" ie the number of gates
-    pub(crate) fn q(&self) -> u32 {
-        self.gates.len().try_into().unwrap()
-    }
-
     /// Return the list of all the wires.
     /// Used during garbling "init" function to create the "encoding".
     pub(crate) fn wires(&self) -> &Vec<WireRef> {

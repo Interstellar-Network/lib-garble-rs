@@ -3,13 +3,11 @@ use crate::circuit::{
     Circuit, CircuitInternal, CircuitMetadata, DisplayConfig, EvaluatorInputs, EvaluatorInputsType,
     GarblerInputs, GarblerInputsType, Gate, SkcdConfig, SkcdToWireRefConverter,
 };
-use alloc::format;
 use alloc::string::String;
 
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use hashbrown::HashSet;
-use rand::Rng;
 
 // derive_partial_eq_without_eq: https://github.com/neoeinstein/protoc-gen-prost/issues/26
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -46,6 +44,10 @@ pub enum CircuitParserError {
     UnknownGateType {
         gate_type: i32,
     },
+    /// `gate_type: Option<GateTypeBinary>` but it CAN(and WILL) be None only after serialization/deserialization
+    InvalidStateGateTypeNotSet,
+    /// For the "[constant gate special case]" we use the first input as a special "wire ID"
+    ConstantSpecialCaseMissingInput,
 }
 
 impl Circuit {
@@ -129,7 +131,14 @@ impl Circuit {
         let mut inputs = Vec::with_capacity(skcd.inputs.len());
         for skcd_input in &skcd.inputs {
             skcd_to_wire_ref_converter.insert(skcd_input);
-            inputs.push(skcd_to_wire_ref_converter.get(skcd_input).unwrap().clone());
+            inputs.push(
+                skcd_to_wire_ref_converter
+                    .get(skcd_input)
+                    .ok_or_else(|| CircuitParserError::InvalidGateId {
+                        gate_id: skcd_input.to_string(),
+                    })?
+                    .clone(),
+            );
         }
 
         // IMPORTANT: we MUST use skcd.o to set the CORRECT outputs
@@ -142,7 +151,12 @@ impl Circuit {
         let mut outputs = Vec::with_capacity(skcd.outputs.len());
         for skcd_output in &skcd.outputs {
             skcd_to_wire_ref_converter.insert(skcd_output);
-            let output_wire_ref = skcd_to_wire_ref_converter.get(skcd_output).unwrap().clone();
+            let output_wire_ref = skcd_to_wire_ref_converter
+                .get(skcd_output)
+                .ok_or_else(|| CircuitParserError::OutputInvalidGateId {
+                    gate_id: skcd_output.to_string(),
+                })?
+                .clone();
             outputs.push(output_wire_ref);
         }
         // `outputs_start_end_indexes` after only works if `outputs` are consecutive; so CHECK it!
@@ -153,7 +167,7 @@ impl Circuit {
         );
 
         let outputs_clone = outputs.clone();
-        let outputs_set: HashSet<&WireRef> = HashSet::from_iter(outputs_clone.iter());
+        let outputs_set: HashSet<&WireRef> = outputs_clone.iter().collect();
 
         // TODO? [constant gate special case]
         // we add two wires to represent constant 0 and 1
@@ -168,9 +182,15 @@ impl Circuit {
         // If we only add Wires? how are we supposed to "set" them? They CAN NOT be "free floating"??
         // Or can they?
         // MAYBE use eg inputs[0] instead?
+        let first_input = skcd
+            .inputs
+            .first()
+            .ok_or_else(|| CircuitParserError::ConstantSpecialCaseMissingInput)?;
         let wire_constant = skcd_to_wire_ref_converter
-            .get(skcd.inputs.first().unwrap())
-            .unwrap()
+            .get(first_input)
+            .ok_or_else(|| CircuitParserError::InvalidGateId {
+                gate_id: first_input.to_string(),
+            })?
             .clone();
 
         // TODO(interstellar) how should we use skcd's a/b/go?
@@ -191,11 +211,8 @@ impl Circuit {
             // [constant gate special case]
             match skcd_gate.r#type {
                 // == interstellarpbskcd::SkcdGateType::Zero
-                0 => {
-                    x_ref = Some(&wire_constant);
-                }
                 // == interstellarpbskcd::SkcdGateType::One
-                1 => {
+                0 | 1 => {
                     x_ref = Some(&wire_constant);
                 }
                 // Not a special case; it will be handled by `Gate::new_from_skcd_gate_type`
@@ -249,10 +266,19 @@ impl Circuit {
                     gate_type,
                     input_a: _,
                     input_b: _,
-                } => metadata.increment_binary_gate(gate_type.as_ref().unwrap()),
-                crate::circuit::GateType::Unary { gate_type, input_a: _ } => {
-                    metadata.increment_unary_gate(gate_type.as_ref().unwrap())
-                }
+                } => metadata.increment_binary_gate(
+                    gate_type
+                        .as_ref()
+                        .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?,
+                ),
+                crate::circuit::GateType::Unary {
+                    gate_type,
+                    input_a: _,
+                } => metadata.increment_unary_gate(
+                    gate_type
+                        .as_ref()
+                        .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?,
+                ),
                 crate::circuit::GateType::Constant { value: _ } => {}
             }
         }
@@ -270,27 +296,6 @@ impl Circuit {
             metadata,
         })
     }
-}
-
-fn generate_wire_with_fixed_id_and_random_prefix(
-    rng: &mut rand_chacha::ChaCha20Rng,
-    skcd_to_wire_ref_converter: &mut SkcdToWireRefConverter,
-    fixed_part: &str,
-) -> WireRef {
-    let mut wire_id_with_rand: String = String::new();
-    loop {
-        let rand_int: u32 = rng.gen();
-        wire_id_with_rand = format!("{fixed_part}_{rand_int}");
-        if skcd_to_wire_ref_converter.get(&wire_id_with_rand).is_none() {
-            skcd_to_wire_ref_converter.insert(&wire_id_with_rand);
-            break;
-        }
-    }
-
-    skcd_to_wire_ref_converter
-        .get(&wire_id_with_rand)
-        .unwrap()
-        .clone()
 }
 
 #[cfg(test)]

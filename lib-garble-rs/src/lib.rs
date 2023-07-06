@@ -99,6 +99,10 @@ fn garble_skcd_aux(
 ///
 /// * `rng_seed` - when None; it will use the standard and secure `ChaChaRng::from_entropy`
 ///     when given: it will use the NOT SECURE `seed_from_u64`
+///
+/// # Errors
+/// cf `garble_skcd`
+///
 pub fn garble_skcd_with_seed(
     skcd_buf: &[u8],
     rng_seed: u64,

@@ -1,6 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::vec::Vec;
-use core::{mem::size_of};
+use core::mem::size_of;
 
 use bitvec::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -71,6 +71,7 @@ impl BlockL {
         unsafe { alloc::slice::from_raw_parts(ptr, len) }
     }
 
+    #[allow(dead_code)]
     pub(super) fn xor(&self, other: &BlockL) -> BlockL {
         let bits_words: Vec<BitsInternal> = self
             .bits_words

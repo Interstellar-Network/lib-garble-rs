@@ -45,7 +45,7 @@ impl EncodedInfo {
 /// - "server-side" == "garbler inputs": SHOULD be `0..num_garbler_inputs`()
 /// - "client-side" == "evaluator inputs": SHOULD be `num_garbler_inputs()+1..num_garbler_inputs()+1+num_evaluator_inputs`()
 ///
-/// In https://eprint.iacr.org/2021/739.pdf "Algorithm 7"
+/// In <https://eprint.iacr.org/2021/739.pdf> "Algorithm 7"
 ///
 /// 1: procedure En(e, x)
 /// 2: initialize X = []
@@ -57,7 +57,7 @@ impl EncodedInfo {
 ///
 /// "En(e, x) := X: returns the encoding X for function input x"
 ///
-/// In https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// In <https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf>
 /// Algorithm 4 Algorithm En(e, x)
 ///
 /// 1: for every j ∈ [n] do
@@ -348,11 +348,7 @@ pub(crate) fn evaluate_full_chain(
     let mut outputs_bufs = Vec::new();
     outputs_bufs.resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
 
-    Ok(decoding_internal(
-        &mut outputs_bufs,
-        &output_labels,
-        &garbled.d,
-    )?)
+    decoding_internal(&mut outputs_bufs, &output_labels, &garbled.d)
 }
 
 /// "Standard" evaluate chain
@@ -384,11 +380,11 @@ pub(crate) fn evaluate_with_encoded_info(
         .outputs_bufs
         .resize_with(garbled.eval_metadata.nb_outputs, BytesMut::new);
 
-    Ok(decoding_internal(
+    decoding_internal(
         &mut eval_cache.outputs_bufs,
         &eval_cache.output_labels,
         &garbled.d,
-    )?)
+    )
 }
 
 /// encoded inputs

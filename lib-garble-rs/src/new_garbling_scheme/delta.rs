@@ -19,7 +19,7 @@ pub(super) struct Delta {
 impl Delta {
     /// Build a new `Delta` from the desired `GateType`
     ///
-    /// In https://eprint.iacr.org/2021/739.pdf
+    /// In <https://eprint.iacr.org/2021/739.pdf>
     /// this is the main loop of "Algorithm 5 Gate" up to line 17/18
     ///
     /// Compute the ∇ = f1.1 in the paper
@@ -135,7 +135,7 @@ impl Delta {
                     BlockP::new_projection(compressed_set.get_x01(), delta.get_block()),
                     BlockP::new_projection(compressed_set.get_x00(), delta.get_block()),
                 ),
-                /// GateTypeBinary is None only when deserializing
+                // GateTypeBinary is None only when deserializing
                 None => unimplemented!("Delta::new for None[GateTypeBinary]!"),
             },
             GateType::Unary {

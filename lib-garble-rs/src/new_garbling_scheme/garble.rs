@@ -23,18 +23,27 @@ pub(crate) enum GarblerError {
     BadHammingWeight {
         hw: usize,
     },
+    /// error during `decoding_info`: the wire is NOT present in `D`
+    DecodedInfoMissingWire {
+        output_wire: WireRef,
+    },
+    /// When calling `deltas.try_insert` the key was already present;
+    /// It SHOULD NOT happen b/c we are processing gate by gate!
+    DeltaAlreadyPresent {
+        delta_key: WireRef,
+    },
 }
 
-/// In https://eprint.iacr.org/2021/739.pdf
+/// In <https://eprint.iacr.org/2021/739.pdf>
 /// this is the lines 1 to 4 of "Algorithm 5 Gate"
 /// 1: Xg00 = `ROg` (LA0 , LB0 )
 /// 2: Xg01 = `ROg` (LA0 , LB1 )
 /// 3: Xg10 = `ROg` (LA1 , LB0 )
 /// 4: Xg11 = `ROg` (LA1 , LB1 )
 ///
-/// Also called `Compress` in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// Also called `Compress` in <https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf>
 /// The function f1,0, which we model as a random oracle, is used to
-/// compress each pair into a random string of length `, i.e.,
+/// compress each pair into a random string of length Lprime, i.e.,
 /// X00 = f1,0(KA0 , KB0 ) = RO0(KA0 , KB0 );
 /// X01 = f1,0(KA0 , KB1 ) = RO0(KA0 , KB1 );
 /// X10 = f1,0(KA1 , KB0 ) = RO0(KA1 , KB0 );
@@ -111,11 +120,11 @@ pub(super) struct InputEncodingSet {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-/// See "Algorithm 4 Circuit" in https://eprint.iacr.org/2021/739.pdf
+/// See "Algorithm 4 Circuit" in <https://eprint.iacr.org/2021/739.pdf>
 /// up to 5:
 ///
 /// See also:
-/// "Algorithm 3 Init(C, ℓ)" in https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf
+/// "Algorithm 3 Init(C, ℓ)" in <https://www.esat.kuleuven.be/cosic/publications/article-3351.pdf>
 ///
 /// 1: extract n from C and initialize e = []
 /// 2:  for input wire W ∈ [n] do
@@ -156,7 +165,7 @@ fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> 
 /// - l0 is random
 /// - l1 is based on XOR l0 and `r`
 ///   "invariant that for the output wire of the XOR gate, L0 ⊕ L1 = ∆"
-///   5 Supporting Free-XOR; https://eprint.iacr.org/2021/739.pdf
+///   5 Supporting Free-XOR; <https://eprint.iacr.org/2021/739.pdf>
 ///
 /// param: r: [Supporting Free-XOR] "delta"
 fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, _r: &BlockL) {
@@ -173,7 +182,7 @@ fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, _r:
 
 /// Garble
 ///
-/// In https://eprint.iacr.org/2021/739.pdf
+/// In <https://eprint.iacr.org/2021/739.pdf>
 /// Algorithm 4 Circuit(e, C, ℓ, ℓ′)
 ///
 /// [...]
@@ -211,7 +220,7 @@ fn garble_internal(
     // let mut all_wires_sorted = all_wires.clone();
     // all_wires_sorted.sort();
 
-    let outputs_set: HashSet<&WireRef> = HashSet::from_iter(circuit.outputs.iter());
+    let outputs_set: HashSet<&WireRef> = circuit.outputs.iter().collect();
     let mut buf = BytesMut::new();
 
     for gate in &circuit.gates {
@@ -243,7 +252,9 @@ fn garble_internal(
                     None => unimplemented!("garble_internal for None[GateType::Unary]!"),
                 }
             }
-            _ => unimplemented!("garble_internal for None[GateType::Constant]!"),
+            GateType::Constant { .. } => {
+                unimplemented!("garble_internal for None[GateType::Constant]!")
+            }
         };
 
         // TODO what index should we use?
@@ -260,7 +271,9 @@ fn garble_internal(
                     (*wire_output).clone().clone(),
                     (new_wires.value0().clone(), new_wires.value1().clone()),
                 )
-                .unwrap();
+                .map_err(|_| GarblerError::DeltaAlreadyPresent {
+                    delta_key: (*wire_output).clone(),
+                })?;
         }
     }
 
@@ -337,7 +350,7 @@ pub(crate) fn garble(
 
     let garbled_circuit = garble_internal(&circuit, &e, &circuit_metadata)?;
 
-    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng);
+    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng)?;
 
     let eval_metadata = EvalMetadata {
         nb_outputs: circuit.outputs.len(),
@@ -361,7 +374,7 @@ pub(super) struct DecodedInfo {
     pub(super) d: Vec<BlockL>,
 }
 
-/// In https://eprint.iacr.org/2021/739.pdf
+/// In <https://eprint.iacr.org/2021/739.pdf>
 /// "Algorithm 6 DecodingInfo(D, ℓ)"
 ///
 /// Last part of the sequence:
@@ -369,14 +382,23 @@ pub(super) struct DecodedInfo {
 /// (2) Circuit(C, e) = (F, D);
 /// (3) DecodingInfo(D) → d
 ///
-fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> DecodedInfo {
+fn decoding_info(
+    circuit_outputs: &[WireRef],
+    d_up: &D,
+    rng: &mut ChaChaRng,
+) -> Result<DecodedInfo, GarblerError> {
     let mut d = Vec::with_capacity(circuit_outputs.len());
     let mut buf = BytesMut::new();
 
     // "2: for output wire j ∈ [m] do"
     for (_idx, output_wire) in circuit_outputs.iter().enumerate() {
         // "extract Lj0, Lj1 ← D[j]"
-        let (lj0, lj1) = d_up.d.get(output_wire).expect("missing output in map!");
+        let (lj0, lj1) =
+            d_up.d
+                .get(output_wire)
+                .ok_or_else(|| GarblerError::DecodedInfoMissingWire {
+                    output_wire: output_wire.clone(),
+                })?;
 
         let mut dj = RandomOracle::new_random_block_l(rng);
         loop {
@@ -391,7 +413,7 @@ fn decoding_info(circuit_outputs: &[WireRef], d_up: &D, rng: &mut ChaChaRng) -> 
         d.push(dj);
     }
 
-    DecodedInfo { d }
+    Ok(DecodedInfo { d })
 }
 
 #[cfg(test)]
@@ -413,7 +435,7 @@ mod tests {
 
         let d = D { d: d_up };
 
-        let d = decoding_info(&circuit_outputs, &d, &mut rng);
+        let d = decoding_info(&circuit_outputs, &d, &mut rng).unwrap();
         let dj = &d.d[0];
         let mut buf = BytesMut::new();
         assert!(!RandomOracle::random_oracle_prime(&l0, dj, &mut buf));

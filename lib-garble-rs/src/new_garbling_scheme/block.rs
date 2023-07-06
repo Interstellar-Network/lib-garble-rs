@@ -29,14 +29,14 @@ pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / BitsInternal::BITS as usize;
 /// The "external" Block,
 /// "a random string of length l" (l <=> KAPPA)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub(crate) struct BlockL {
+pub(super) struct BlockL {
     bits_words: MyBitArrayL,
 }
 
 /// The "internal" Block,
 /// "a random string of length l'" (l' <=> 8 * l <=> 8 * KAPPA)
 #[derive(PartialEq, Debug, Clone)]
-pub(crate) struct BlockP {
+pub(super) struct BlockP {
     bits_words: MyBitArrayP,
     // TODO?
     // bits_arr: [BlockL; KAPPA_FACTOR],
@@ -87,7 +87,7 @@ impl BlockL {
     }
 
     /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
-    pub(crate) fn new_projection(left: &BlockL, right: &BlockL) -> Self {
+    pub(super) fn new_projection(left: &BlockL, right: &BlockL) -> Self {
         Self {
             bits_words: [
                 left.bits_words[0] & right.bits_words[0],
@@ -172,7 +172,7 @@ impl BlockP {
     }
 
     /// "A ◦ B = projection of A[i] for positions with B[i] = 1"
-    pub(crate) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
+    pub(super) fn new_projection(left: &BlockP, right: &BlockP) -> Self {
         let bits_words: Vec<BitsInternal> = left
             .bits_words
             .iter()

@@ -1,4 +1,3 @@
-
 /// Test the client-side use case, or as close as possible:
 /// - [server 1] server garbles a circuit
 /// - [server 2] server prepares a "watermark" and encode the "garbler_inputs"

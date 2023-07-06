@@ -1,4 +1,3 @@
-
 use alloc::vec::Vec;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;

@@ -59,20 +59,17 @@ impl Delta {
         // NOTE: the set will be definition always contain {0000, 1111}
         // the other 2 elements will depend on the truth table
         let truth_table = TruthTable::new_from_gate(gate_type);
-        let mut delta_slices = vec![];
-        delta_slices.push(WireLabelsSetBitSlice::new_binary_gate_from_bool(
-            false, false, false, false,
-        ));
-        delta_slices.push(truth_table.truth_table.clone());
-        delta_slices.push(truth_table.get_complement());
-        delta_slices.push(WireLabelsSetBitSlice::new_binary_gate_from_bool(
-            true, true, true, true,
-        ));
+        let mut delta_slices = vec![
+            WireLabelsSetBitSlice::new_binary_gate_from_bool(false, false, false, false),
+            truth_table.truth_table.clone(),
+            truth_table.get_complement(),
+            WireLabelsSetBitSlice::new_binary_gate_from_bool(true, true, true, true),
+        ];
 
         // TODO for performance; this should be rewrittten/vectorized?
         let mut count_bits_ones = 0;
         for j in 0..KAPPA * KAPPA_FACTOR {
-            let slice = compressed_set.get_bits_slice(j);
+            let slice = compressed_set.get_bits_slice(j)?;
 
             if delta_slices.contains(&slice) {
                 delta_g_block.set_bit(j);
@@ -105,6 +102,7 @@ impl Delta {
         // NOTE: `Delta` is technically a `BlockL` padded to a `BlockP`(?)
         // TODO? but we want a `BlockL`
         // TODO same issue with `l1`
+        #[allow(clippy::match_same_arms)]
         let (l0_full, l1_full) = match gate_type {
             GateType::Binary {
                 gate_type: r#type,

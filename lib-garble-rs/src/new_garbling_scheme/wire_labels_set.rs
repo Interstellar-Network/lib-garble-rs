@@ -2,8 +2,13 @@ use super::block::BlockP;
 use super::wire::WireLabelInternal;
 use super::wire_labels_set_bitslice::WireLabelsSetBitSlice;
 use super::wire_labels_set_bitslice::WireLabelsSetBitsSliceInternal;
+use super::GarblerError;
 
+///
+/// About: `clippy::large_enum_variant`: Most gates in a circuit should be binary ones, so using a Box
+/// is probably counter productive <https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant>
 #[derive(Debug, PartialEq, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(super) enum WireLabelsSetInternal {
     BinaryGate {
         x00: WireLabelInternal,
@@ -63,22 +68,25 @@ impl WireLabelsSet {
     /// 7: Set slice ← Xg00[j]||Xg01[j]||Xg10[j]||Xg11[j]
     ///
     /// Return the specific BIT for each x00,x01,x10,x11
-    pub(super) fn get_bits_slice(&self, index: usize) -> WireLabelsSetBitSlice {
+    pub(super) fn get_bits_slice(
+        &self,
+        index: usize,
+    ) -> Result<WireLabelsSetBitSlice, GarblerError> {
         match &self.internal {
-            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => WireLabelsSetBitSlice {
+            WireLabelsSetInternal::BinaryGate { x00, x01, x10, x11 } => Ok(WireLabelsSetBitSlice {
                 internal: WireLabelsSetBitsSliceInternal::BinaryGate {
-                    x00: x00.get_block().get_bit(index),
-                    x01: x01.get_block().get_bit(index),
-                    x10: x10.get_block().get_bit(index),
-                    x11: x11.get_block().get_bit(index),
+                    x00: x00.get_block().get_bit(index)?,
+                    x01: x01.get_block().get_bit(index)?,
+                    x10: x10.get_block().get_bit(index)?,
+                    x11: x11.get_block().get_bit(index)?,
                 },
-            },
-            WireLabelsSetInternal::UnaryGate { x0, x1 } => WireLabelsSetBitSlice {
+            }),
+            WireLabelsSetInternal::UnaryGate { x0, x1 } => Ok(WireLabelsSetBitSlice {
                 internal: WireLabelsSetBitsSliceInternal::UnaryGate {
-                    x0: x0.get_block().get_bit(index),
-                    x1: x1.get_block().get_bit(index),
+                    x0: x0.get_block().get_bit(index)?,
+                    x1: x1.get_block().get_bit(index)?,
                 },
-            },
+            }),
         }
     }
 

@@ -23,6 +23,10 @@ pub(crate) enum GarblerError {
     BadHammingWeight {
         hw: usize,
     },
+    /// error during `garble_internal`: the wire is NOT present in the "current wires set"
+    GarbleMissingWire {
+        wire: WireRef,
+    },
     /// error during `decoding_info`: the wire is NOT present in `D`
     DecodedInfoMissingWire {
         output_wire: WireRef,
@@ -31,6 +35,10 @@ pub(crate) enum GarblerError {
     /// It SHOULD NOT happen b/c we are processing gate by gate!
     DeltaAlreadyPresent {
         delta_key: WireRef,
+    },
+    /// Error at `BlockP::get_bit` the given index is not valid wrt the internal `self.bits_words`/`get_bits_internal`
+    BlockPBitOutOfRange {
+        index: usize,
     },
 }
 
@@ -54,7 +62,11 @@ pub(crate) enum GarblerError {
 /// garbling process is tweakable: it takes as an additional input the gate index g so
 /// that it behaves independently for each gate."
 ///
-fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut) -> WireLabelsSet {
+fn f1_0_compress(
+    encoded_wires: &[Option<Wire>],
+    gate: &Gate,
+    buf: &mut BytesMut,
+) -> Result<WireLabelsSet, GarblerError> {
     let tweak = gate.get_id();
 
     match gate.get_type() {
@@ -63,26 +75,38 @@ fn f1_0_compress(encoded_wires: &[Option<Wire>], gate: &Gate, buf: &mut BytesMut
             input_a,
             input_b,
         } => {
-            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
-            let wire_b: &Wire = encoded_wires[input_b.id].as_ref().unwrap();
+            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().ok_or_else(|| {
+                GarblerError::GarbleMissingWire {
+                    wire: input_a.clone(),
+                }
+            })?;
+            let wire_b: &Wire = encoded_wires[input_b.id].as_ref().ok_or_else(|| {
+                GarblerError::GarbleMissingWire {
+                    wire: input_b.clone(),
+                }
+            })?;
 
-            WireLabelsSet::new_binary(
+            Ok(WireLabelsSet::new_binary(
                 RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value0()), tweak, buf),
                 RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value1()), tweak, buf),
                 RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value0()), tweak, buf),
                 RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value1()), tweak, buf),
-            )
+            ))
         }
         GateType::Unary {
             gate_type: _type,
             input_a,
         } => {
-            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
+            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().ok_or_else(|| {
+                GarblerError::GarbleMissingWire {
+                    wire: input_a.clone(),
+                }
+            })?;
 
-            WireLabelsSet::new_unary(
+            Ok(WireLabelsSet::new_unary(
                 RandomOracle::random_oracle_g(wire_a.value0(), None, tweak, buf),
                 RandomOracle::random_oracle_g(wire_a.value1(), None, tweak, buf),
-            )
+            ))
         }
         // [constant gate special case]
         // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
@@ -231,14 +255,18 @@ fn garble_internal(
                 input_a: _,
                 input_b: _,
             } => {
-                let compressed_set = f1_0_compress(&encoded_wires, gate, &mut buf);
+                let compressed_set = f1_0_compress(&encoded_wires, gate, &mut buf)?;
                 let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
                 f[gate.get_id()] = Some(delta);
                 (l0.into(), l1.into())
             }
             // SPECIAL CASE: Unary Gates are bypassing Delta (and therefore DO NOT need a RO call during eval)
             GateType::Unary { gate_type, input_a } => {
-                let wire_a: &Wire = encoded_wires[input_a.id].as_ref().unwrap();
+                let wire_a: &Wire = encoded_wires[input_a.id].as_ref().ok_or_else(|| {
+                    GarblerError::GarbleMissingWire {
+                        wire: input_a.clone(),
+                    }
+                })?;
 
                 match gate_type {
                     // https://www.cs.toronto.edu/~vlad/papers/XOR_ICALP08.pdf

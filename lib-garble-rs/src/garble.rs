@@ -85,7 +85,7 @@ impl GarbledCircuit {
         &self,
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
-        outputs: &mut Vec<u8>,
+        outputs: &mut [u8],
         eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
         // convert param `garbler_inputs` into `WireValue`

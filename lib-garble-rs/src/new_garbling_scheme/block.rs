@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     constant::{KAPPA, KAPPA_FACTOR},
     wire_value::WireValue,
+    GarblerError,
 };
 
 // TODO u128? would it be faster?
@@ -81,7 +82,7 @@ impl BlockL {
             .collect();
 
         Self {
-            bits_words: bits_words.try_into().unwrap(),
+            bits_words: unsafe { bits_words.try_into().unwrap_unchecked() },
         }
     }
 
@@ -123,12 +124,12 @@ impl BlockP {
         // TODO or use `from_be_bytes`? For the use case(which is creating new random blocks, it should not really matter)
         let words: Vec<BitsInternal> = initial_value
             .chunks(size_of::<BitsInternal>())
-            .map(|c| BitsInternal::from_le_bytes(c.try_into().unwrap()))
+            .map(|c| BitsInternal::from_le_bytes(unsafe { c.try_into().unwrap_unchecked() }))
             .collect();
         // let words: [BitsInternal; KAPPA_NB_ELEMENTS * KAPPA_FACTOR] = words.try_into().unwrap();
 
         Self {
-            bits_words: words.try_into().unwrap(),
+            bits_words: unsafe { words.try_into().unwrap_unchecked() },
         }
     }
 
@@ -148,15 +149,21 @@ impl BlockP {
         self.bits_words.view_bits::<Lsb0>()
     }
 
-    pub(super) fn get_bit(&self, index: usize) -> WireValue {
+    pub(super) fn get_bit(&self, index: usize) -> Result<WireValue, GarblerError> {
         let self_bits = self.get_bits_internal();
 
-        self_bits
-            .get(index)
-            .expect("get_bit: outside of range?")
-            .as_ref()
-            .to_owned()
-            .into()
+        if index >= self_bits.len() {
+            return Err(GarblerError::BlockPBitOutOfRange { index });
+        }
+
+        unsafe {
+            Ok(self_bits
+                .get(index)
+                .unwrap_unchecked()
+                .as_ref()
+                .to_owned()
+                .into())
+        }
     }
 
     /// Set the `index` to `true`
@@ -174,7 +181,7 @@ impl BlockP {
             .collect();
 
         Self {
-            bits_words: bits_words.try_into().unwrap(),
+            bits_words: unsafe { bits_words.try_into().unwrap_unchecked() },
         }
     }
 }
@@ -186,12 +193,14 @@ impl From<BlockP> for BlockL {
         // let mut bits_l_array = MyBitArrayL::ZERO;
         // bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
         Self {
-            bits_words: block_p
-                .bits_words
-                .split_at(KAPPA_NB_ELEMENTS)
-                .0
-                .try_into()
-                .expect("BlockL::from slice with incorrect length"),
+            bits_words: unsafe {
+                block_p
+                    .bits_words
+                    .split_at(KAPPA_NB_ELEMENTS)
+                    .0
+                    .try_into()
+                    .unwrap_unchecked()
+            },
         }
     }
 }
@@ -203,12 +212,14 @@ impl From<&BlockP> for BlockL {
         // let mut bits_l_array = MyBitArrayL::ZERO;
         // bits_l_array.copy_from_bitslice(&block_p.bits.as_bitslice()[0..KAPPA_BYTES * KAPPA_FACTOR]);
         Self {
-            bits_words: block_p
-                .bits_words
-                .split_at(KAPPA_NB_ELEMENTS)
-                .0
-                .try_into()
-                .expect("BlockL::from slice with incorrect length"),
+            bits_words: unsafe {
+                block_p
+                    .bits_words
+                    .split_at(KAPPA_NB_ELEMENTS)
+                    .0
+                    .try_into()
+                    .unwrap_unchecked()
+            },
         }
     }
 }

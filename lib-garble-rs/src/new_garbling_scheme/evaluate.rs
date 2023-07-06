@@ -140,6 +140,12 @@ impl EvalCache {
     }
 }
 
+impl Default for EvalCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 ///
 /// In Algorithm 7 "Algorithms to Evaluate the Garbling"
 /// 9: procedure Ev(F, X)
@@ -193,17 +199,17 @@ fn evaluate_internal(
                 input_b,
             } => {
                 // "LA, LB ← active labels associated with the input wires of gate g"
-                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                let l_a = wire_labels[input_a.id].as_ref().ok_or({
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
                 })?;
-                let l_b = wire_labels[input_b.id].as_ref().ok_or_else(|| {
+                let l_b = wire_labels[input_b.id].as_ref().ok_or({
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_b.id }
                 })?;
 
                 // "extract ∇g ← F [g]"
                 let delta_g_blockl: BlockL = f.f[wire_ref.id]
                     .as_ref()
-                    .ok_or_else(|| InterstellarEvaluatorError::EvaluateErrorMissingDelta {
+                    .ok_or(InterstellarEvaluatorError::EvaluateErrorMissingDelta {
                         idx: wire_ref.id,
                     })?
                     .get_block()
@@ -225,7 +231,7 @@ fn evaluate_internal(
                 gate_type: _type,
                 input_a,
             } => {
-                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                let l_a = wire_labels[input_a.id].as_ref().ok_or({
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
                 })?;
                 l_a.get_block().clone()
@@ -276,9 +282,9 @@ fn decoding_internal(
         .enumerate()
         .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"
-            let yj = output_labels.y[idx].as_ref().ok_or_else(|| {
-                InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx }
-            })?;
+            let yj = output_labels.y[idx]
+                .as_ref()
+                .ok_or(InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx })?;
             let dj = &decoded_info.d[idx];
             let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
             // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here

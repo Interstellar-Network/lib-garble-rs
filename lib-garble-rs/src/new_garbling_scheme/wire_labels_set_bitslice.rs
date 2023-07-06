@@ -29,6 +29,7 @@ pub(super) struct WireLabelsSetBitSlice {
 }
 
 impl WireLabelsSetBitSlice {
+    #[allow(clippy::fn_params_excessive_bools)]
     pub(super) fn new_binary_gate_from_bool(x00: bool, x01: bool, x10: bool, x11: bool) -> Self {
         Self {
             internal: WireLabelsSetBitsSliceInternal::BinaryGate {

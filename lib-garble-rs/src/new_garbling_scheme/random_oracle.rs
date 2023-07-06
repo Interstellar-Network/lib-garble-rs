@@ -44,19 +44,21 @@ impl RandomOracle {
         let hash_6 = hash_5 ^ hash_0;
         let hash_7 = hash_6 ^ hash_0;
 
-        let hash_bytes_big: [u8; 128] = [
-            hash_0.to_le_bytes(),
-            hash_1.to_le_bytes(),
-            hash_2.to_le_bytes(),
-            hash_3.to_le_bytes(),
-            hash_4.to_le_bytes(),
-            hash_5.to_le_bytes(),
-            hash_6.to_le_bytes(),
-            hash_7.to_le_bytes(),
-        ]
-        .concat()
-        .try_into()
-        .unwrap();
+        let hash_bytes_big: [u8; 128] = unsafe {
+            [
+                hash_0.to_le_bytes(),
+                hash_1.to_le_bytes(),
+                hash_2.to_le_bytes(),
+                hash_3.to_le_bytes(),
+                hash_4.to_le_bytes(),
+                hash_5.to_le_bytes(),
+                hash_6.to_le_bytes(),
+                hash_7.to_le_bytes(),
+            ]
+            .concat()
+            .try_into()
+            .unwrap_unchecked()
+        };
 
         BlockP::new_with_raw_bytes(hash_bytes_big)
     }

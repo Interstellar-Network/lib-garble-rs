@@ -4,8 +4,10 @@ use std::time::Instant;
 
 mod common;
 use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
-use lib_garble_rs::{garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs};
-use png_tests_utils::png_utils::{convert_vec_u16_to_u8, read_png_to_bytes};
+use lib_garble_rs::{
+    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, EvalCache,
+};
+use png_tests_utils::png_utils::read_png_to_bytes;
 
 /// MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
 fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
@@ -15,27 +17,26 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
 
     let (mut garb, width, height) = garble_skcd_helper(skcd_bytes);
 
-    let mut merged_outputs = vec![0u16; width * height];
+    let mut merged_outputs = vec![0u8; width * height];
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let mut temp_outputs = vec![Some(0u16); width * height];
+    let mut temp_outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new();
 
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
-
-    let mut eval_cache = garb.init_cache();
 
     for _ in 0..NB_EVALS {
         eval_client(
             &mut garb,
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
             &mut temp_outputs,
+            &mut eval_cache,
             &mut rng,
             &rand_0_1,
-            &mut eval_cache,
             true,
         );
 
@@ -45,11 +46,16 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
             // 1 + 0 = 1
             // 0 + 1 = 1
             // 1 + 1 = 1
-            *merged_output = std::cmp::min(*merged_output + cur_output.unwrap_or_default(), 1u16)
+            *merged_output = std::cmp::min(*merged_output + cur_output, 1u8)
         }
     }
 
-    convert_vec_u16_to_u8(&merged_outputs)
+    // Convert Vec<0/1u8> -> Vec<0/255u8>; needed to have a proper png-like image output
+    for merged_output in merged_outputs.iter_mut() {
+        *merged_output *= 255;
+    }
+
+    merged_outputs
 }
 
 #[test]
@@ -78,27 +84,23 @@ fn test_garble_display_pinpad_590x50() {
 
 #[test]
 fn test_garble_display_message_120x52_2digits_zeros() {
-    let (mut garb, _width, _height) = garble_skcd_helper(include_bytes!(
+    let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
         "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
     ));
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
-    let evaluator_inputs = vec![0u16; 9];
+    let evaluator_inputs = vec![0u8; 9];
     let width = garb.config.display_config.unwrap().width as usize;
     let height = garb.config.display_config.unwrap().height as usize;
-    let mut outputs = vec![Some(0u16); width * height];
-    let mut eval_cache = garb.init_cache();
-    garb.eval_with_prealloc(
-        &encoded_garbler_inputs,
+    let mut outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new();
+    garb.eval(
+        &mut encoded_garbler_inputs,
         &evaluator_inputs,
         &mut outputs,
         &mut eval_cache,
     )
     .unwrap();
-    // convert Vec<std::option::Option<u16>> -> Vec<u16>
-    let outputs: Vec<u16> = outputs.into_iter().map(|i| i.unwrap()).collect();
-    // convert Vec<u16> -> Vec<u8>
-    let outputs = convert_vec_u16_to_u8(&outputs);
 
     let expected_outputs = read_png_to_bytes(include_bytes!(
         "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
@@ -148,8 +150,8 @@ fn bench_eval_display_message_640x360_2digits_42() {
 
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 
-    let mut data = vec![Some(0u16); width * height];
-    let mut eval_cache = garb.init_cache();
+    let mut outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new();
 
     for _ in 0..NB_ITERATIONS {
         // profiling::scope!("Looped eval");
@@ -157,19 +159,21 @@ fn bench_eval_display_message_640x360_2digits_42() {
 
         let start = Instant::now();
 
+        let mut encoded_garbler_inputs = encoded_garbler_inputs.clone();
+
         eval_client(
             &mut garb,
-            &encoded_garbler_inputs,
+            &mut encoded_garbler_inputs,
             &mut evaluator_inputs,
-            &mut data,
+            &mut outputs,
+            &mut eval_cache,
             &mut rng,
             &rand_0_1,
-            &mut eval_cache,
             true,
         );
 
-        core::hint::black_box(&data);
-        assert!(data.len() > 0);
+        core::hint::black_box(&outputs);
+        assert!(!outputs.is_empty());
 
         let duration = start.elapsed();
 

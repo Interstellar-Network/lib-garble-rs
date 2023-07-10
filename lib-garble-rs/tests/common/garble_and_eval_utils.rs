@@ -1,7 +1,8 @@
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::EncodedGarblerInputs;
+use lib_garble_rs::EvalCache;
 use lib_garble_rs::EvaluatorInput;
-use lib_garble_rs::InterstellarGarbledCircuit;
+use lib_garble_rs::GarbledCircuit;
 
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
@@ -14,14 +15,15 @@ use rand::rngs::ThreadRng;
 /// That costs around ~5ms...
 /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
 // #[profiling::function]
+// TODO(opt) EncodedGarblerInputs SHOULD NOT be mut; this forces up to clone it when evaluating repeatedly
 pub fn eval_client(
-    garb: &mut InterstellarGarbledCircuit,
-    encoded_garbler_inputs: &EncodedGarblerInputs,
+    garb: &mut GarbledCircuit,
+    encoded_garbler_inputs: &mut EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
-    data: &mut Vec<Option<u16>>,
+    outputs: &mut Vec<u8>,
+    eval_cache: &mut EvalCache,
     rng: &mut ThreadRng,
-    rand_0_1: &Uniform<u16>,
-    eval_cache: &mut lib_garble_rs::EvalCache,
+    rand_0_1: &Uniform<u8>,
     should_randomize_evaluator_inputs: bool,
 ) {
     // randomize the "rnd" part of the inputs
@@ -34,16 +36,21 @@ pub fn eval_client(
 
     // coz::scope!("eval_client");
 
-    garb.eval_with_prealloc(encoded_garbler_inputs, evaluator_inputs, data, eval_cache)
-        .unwrap();
+    garb.eval(
+        encoded_garbler_inputs,
+        evaluator_inputs,
+        outputs,
+        eval_cache,
+    )
+    .unwrap();
 }
 
 /// garble then eval a test .skcd
 /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
-pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (InterstellarGarbledCircuit, usize, usize) {
+pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (GarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 
-    let display_config = garb.config.display_config.unwrap().clone();
+    let display_config = garb.config.display_config.unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 

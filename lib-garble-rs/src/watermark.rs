@@ -1,11 +1,10 @@
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
-
-use crate::garble::GarblerInput;
+use alloc::vec::Vec;
 use image::{GrayImage, Luma};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
 use snafu::prelude::*;
+
+use crate::garble::GarblerInput;
 
 const FONT_BYTES: &[u8] = include_bytes!("../examples/data/BF_Modernista-Regular.ttf");
 const WATERMARK_COLOR: [u8; 1] = [255u8];
@@ -13,7 +12,7 @@ const WATERMARK_COLOR: [u8; 1] = [255u8];
 /// The given integer is NOT a valid 7 segments option[ie 0-9]
 #[derive(Debug, Snafu)]
 #[snafu(display("Can open read the .ttf"))]
-pub(crate) struct FontTtfErr {}
+pub(super) struct FontTtfErr {}
 
 /// Init a Font using the hardcoded .ttf from "data/"
 fn new_font<'a>() -> Result<Font<'a>, FontTtfErr> {
@@ -91,7 +90,7 @@ fn convert_image_to_garbler_inputs(image: GrayImage) -> Vec<GarblerInput> {
         .into_iter()
         .map(|pixel| {
             // IMPORTANT: we NEED a threshold here b/c "draw_text_mut" has apparently some AA
-            u16::from(pixel > 0)
+            u8::from(pixel > 0)
         })
         .collect()
 }
@@ -126,14 +125,14 @@ mod tests {
     fn test_convert_image_to_garbler_inputs_black_white() {
         let image = GrayImage::from_vec(4, 1, vec![255, 0, 0, 255]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u16, 0, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u8, 0, 0, 1]);
     }
 
     #[test]
     fn test_convert_image_to_garbler_inputs_grays() {
         let image = GrayImage::from_vec(4, 1, vec![128, 10, 0, 1]).unwrap();
 
-        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u16, 1, 0, 1]);
+        assert_eq!(convert_image_to_garbler_inputs(image), vec![1u8, 1, 0, 1]);
     }
 
     fn test_my_draw_text_mut(text: &str, expected_png_bytes: &[u8]) {

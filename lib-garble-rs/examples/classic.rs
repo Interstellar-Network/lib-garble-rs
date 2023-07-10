@@ -1,3 +1,4 @@
+use lib_garble_rs::EvalCache;
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
 use rand::thread_rng;
@@ -24,24 +25,23 @@ fn main() {
     // read the whole file
     reader.read_to_end(&mut buffer).unwrap();
 
-    let mut garb = garble_skcd(&buffer).unwrap();
+    let garb = garble_skcd(&buffer).unwrap();
 
-    let display_config = garb.config.display_config.unwrap().clone();
+    let display_config = garb.config.display_config.unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 
-    let mut merged_outputs = vec![0u16; width * height];
-    let mut temp_outputs = vec![Some(0u16); width * height];
+    let mut merged_outputs = vec![0u8; width * height];
+    let mut temp_outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new();
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let encoded_garbler_inputs =
+    let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
             .unwrap();
 
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
-
-    let mut eval_cache = garb.init_cache();
 
     for _ in 0..NB_EVALS {
         // randomize the "rnd" part of the inputs
@@ -50,8 +50,8 @@ fn main() {
             *input = rand_0_1.sample(&mut rng);
         }
 
-        garb.eval_with_prealloc(
-            &encoded_garbler_inputs,
+        garb.eval(
+            &mut encoded_garbler_inputs,
             &evaluator_inputs,
             &mut temp_outputs,
             &mut eval_cache,
@@ -69,7 +69,7 @@ fn main() {
             // 1 + 0 = 1
             // 0 + 1 = 1
             // 1 + 1 = 1
-            *merged_output = std::cmp::min(*merged_output + cur_output.unwrap(), 1u16)
+            *merged_output = std::cmp::min(*merged_output + cur_output, 1u8)
         }
     }
 

@@ -1,157 +1,130 @@
-use crate::circuit::InterstellarCircuit;
-use crate::circuit::SkcdConfig;
-use fancy_garbling::classic::{garble, Encoder, GarbledCircuit};
-use fancy_garbling::errors::EvaluatorError;
-use fancy_garbling::Wire;
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
-pub use fancy_garbling::classic::EvalCache;
+use crate::circuit::SkcdConfig;
+use crate::new_garbling_scheme::evaluate::EncodedInfo;
+use crate::new_garbling_scheme::garble::GarbledCircuitFinal;
+use crate::InterstellarEvaluatorError;
 
-#[cfg(all(not(feature = "std"), feature = "sgx"))]
-use sgx_tstd::vec::Vec;
+use crate::new_garbling_scheme::wire_value::WireValue;
+use crate::new_garbling_scheme::{self};
+use crate::EvalCache;
 
-pub type EvaluatorInput = u16;
-pub(crate) type GarblerInput = u16;
+pub type EvaluatorInput = u8;
+pub(super) type GarblerInput = u8;
+// TODO? proper struct to avoid implicit conversion?
+// pub struct EvaluatorInput(u8);
+// pub(super) struct GarblerInput(u8);
 
-// TODO(interstellar) this is NOT good?? It requires the "non garbled" Circuit to be kept around
-// we SHOULD (probably) rewrite "pub fn eval" in fancy-garbling/src/circuit.rs to to NOT use "self",
-// and replace "circuit" by a list of ~~Gates~~/Wires?? [cf how "cache" is constructed in "fn eval"]
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct InterstellarGarbledCircuit {
-    pub(crate) garbled: GarbledCircuit,
-    pub(crate) encoder: Encoder,
+/// The main garbling part in mod `new_garbling_scheme` only handles "raw" circuits.
+/// But using `SkcdConfig` we have added the concept of `GarblerInputs`(for the watermark/otp)
+/// vs `EvaluatorInputs`(ie the random inputs during each render loop).
+/// This struct is here to bridge the gap.
+#[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
+pub struct GarbledCircuit {
+    // TODO DO NOT Serialize the full `GarbleCircuit`[at least not entirely]
+    // MUST NOT be sent to the client-side b/c that probably leaks data
+    // Instead we should just send the list of pair (0,1) for each EvaluatorInput only
+    pub(super) garbled: GarbledCircuitFinal,
     pub config: SkcdConfig,
 }
 
-#[cfg(test)]
-impl Clone for InterstellarGarbledCircuit {
-    fn clone(&self) -> InterstellarGarbledCircuit {
-        InterstellarGarbledCircuit {
-            garbled: self.garbled.clone(),
-            encoder: self.encoder.clone(),
-            config: self.config.clone(),
-        }
-    }
-}
-
-/// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct EncodedGarblerInputs {
-    pub(crate) wires: Vec<Wire>,
-}
-
-#[derive(Debug)]
-pub enum InterstellarEvaluatorError {
-    FancyError(EvaluatorError),
-}
-
-#[derive(Debug)]
-pub enum GarblerError {
-    GarblerError,
-}
-
-impl InterstellarGarbledCircuit {
-    /// NOTE: it is NOT pub b/c we want to only expose the full `parse_skcd+garble`, cf lib.rs
-    pub(crate) fn garble(circuit: InterstellarCircuit) -> Result<Self, GarblerError> {
-        let (encoder, garbled) =
-            garble(circuit.circuit).map_err(|_e| GarblerError::GarblerError)?;
-        Ok(InterstellarGarbledCircuit {
-            garbled,
-            encoder,
-            config: circuit.config,
-        })
+impl GarbledCircuit {
+    #[must_use]
+    pub fn num_garbler_inputs(&self) -> u32 {
+        self.config.num_garbler_inputs()
     }
 
-    // TODO(interstellar) SHOULD NOT expose Wire; instead return a wrapper struct eg "GarblerInputs"
-    pub(crate) fn encode_garbler_inputs(
+    #[must_use]
+    pub fn num_evaluator_inputs(&self) -> u32 {
+        self.config.num_evaluator_inputs()
+    }
+
+    #[must_use]
+    pub fn num_outputs(&self) -> usize {
+        self.garbled.eval_metadata.nb_outputs
+    }
+
+    pub(super) fn encode_garbler_inputs(
         &self,
         garbler_inputs: &[GarblerInput],
     ) -> EncodedGarblerInputs {
         // TODO(interstellar)? but is this the correct time to CHECK?
         assert_eq!(
-            self.encoder.num_garbler_inputs(),
+            self.num_garbler_inputs() as usize,
             garbler_inputs.len(),
             "wrong garbler_inputs len!"
         );
+
+        // convert param `garbler_inputs` into `WireValue`
+        let garbler_inputs_wire_value: Vec<WireValue> = garbler_inputs
+            .iter()
+            .map(core::convert::Into::into)
+            .collect();
+
         EncodedGarblerInputs {
-            wires: self.encoder.encode_garbler_inputs(garbler_inputs),
+            encoded: new_garbling_scheme::evaluate::encode_garbler_inputs(
+                &self.garbled,
+                &garbler_inputs_wire_value,
+                0,
+                self.num_garbler_inputs() as usize,
+            ),
         }
     }
 
-    /// Eval using Fancy-Garbling's eval(or rather `eval_with_prealloc`)
+    /// Evaluate
+    /// This is meant to be called repeatedly in the render loop so it is trying
+    /// to `in-place` as much as possible.
     ///
     /// # Errors
     ///
     /// `FancyError` if something went wrong during **either** eval(now)
     /// or initially when garbling!
     /// In the latter case it means the circuit is a dud and nothing can be done!
-    pub fn eval_with_prealloc(
-        &mut self,
+    pub fn eval(
+        &self,
         encoded_garbler_inputs: &EncodedGarblerInputs,
         evaluator_inputs: &[EvaluatorInput],
-        outputs: &mut Vec<Option<u16>>,
+        outputs: &mut Vec<u8>,
         eval_cache: &mut EvalCache,
     ) -> Result<(), InterstellarEvaluatorError> {
-        let encoded_evaluator_inputs = self.encoder.encode_evaluator_inputs(evaluator_inputs);
+        // convert param `garbler_inputs` into `WireValue`
+        let evaluator_inputs_wire_value: Vec<WireValue> = evaluator_inputs
+            .iter()
+            .map(core::convert::Into::into)
+            .collect();
 
-        self.garbled
-            .eval_with_prealloc(
-                eval_cache,
-                &encoded_garbler_inputs.wires,
-                &encoded_evaluator_inputs,
-                outputs,
-            )
-            .map_err(InterstellarEvaluatorError::FancyError)?;
+        // TODO(opt) remove clone
+        let mut encoded_info = encoded_garbler_inputs.encoded.clone();
+
+        new_garbling_scheme::evaluate::encode_evaluator_inputs(
+            &self.garbled,
+            &evaluator_inputs_wire_value,
+            &mut encoded_info,
+            self.num_garbler_inputs() as usize,
+            self.num_garbler_inputs() as usize + self.num_evaluator_inputs() as usize,
+        );
+
+        // TODO this SHOULD have `outputs` in-place [1]
+        let outputs_wire_value = new_garbling_scheme::evaluate::evaluate_with_encoded_info(
+            &self.garbled,
+            &encoded_info,
+            eval_cache,
+        )?;
+
+        // Convert Vec<WireValue> -> Vec<u8>
+        let outputs_u8: Vec<u8> = outputs_wire_value
+            .into_iter()
+            .map(core::convert::Into::into)
+            .collect();
+        *outputs = outputs_u8;
 
         Ok(())
     }
-
-    pub fn init_cache(&mut self) -> EvalCache {
-        self.garbled.init_cache()
-    }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::garble_skcd;
-    use crate::tests::{FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS, FULL_ADDER_2BITS_ALL_INPUTS};
-
-    /// test comparing "eval" and "eval_with_prealloc"(both to reference and b/w themselves)
-    /// We only need to expose "eval_with_prealloc" publicly, but as it is a quite heavily
-    /// modified version of "eval" from our own fork, it is useful to CHECK it here
-    #[test]
-    fn test_compare_evals_full_adder_2bits() {
-        let mut garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
-        let garbler_inputs = vec![];
-        let encoded_garbler_inputs = garb.encode_garbler_inputs(&garbler_inputs);
-
-        let mut outputs_prealloc = vec![Some(0u16); FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
-
-        let mut eval_cache = garb.init_cache();
-
-        for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {
-            garb.eval_with_prealloc(
-                &encoded_garbler_inputs,
-                &inputs,
-                &mut outputs_prealloc,
-                &mut eval_cache,
-            )
-            .unwrap();
-
-            let encoded_garbler_inputs = garb.encoder.encode_garbler_inputs(&garbler_inputs);
-            let encoded_evaluator_inputs = garb.encoder.encode_evaluator_inputs(inputs);
-            let outputs_direct = garb
-                .garbled
-                .eval(&encoded_garbler_inputs, &encoded_evaluator_inputs)
-                .unwrap();
-
-            // convert Vec<std::option::Option<u16>> -> Vec<u16>
-            let outputs_prealloc: Vec<u16> = outputs_prealloc.iter().map(|i| i.unwrap()).collect();
-
-            let expected_outputs = FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[i];
-
-            assert_eq!(outputs_prealloc, expected_outputs);
-            assert_eq!(outputs_direct, expected_outputs);
-        }
-    }
+/// `EncodedGarblerInputs`: sent to the client as part of `EvaluableGarbledCircuit`
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+pub struct EncodedGarblerInputs {
+    pub(super) encoded: EncodedInfo,
 }

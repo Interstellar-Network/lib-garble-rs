@@ -5,10 +5,6 @@ members = [
     "ipfs-client-http-req",
 ]
 
-[profile.dev]
-# lib-garble-rs is REALLY slow in debug
-opt-level = 2
-
 ################################################################################
 # [patch."https://github.com/Interstellar-Network/swanky.git"]
 # fancy-garbling = { path = "../swanky/fancy-garbling/" }
@@ -19,3 +15,14 @@ opt-level = 2
 # [patch."https://github.com/Interstellar-Network/rs-common.git"]
 # http-grpc-client = { path = "../rs-common/http-grpc-client/" }
 ################################################################################
+
+[profile.dev]
+# without optimizations the tests with display circuits(even the small 120x52) are REALLY slow
+opt-level = 0
+
+# custom profile use for profiling:
+# - release optimisations
+# - BUT with debug to have nice stacktrace and profiling data
+[profile.release-with-debug]
+inherits = "release"
+debug = true

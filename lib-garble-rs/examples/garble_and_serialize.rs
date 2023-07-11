@@ -18,7 +18,6 @@ use clap::Parser;
 
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::garble_skcd_with_seed;
-use lib_garble_rs::serialize_for_evaluator;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]

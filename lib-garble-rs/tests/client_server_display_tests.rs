@@ -8,10 +8,10 @@
 use rand::distributions::Uniform;
 use rand::thread_rng;
 
-mod common;
-use crate::common::garble_and_eval_utils::{eval_client, garble_skcd_helper};
 use lib_garble_rs::{
-    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs, EvalCache,
+    garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs,
+    tests_utils::garble_and_eval_utils::eval_client,
+    tests_utils::garble_and_eval_utils::garble_skcd_helper, EvalCache,
 };
 use png_tests_utils::png_utils::read_png_to_bytes;
 

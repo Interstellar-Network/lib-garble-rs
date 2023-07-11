@@ -1,9 +1,10 @@
-use lib_garble_rs::garble_skcd;
-use lib_garble_rs::EncodedGarblerInputs;
-use lib_garble_rs::EvalCache;
-use lib_garble_rs::EvaluatorInput;
-use lib_garble_rs::GarbledCircuit;
+use crate::garble_skcd;
+use crate::EncodedGarblerInputs;
+use crate::EvalCache;
+use crate::EvaluatorInput;
+use crate::GarbledCircuit;
 
+use alloc::vec::Vec;
 use rand::distributions::Uniform;
 use rand::prelude::Distribution;
 use rand::rngs::ThreadRng;
@@ -16,9 +17,11 @@ use rand::rngs::ThreadRng;
 /// let data = garb.eval(&garbler_inputs, &[0; 9]).unwrap();
 // #[profiling::function]
 // TODO(opt) EncodedGarblerInputs SHOULD NOT be mut; this forces up to clone it when evaluating repeatedly
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments, clippy::unwrap_used)]
 pub fn eval_client(
-    garb: &mut GarbledCircuit,
-    encoded_garbler_inputs: &mut EncodedGarblerInputs,
+    garb: &GarbledCircuit,
+    encoded_garbler_inputs: &EncodedGarblerInputs,
     evaluator_inputs: &mut [EvaluatorInput],
     outputs: &mut Vec<u8>,
     eval_cache: &mut EvalCache,
@@ -47,6 +50,8 @@ pub fn eval_client(
 
 /// garble then eval a test .skcd
 /// It is used by multiple tests to compare "specific set of inputs" vs "expected output .png"
+#[doc(hidden)]
+#[allow(clippy::unwrap_used, clippy::must_use_candidate)]
 pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (GarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 

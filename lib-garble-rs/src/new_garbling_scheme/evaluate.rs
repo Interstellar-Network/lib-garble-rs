@@ -158,6 +158,7 @@ impl Default for EvalCache {
 // TODO(opt) `ro_buf` SHOULD instead be a Vec<BytesMut>(one per Gate) b/c
 //  - would allow parallel iteration on gates
 //  - different gate(unary vs binary) ends up with different buffer sizes so less efficient(?)
+#[allow(clippy::unnecessary_lazy_evaluations)]
 fn evaluate_internal(
     circuit: &CircuitInternal,
     f: &F,
@@ -199,17 +200,17 @@ fn evaluate_internal(
                 input_b,
             } => {
                 // "LA, LB ← active labels associated with the input wires of gate g"
-                let l_a = wire_labels[input_a.id].as_ref().ok_or({
+                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
                 })?;
-                let l_b = wire_labels[input_b.id].as_ref().ok_or({
+                let l_b = wire_labels[input_b.id].as_ref().ok_or_else(|| {
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_b.id }
                 })?;
 
                 // "extract ∇g ← F [g]"
                 let delta_g_blockl = f.f[wire_ref.id]
                     .as_ref()
-                    .ok_or(InterstellarEvaluatorError::EvaluateErrorMissingDelta {
+                    .ok_or_else(|| InterstellarEvaluatorError::EvaluateErrorMissingDelta {
                         idx: wire_ref.id,
                     })?
                     .get_block();
@@ -230,7 +231,7 @@ fn evaluate_internal(
                 gate_type: _type,
                 input_a,
             } => {
-                let l_a = wire_labels[input_a.id].as_ref().ok_or({
+                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
                 })?;
                 l_a.get_block().clone()
@@ -265,6 +266,7 @@ fn evaluate_internal(
 ///
 /// "De(Y, d) := {⊥, y}: returns either the failure symbol ⊥ or a value y = f (x)."
 ///
+#[allow(clippy::unnecessary_lazy_evaluations)]
 fn decoding_internal(
     outputs_bufs: &mut Vec<BytesMut>,
     output_labels: &OutputLabels,
@@ -281,9 +283,9 @@ fn decoding_internal(
         .enumerate()
         .map(|(idx, output_buf)| {
             // "y[j] ← lsb(RO′(Y [j], dj ))"
-            let yj = output_labels.y[idx]
-                .as_ref()
-                .ok_or(InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx })?;
+            let yj: &BlockL = output_labels.y[idx].as_ref().ok_or_else(|| {
+                InterstellarEvaluatorError::DecodingErrorMissingOutputLabel { idx }
+            })?;
             let dj = &decoded_info.d[idx];
             let r = RandomOracle::random_oracle_prime(yj, dj, output_buf);
             // NOTE: `random_oracle_prime` directly get the LSB so no need to do it here

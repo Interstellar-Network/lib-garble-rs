@@ -215,6 +215,10 @@ pub fn prepare_evaluator_inputs(
     Ok(evaluator_inputs)
 }
 
+#[doc(hidden)]
+#[cfg(feature = "std")]
+pub mod tests_utils;
+
 #[cfg(test)]
 mod tests {
 

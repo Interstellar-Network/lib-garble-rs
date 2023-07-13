@@ -5,6 +5,8 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
+use crate::skcd_parser::CircuitParserError;
+
 pub(crate) use gate::{Gate, GateType, GateTypeBinary, GateTypeUnary, WireRef};
 pub(crate) use skcd_config::{
     DisplayConfig, EvaluatorInputs, EvaluatorInputsType, GarblerInputs, GarblerInputsType,
@@ -61,6 +63,8 @@ pub(super) struct CircuitMetadata {
     // BELOW fields are mostly for Debug/Stats/etc
     gates_unary_count: HashMap<GateTypeUnary, usize>,
     gates_binary_count: HashMap<GateTypeBinary, usize>,
+    gates_0_count: usize,
+    gates_1_count: usize,
     /// The max gate.get_id() we can find in circuit.gates(typically get_id() == gate.output)
     /// We need this to init the proper vec to store "deltas"
     max_gate_id: usize,
@@ -72,6 +76,8 @@ impl CircuitMetadata {
             outputs_start_end_indexes,
             gates_unary_count: HashMap::new(),
             gates_binary_count: HashMap::new(),
+            gates_0_count: 0,
+            gates_1_count: 0,
             max_gate_id,
         }
     }
@@ -81,18 +87,47 @@ impl CircuitMetadata {
         (idx >= self.outputs_start_end_indexes.0) && (idx <= self.outputs_start_end_indexes.1)
     }
 
-    pub(super) fn increment_unary_gate(&mut self, gate_type: &GateTypeUnary) {
-        self.gates_unary_count
-            .entry(gate_type.clone())
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
-    }
+    pub(super) fn increment_gate_type(
+        &mut self,
+        gate_type: &GateType,
+    ) -> Result<(), CircuitParserError> {
+        match gate_type {
+            GateType::Binary {
+                gate_type,
+                input_a: _,
+                input_b: _,
+            } => {
+                self.gates_binary_count
+                    .entry(
+                        gate_type
+                            .as_ref()
+                            .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?
+                            .clone(),
+                    )
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+            }
+            GateType::Unary {
+                gate_type,
+                input_a: _,
+            } => {
+                self.gates_unary_count
+                    .entry(
+                        gate_type
+                            .as_ref()
+                            .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?
+                            .clone(),
+                    )
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+            }
+            GateType::Constant { value } => match value {
+                true => self.gates_1_count += 1,
+                false => self.gates_0_count += 1,
+            },
+        };
 
-    pub(super) fn increment_binary_gate(&mut self, gate_type: &GateTypeBinary) {
-        self.gates_binary_count
-            .entry(gate_type.clone())
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
+        Ok(())
     }
 
     /// When building `output_labels`, we need to insert elements base on
@@ -287,7 +322,7 @@ impl Circuit {
     }
 
     /// Build a basic circuit containing only a desired Binary Gate
-    pub(crate) fn new_test_circuit(gate_binary_type: GateTypeBinary) -> Self {
+    pub(crate) fn new_test_circuit(gate_binary_type: crate::circuit::gate::GateTypeBinary) -> Self {
         Self {
             circuit: CircuitInternal {
                 inputs: vec![WireRef { id: 0 }, WireRef { id: 1 }],
@@ -311,12 +346,16 @@ impl Circuit {
                 outputs_start_end_indexes: (2, 2),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                gates_0_count: 0,
+                gates_1_count: 0,
                 max_gate_id: 2,
             },
         }
     }
 
-    pub(crate) fn new_test_circuit_unary(gate_unary_type: GateTypeUnary) -> Self {
+    pub(crate) fn new_test_circuit_unary(
+        gate_unary_type: crate::circuit::gate::GateTypeUnary,
+    ) -> Self {
         Self {
             circuit: CircuitInternal {
                 inputs: vec![WireRef { id: 0 }],
@@ -339,6 +378,8 @@ impl Circuit {
                 outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                gates_0_count: 0,
+                gates_1_count: 0,
                 max_gate_id: 1,
             },
         }
@@ -364,6 +405,8 @@ impl Circuit {
                 outputs_start_end_indexes: (1, 1),
                 gates_unary_count: HashMap::new(),
                 gates_binary_count: HashMap::new(),
+                gates_0_count: 0,
+                gates_1_count: 0,
                 max_gate_id: 1,
             },
         }

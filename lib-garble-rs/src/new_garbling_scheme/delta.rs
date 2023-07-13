@@ -133,25 +133,14 @@ impl Delta {
                 // GateTypeBinary is None only when deserializing
                 None => unimplemented!("Delta::new for None[GateTypeBinary]!"),
             },
+            // `GateType::Unary` are eval/garble for FREE
             GateType::Unary {
-                gate_type: r#type,
+                gate_type: _,
                 input_a: _,
-            } => match r#type {
-                // TODO(opt); probably not needed if we don't use it in `evaluate_internal`
-                // but it's never called since "free BUF/NOT" so it should not matter
-                Some(GateTypeUnary::INV) => (
-                    BlockP::new_projection(compressed_set.get_x1(), &delta_g_block),
-                    BlockP::new_projection(compressed_set.get_x0(), &delta_g_block),
-                ),
-                Some(GateTypeUnary::BUF) => (
-                    BlockP::new_projection(compressed_set.get_x0(), &delta_g_block),
-                    BlockP::new_projection(compressed_set.get_x1(), &delta_g_block),
-                ),
-                // GateTypeUnary is None only when deserializing
-                None => unimplemented!("Delta::new for None[GateTypeUnary]!"),
-            },
-            // [constant gate special case]
-            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
+            } => {
+                unimplemented!("Delta::new for Unary gates is a special case!")
+            }
+            // `GateType::Constant` are eval/garble for FREE
             GateType::Constant { value: _ } => {
                 unimplemented!("Delta::new for Constant gates is a special case!")
             }

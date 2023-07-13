@@ -46,8 +46,6 @@ pub enum CircuitParserError {
     },
     /// `gate_type: Option<GateTypeBinary>` but it CAN(and WILL) be None only after serialization/deserialization
     InvalidStateGateTypeNotSet,
-    /// For the "[constant gate special case]" we use the first input as a special "wire ID"
-    ConstantSpecialCaseMissingInput,
     UnaryGateMissingInput,
     BinaryGateMissingInputA,
     BinaryGateMissingInputB,
@@ -172,35 +170,10 @@ impl Circuit {
         let outputs_clone = outputs.clone();
         let outputs_set: HashSet<&WireRef> = outputs_clone.iter().collect();
 
-        // TODO? [constant gate special case]
-        // we add two wires to represent constant 0 and 1
-        // we loop just in case the wire ID would already be present in the "map"
-        // let mut rng = ChaChaRng::from_entropy();
-        // let wire_constant = generate_wire_with_fixed_id_and_random_prefix(
-        //     &mut rng,
-        //     &mut skcd_to_wire_ref_converter,
-        //     "constant",
-        // );
-        // TODO should they instead be Gates??? or both Gate+Wire
-        // If we only add Wires? how are we supposed to "set" them? They CAN NOT be "free floating"??
-        // Or can they?
-        // MAYBE use eg inputs[0] instead?
-        let first_input = skcd
-            .inputs
-            .first()
-            .ok_or_else(|| CircuitParserError::ConstantSpecialCaseMissingInput)?;
-        let wire_constant = skcd_to_wire_ref_converter
-            .get(first_input)
-            .ok_or_else(|| CircuitParserError::InvalidGateId {
-                gate_id: first_input.to_string(),
-            })?
-            .clone();
-
         // TODO(interstellar) how should we use skcd's a/b/go?
         let mut gates = Vec::<Gate>::with_capacity(skcd.gates.len());
         let mut outputs_start_end_indexes = (usize::MAX, usize::MIN);
         let mut max_gate_id = usize::MIN;
-        // TODO constant_gate
         for skcd_gate in skcd.gates {
             // But `output` MUST always be set; this is what we use as Gate ID
             skcd_to_wire_ref_converter.insert(&skcd_gate.o);
@@ -208,19 +181,8 @@ impl Circuit {
             // **IMPORTANT** NOT ALL Gate to be built require x_ref and y_ref
             // so DO NOT unwrap here!
             // That would break the circuit building process!
-            let mut x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a);
+            let x_ref = skcd_to_wire_ref_converter.get(&skcd_gate.a);
             let y_ref = skcd_to_wire_ref_converter.get(&skcd_gate.b);
-
-            // [constant gate special case]
-            match skcd_gate.r#type {
-                // == interstellarpbskcd::SkcdGateType::Zero
-                // == interstellarpbskcd::SkcdGateType::One
-                0 | 1 => {
-                    x_ref = Some(&wire_constant);
-                }
-                // Not a special case; it will be handled by `Gate::new_from_skcd_gate_type`
-                _ => {}
-            }
 
             let output_wire_ref =
                 skcd_to_wire_ref_converter
@@ -264,26 +226,7 @@ impl Circuit {
         // compute stats etc
         let mut metadata = CircuitMetadata::new(outputs_start_end_indexes, max_gate_id);
         for gate in &gates {
-            match gate.get_type() {
-                crate::circuit::GateType::Binary {
-                    gate_type,
-                    input_a: _,
-                    input_b: _,
-                } => metadata.increment_binary_gate(
-                    gate_type
-                        .as_ref()
-                        .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?,
-                ),
-                crate::circuit::GateType::Unary {
-                    gate_type,
-                    input_a: _,
-                } => metadata.increment_unary_gate(
-                    gate_type
-                        .as_ref()
-                        .ok_or_else(|| CircuitParserError::InvalidStateGateTypeNotSet)?,
-                ),
-                crate::circuit::GateType::Constant { value: _ } => {}
-            }
+            metadata.increment_gate_type(gate.get_type())?;
         }
 
         log::info!("circuit metadata: {:?}", metadata);

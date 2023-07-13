@@ -188,6 +188,11 @@ fn evaluate_internal(
         wire_labels[idx] = Some(wire_label.clone());
     }
 
+    // [constant gate special case]
+    // we need a placeholder Wire for simplicity
+    let constant_block0 = BlockL::new_with([0, 0]);
+    let constant_block1 = BlockL::new_with([u64::MAX, u64::MAX]);
+
     // "for each gate g ∈ [q] in a topological order do"
     for gate in &circuit.gates {
         let wire_ref = WireRef { id: gate.get_id() };
@@ -237,10 +242,14 @@ fn evaluate_internal(
                 l_a.get_block().clone()
             }
             // [constant gate special case]
-            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-            GateType::Constant { value: _ } => {
-                unimplemented!("evaluate_internal for Constant gates is a special case!")
-            }
+            // The `GateType::Constant` gates DO NOT need a garled representation.
+            // They are evaluated directly.
+            // That is b/c knowing is it is a TRUE/FALSE gate already leaks all there is to leak, so no point
+            // in garbling...
+            GateType::Constant { value } => match value {
+                false => constant_block0.clone(),
+                true => constant_block1.clone(),
+            },
         };
 
         wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));

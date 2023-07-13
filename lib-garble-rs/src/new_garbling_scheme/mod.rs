@@ -216,7 +216,6 @@ mod tests {
     #[test]
     // TODO(new-garbling-scheme)[opt-0-1] should probably apply the same "free-BUF" for constant 0/1
     //  right now the 0/1 gates are rewritten by skcd_parser so we can not build a circuit with them directy
-    #[ignore]
     fn test_basic_zero() {
         // inputs, expected_output
         let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
@@ -232,11 +231,10 @@ mod tests {
     #[test]
     // TODO(new-garbling-scheme)[opt-0-1] should probably apply the same "free-BUF" for constant 0/1
     //  right now the 0/1 gates are rewritten by skcd_parser so we can not build a circuit with them directy
-    #[ignore]
     fn test_basic_one() {
         // inputs, expected_output
         let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
-            // Standard truth table for 0 Gate
+            // Standard truth table for 1 Gate
             // (input0, input1), output
             (vec![false.into()], true.into()),
             (vec![true.into()], true.into()),

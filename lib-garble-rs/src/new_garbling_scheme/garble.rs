@@ -110,7 +110,6 @@ fn f1_0_compress(
             ))
         }
         // [constant gate special case]
-        // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
         GateType::Constant { value: _ } => {
             unimplemented!("f1_0_compress for Constant gates is a special case!")
         }
@@ -240,6 +239,11 @@ fn garble_internal(
         encoded_wires[idx] = Some(input_wire.clone());
     }
 
+    // [constant gate special case]
+    // We need a placeholder Wire for simplicity; these are NOT used during `evaluate_internal` etc
+    let constant_block0 = BlockL::new_with([0, 0]);
+    let constant_block1 = BlockL::new_with([u64::MAX, u64::MAX]);
+
     // DEBUG `InputEncodingSet`
     // let all_wires: Vec<usize> = Vec::from_iter(e.e.keys().map(|w| w.id));
     // let mut all_wires_sorted = all_wires.clone();
@@ -281,9 +285,8 @@ fn garble_internal(
                     None => unimplemented!("garble_internal for None[GateType::Unary]!"),
                 }
             }
-            GateType::Constant { .. } => {
-                unimplemented!("garble_internal for None[GateType::Constant]!")
-            }
+            // [constant gate special case]
+            GateType::Constant { value: _ } => (constant_block0.clone(), constant_block1.clone()),
         };
 
         // TODO what index should we use?

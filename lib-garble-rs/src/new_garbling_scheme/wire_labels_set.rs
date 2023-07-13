@@ -147,6 +147,7 @@ impl WireLabelsSet {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn get_x0(&self) -> &BlockP {
         match &self.internal {
             WireLabelsSetInternal::BinaryGate {
@@ -161,6 +162,7 @@ impl WireLabelsSet {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn get_x1(&self) -> &BlockP {
         match &self.internal {
             WireLabelsSetInternal::BinaryGate {

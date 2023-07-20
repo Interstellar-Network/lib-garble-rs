@@ -14,10 +14,10 @@ fn main() {
     // How many eval() we will combine
     // Reminder: each segment have a 50% chance to be displayed at each eval()
     // So typically using 10 evals means almost all of the segments will be displayed
-    const NB_EVALS: i32 = 10;
+    const NB_EVALS: i32 = 2;
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
-    let f = std::fs::File::open("lib-garble-rs/examples/data/output.skcd.pb.bin")
+    let f = std::fs::File::open("/home/jll/projects/lib_circuits/build/tests/output.skcd.pb.bin")
         .unwrap();
     let mut reader = BufReader::new(f);
 

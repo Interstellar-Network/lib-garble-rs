@@ -73,5 +73,10 @@ fn main() {
         }
     }
 
+    // convert (0,1) -> (0,255) to get a proper png
+    for merged_output in merged_outputs.iter_mut() {
+        *merged_output = *merged_output * 255;
+    }
+
     write_png("eval_outputs.png", width, height, &merged_outputs);
 }

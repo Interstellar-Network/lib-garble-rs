@@ -18,20 +18,20 @@ use alloc::vec;
 use alloc::vec::Vec;
 use snafu::prelude::*;
 
+use circuit_types_rs::{EvaluatorInputsType, GarblerInputsType};
+
 // re-export
 pub use garble::{EncodedGarblerInputs, EvaluatorInput, GarbledCircuit};
 pub use new_garbling_scheme::evaluate::EvalCache;
 pub use serialize_deserialize::{deserialize_for_evaluator, serialize_for_evaluator};
 
-mod circuit;
 mod garble;
 mod new_garbling_scheme;
 mod segments;
 mod serialize_deserialize;
-mod skcd_parser;
 mod watermark;
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Snafu, PartialEq)]
 pub enum InterstellarError {
     /// Error at GarbledCircuit::garble
     GarblerError,
@@ -40,8 +40,11 @@ pub enum InterstellarError {
     /// garbled_display_circuit_prepare_garbler_inputs: the circuit SHOULD be
     /// a "display circuit"; ie it MUST contain a valid config with field "display_config" set
     NotAValidDisplayCircuit,
+    OnlyValidForDisplayCircuit,
     /// The given integer is NOT a valid 7 segments option[ie 0-9]
-    NotAValid7Segment { digit: u8 },
+    NotAValid7Segment {
+        digit: u8,
+    },
     /// "BUF garbler_input SHOULD be of length == 1"
     GarblerInputsInvalidBufLength,
     /// SevenSegments garbler_input SHOULD be of length % 7
@@ -49,17 +52,42 @@ pub enum InterstellarError {
     /// SevenSegments garbler_input SHOULD match digits parameter
     GarblerInputs7SegmentsWrongLength,
     /// error during `new_watermark`
-    WatermarkError { msg: String },
+    WatermarkError {
+        msg: String,
+    },
+    SerializerDeserializerInternalError {
+        err: postcard::Error,
+    },
+    /// "wrong encoded_garbler_inputs len!"
+    SerializeForEvaluatorWrongInputsLength {
+        inputs_len: usize,
+        expected_len: usize,
+    },
 }
 
 #[derive(Debug)]
 pub enum InterstellarEvaluatorError {
     /// Error at `decoding_internal`
-    DecodingErrorMissingOutputLabel { idx: usize },
+    DecodingErrorMissingOutputLabel {
+        idx: usize,
+    },
     /// Error at `evaluate_internal`
-    EvaluateErrorMissingLabel { idx: usize },
+    EvaluateErrorMissingLabel {
+        idx: usize,
+    },
     /// Error at `evaluate_internal`
-    EvaluateErrorMissingDelta { idx: usize },
+    EvaluateErrorMissingDelta {
+        idx: usize,
+    },
+    BaseError {
+        err: InterstellarError,
+    },
+}
+
+impl From<InterstellarError> for InterstellarEvaluatorError {
+    fn from(value: InterstellarError) -> Self {
+        Self::BaseError { err: value }
+    }
 }
 
 /// This is the main entry point of this function; meant to be called by the "pallet-ocw-garble"
@@ -81,16 +109,13 @@ fn garble_skcd_aux(
     skcd_buf: &[u8],
     rng_seed: Option<u64>,
 ) -> Result<GarbledCircuit, InterstellarError> {
-    let circuit =
-        circuit::Circuit::parse_skcd(skcd_buf).map_err(|_e| InterstellarError::SkcdParserError)?;
+    let circuit = circuit_types_rs::deserialize_from_buffer(skcd_buf)
+        .map_err(|_e| InterstellarError::SkcdParserError)?;
 
-    let garbled = new_garbling_scheme::garble::garble(circuit.circuit, circuit.metadata, rng_seed)
+    let garbled = new_garbling_scheme::garble::garble(circuit, rng_seed)
         .map_err(|_e| InterstellarError::GarblerError)?;
 
-    Ok(GarbledCircuit {
-        garbled,
-        config: circuit.config,
-    })
+    Ok(GarbledCircuit::new(garbled))
 }
 
 /// Variant of `garble_skcd` used for tests
@@ -136,22 +161,23 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
     //
     // prepare using the correct garbler_inputs total length(in BITS)
     // ie simply sum the length of each GarblerInput
+    let display_config = garb.get_display_config()?;
     let mut garbler_inputs = Vec::with_capacity(
-        garb.config
+        display_config
             .garbler_inputs
             .iter()
             .fold(0, |acc, e| acc + e.length as usize),
     );
-    for garbler_input in &garb.config.garbler_inputs {
+    for garbler_input in &display_config.garbler_inputs {
         match garbler_input.r#type {
-            circuit::GarblerInputsType::Buf => {
+            GarblerInputsType::Buf => {
                 if garbler_input.length != 1 {
                     return Err(InterstellarError::GarblerInputsInvalidBufLength);
                 }
 
                 garbler_inputs.push(0u8);
             }
-            circuit::GarblerInputsType::SevenSegments => {
+            GarblerInputsType::SevenSegments => {
                 if garbler_input.length % 7 != 0 {
                     return Err(InterstellarError::GarblerInputs7SegmentsNotMod7);
                 }
@@ -163,11 +189,7 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
                     .map_err(|e| InterstellarError::NotAValid7Segment { digit: e.number })?;
                 garbler_inputs.append(&mut segments_inputs);
             }
-            circuit::GarblerInputsType::Watermark => {
-                let display_config = garb
-                    .config
-                    .display_config
-                    .ok_or(InterstellarError::NotAValidDisplayCircuit)?;
+            GarblerInputsType::Watermark => {
                 let mut watermark_inputs = watermark::new_watermark(
                     display_config.width,
                     display_config.height,
@@ -181,7 +203,7 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
         }
     }
 
-    Ok(garb.encode_garbler_inputs(&garbler_inputs))
+    Ok(garb.encode_inputs(&garbler_inputs))
 }
 
 /// Like `garbled_display_circuit_prepare_garbler_inputs` but for the client-side(ie Evaluator)
@@ -195,20 +217,20 @@ pub fn garbled_display_circuit_prepare_garbler_inputs(
 pub fn prepare_evaluator_inputs(
     garb: &GarbledCircuit,
 ) -> Result<Vec<EvaluatorInput>, InterstellarError> {
+    let display_config = garb.get_display_config()?;
     let mut evaluator_inputs = Vec::with_capacity(
-        garb.config
+        display_config
             .evaluator_inputs
             .iter()
             .fold(0, |acc, e| acc + e.length as usize),
     );
 
-    for evaluator_input in &garb.config.evaluator_inputs {
+    for evaluator_input in &display_config.evaluator_inputs {
         match evaluator_input.r#type {
-            circuit::EvaluatorInputsType::Rnd => {
+            EvaluatorInputsType::Rnd => {
                 let mut inputs_0 = vec![0; evaluator_input.length as usize];
                 evaluator_inputs.append(&mut inputs_0);
             }
-            _ => todo!("prepare_evaluator_inputs: only Rnd supported for now"),
         }
     }
 
@@ -254,8 +276,11 @@ mod tests {
 
     #[test]
     fn test_garble_evaluate_full_adder_2bits() {
-        let garb = garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
-        let encoded_garbler_inputs = garb.encode_garbler_inputs(&[]);
+        let garb = garble_skcd(include_bytes!(
+            "../examples/data/result_abc_full_adder.postcard.bin"
+        ))
+        .unwrap();
+        let encoded_garbler_inputs = garb.encode_inputs(&[]);
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
         let mut eval_cache = EvalCache::new();

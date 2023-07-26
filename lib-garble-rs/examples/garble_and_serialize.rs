@@ -6,8 +6,8 @@
 /// NOTE: tested ONLY with "display circuits"
 ///
 /// To run:
-/// - `cargo run --profile=release-with-debug --example garble_and_serialize -- --skcd-path=./lib-garble-rs/examples/data/display_message_640x360_2digits.skcd.pb.bin --digits=4,2 --garbled-path=message.garbled`
-/// - `cargo run --profile=release-with-debug --example garble_and_serialize -- --skcd-path=./lib-garble-rs/examples/data/display_pinpad_590x50.skcd.pb.bin --digits=0,1,2,3,4,5,6,7,8,9 --garbled-path=pinpad.garbled --tx-msg-str=""`
+/// - `cargo run --profile=release-with-debug --example garble_and_serialize -- --skcd-path=./lib-garble-rs/examples/data/display_message_640x360_2digits.skcd.postcard.bin --digits=4,2 --garbled-path=message.garbled`
+/// - `cargo run --profile=release-with-debug --example garble_and_serialize -- --skcd-path=./lib-garble-rs/examples/data/display_pinpad_590x50.skcd.postcard.bin --digits=0,1,2,3,4,5,6,7,8,9 --garbled-path=pinpad.garbled --tx-msg-str=""`
 ///
 ///
 use std::io::BufReader;

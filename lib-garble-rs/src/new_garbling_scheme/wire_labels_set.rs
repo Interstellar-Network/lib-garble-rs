@@ -53,6 +53,7 @@ impl WireLabelsSet {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_unary(x0: BlockP, x1: BlockP) -> Self {
         assert_ne!(&x0, &x1, "a and b are equal");
         Self {

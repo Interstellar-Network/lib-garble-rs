@@ -14,8 +14,8 @@ members = ["lib-garble-rs"]
 # ipfs-client-http-req = { path = "../rs-common/ipfs-client-http-req/" }
 # png-utils = { path = "../rs-common/png_utils" }
 
-[patch."https://github.com/Interstellar-Network/lib_circuits.git"]
-circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }
+# [patch."https://github.com/Interstellar-Network/lib_circuits.git"]
+# circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }
 
 ################################################################################
 

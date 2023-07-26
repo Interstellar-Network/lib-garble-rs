@@ -27,7 +27,7 @@ fn main() {
 
     let garb = garble_skcd(&buffer).unwrap();
 
-    let display_config = garb.config.display_config.unwrap();
+    let display_config = garb.get_display_config().unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 

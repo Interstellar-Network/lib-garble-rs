@@ -14,7 +14,7 @@ fn main() {
     // How many eval() we will combine
     // Reminder: each segment have a 50% chance to be displayed at each eval()
     // So typically using 10 evals means almost all of the segments will be displayed
-    const NB_EVALS: i32 = 10;
+    const NB_EVALS: i32 = 5;
 
     // TODO(interstellar) display_message_640x360_2digits.skcd.pb.bin
     let f = std::fs::File::open("/home/jll/projects/lib_circuits/build/output.skcd.pb.bin")
@@ -38,8 +38,12 @@ fn main() {
     let rand_0_1 = Uniform::from(0..=1);
 
     let mut encoded_garbler_inputs =
-        garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
+        //garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
+         //   .unwrap();
+
+        garbled_display_circuit_prepare_garbler_inputs(&garb, &[7, 2, 9, 8, 6, 0, 3, 9, 4, 1], "")
             .unwrap();
+
 
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
 

@@ -13,7 +13,7 @@ use lib_garble_rs::{
     tests_utils::garble_and_eval_utils::eval_client,
     tests_utils::garble_and_eval_utils::garble_skcd_helper, EvalCache,
 };
-use png_tests_utils::png_utils::read_png_to_bytes;
+use png_utils::read_png_to_bytes;
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {

@@ -9,9 +9,10 @@ members = ["lib-garble-rs"]
 # [patch."https://github.com/Interstellar-Network/pallets.git"]
 # tests-utils = { path = "../pallets/tests_utils/" }
 
-[patch."https://github.com/Interstellar-Network/rs-common.git"]
-# http-grpc-client = { path = "../rs-common/http-grpc-client/" }
-ipfs-client-http-req = { path = "../rs-common/ipfs-client-http-req/" }
+# [patch."https://github.com/Interstellar-Network/rs-common.git"]
+# # http-grpc-client = { path = "../rs-common/http-grpc-client/" }
+# ipfs-client-http-req = { path = "../rs-common/ipfs-client-http-req/" }
+# png-utils = { path = "../rs-common/png_utils" }
 
 [patch."https://github.com/Interstellar-Network/lib_circuits.git"]
 circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }

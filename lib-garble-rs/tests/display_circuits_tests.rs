@@ -7,7 +7,7 @@ use lib_garble_rs::{
     tests_utils::garble_and_eval_utils::eval_client,
     tests_utils::garble_and_eval_utils::garble_skcd_helper, EvalCache,
 };
-use png_tests_utils::png_utils::read_png_to_bytes;
+use png_utils::read_png_to_bytes;
 
 /// MUST combine multiple evals; or alternatively have several tests with different "evaluator_inputs"
 fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {

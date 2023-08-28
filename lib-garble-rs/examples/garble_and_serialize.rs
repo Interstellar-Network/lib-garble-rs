@@ -28,12 +28,10 @@ struct Args {
     tx_msg_str: String,
 
     /// The digits; ie the OTP or pinpad
-    // TODO(clap 4) https://stackoverflow.com/questions/73240901/how-to-get-clap-to-process-a-single-argument-with-multiple-values-without-having
     #[clap(
         long,
-        multiple = true,
         required = true,
-        use_value_delimiter = true,
+        num_args = 1..,
         value_delimiter = ','
     )]
     digits: Vec<u8>,

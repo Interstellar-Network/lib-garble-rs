@@ -32,7 +32,7 @@ pub fn eval_client(
     // randomize the "rnd" part of the inputs
     // cf "rndswitch.v" comment above; DO NOT touch the last!
     if should_randomize_evaluator_inputs {
-        for input in evaluator_inputs.iter_mut() {
+        for input in &mut *evaluator_inputs {
             *input = rand_0_1.sample(rng);
         }
     }

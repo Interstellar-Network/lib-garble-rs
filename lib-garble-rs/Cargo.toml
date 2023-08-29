@@ -9,28 +9,35 @@ edition = "2021"
 bench = false
 
 [dependencies]
+circuit-types-rs = { git = "https://github.com/Interstellar-Network/lib_circuits.git", version = "0.1", default-features = false, features = [
+    "alloc",
+] }
+
 # TODO(interstellar) no_std not supported on crate.io; need a fork/patch
 imageproc = { version = "0.23.0", default-features = false, git = "https://github.com/Interstellar-Network/imageproc.git", branch = "sgx-nostd-compat" }
 # FAIL: no_std OK without any features, but if can not draw text there is not point...
 image = { version = "0.24.5", default-features = false, git = "https://github.com/Interstellar-Network/image.git", branch = "sgx-nostd-compat" }
 rusttype = { version = "0.9.3", default-features = false }
 bytes = { version = "1", default-features = false }
-num_enum = { version = "0.5", default-features = false }
+num_enum = { version = "0.7", default-features = false }
 snafu = { version = "0.7", default-features = false }
 # TODO(interstellar) serde: "alloc"?
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 postcard = { version = "1", default-features = false, features = ["alloc"] }
-# https://github.com/tokio-rs/prost#using-prost-in-a-no_std-crate
-# TODO(interstellar) we need a7aac766e362d87d for no_std compat
-prost = { version = "0.11", default-features = false, features = ["prost-derive"], git = "https://github.com/tokio-rs/prost.git", rev = "a7aac766e362d87de5180774c124829e198f2b4c" }
 
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
-num-bigint = { version ="0.4.3", optional = true }
-num-traits = { version ="0.2.15", optional = true }
-xxhash-rust = { version = "0.8.5", default-features = false, features = ["xxh3"] }
-bitvec = { version = "1.0.1", default-features = false, features = ["alloc", "atomic", "serde"] }
-hashbrown = { version = "0.13.2", features = ["serde"] }
+num-bigint = { version = "0.4.3", optional = true }
+num-traits = { version = "0.2.15", optional = true }
+xxhash-rust = { version = "0.8.5", default-features = false, features = [
+    "xxh3",
+] }
+bitvec = { version = "1.0.1", default-features = false, features = [
+    "alloc",
+    "atomic",
+    "serde",
+] }
+hashbrown = { version = "0.14", features = ["serde"] }
 rayon = { version = "1.7.0", optional = true }
 log = { version = "0.4", default-features = false }
 
@@ -38,12 +45,15 @@ log = { version = "0.4", default-features = false }
 # profiling = "1.0"
 
 [dev-dependencies]
-png = "0.17"
-rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
-png-tests-utils = { path = "png_tests_utils" }
+rand = { version = "0.8.5", default-features = false, features = [
+    "std",
+    "std_rng",
+] }
 boolean_expression = "0.4.4"
-clap = { version = "3", features = ["derive"] }
-criterion = "0.3"
+clap = { version = "4", features = ["derive"] }
+criterion = "0.5"
+
+png-utils = { git = "https://github.com/Interstellar-Network/rs-common.git" }
 
 # # MUST match the version used by https://github.com/aclysma/profiling/blob/master/Cargo.toml (check the correct tag)
 # # else "tracy_client::Client::start()" and "running()" from the profiling crate are not the same!
@@ -53,7 +63,6 @@ criterion = "0.3"
 # coz = "0.1"
 
 [build-dependencies]
-# prost-build = "0.11"
 
 # [features]
 # default = ["profile-with-tracy"]
@@ -66,7 +75,8 @@ criterion = "0.3"
 
 [features]
 default = ["std"]
-sgx = ["imageproc/sgx"]
+alloc = []
+sgx = ["imageproc/sgx", "alloc"]
 std = ["imageproc/std", "rayon"]
 key_length_search = ["num-bigint", "num-traits"]
 

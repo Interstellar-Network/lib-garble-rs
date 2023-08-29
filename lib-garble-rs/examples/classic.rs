@@ -8,7 +8,7 @@ use std::io::Read;
 use lib_garble_rs::{
     garble_skcd, garbled_display_circuit_prepare_garbler_inputs, prepare_evaluator_inputs,
 };
-use png_tests_utils::png_utils::write_png;
+use png_utils::write_png;
 
 fn main() {
     // How many eval() we will combine
@@ -27,7 +27,7 @@ fn main() {
 
     let garb = garble_skcd(&buffer).unwrap();
 
-    let display_config = garb.config.display_config.unwrap();
+    let display_config = garb.get_display_config().unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 
@@ -71,6 +71,11 @@ fn main() {
             // 1 + 1 = 1
             *merged_output = std::cmp::min(*merged_output + cur_output, 1u8)
         }
+    }
+
+    // convert (0,1) -> (0,255) to get a proper png
+    for merged_output in merged_outputs.iter_mut() {
+        *merged_output = *merged_output * 255;
     }
 
     write_png("eval_outputs.png", width, height, &merged_outputs);

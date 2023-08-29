@@ -34,10 +34,10 @@
 //! interpretation would always be clear from the context.""
 
 mod block;
+mod circuit_for_eval;
 mod constant;
 mod delta;
 mod random_oracle;
-
 mod wire_labels_set;
 mod wire_labels_set_bitslice;
 
@@ -54,15 +54,13 @@ mod key_length;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        circuit::{Circuit, GateTypeBinary, GateTypeUnary},
-        new_garbling_scheme::{evaluate::evaluate_full_chain, garble::garble},
-    };
+    use crate::new_garbling_scheme::{evaluate::evaluate_full_chain, garble::garble};
+    use circuit_types_rs::{Circuit, KindBinary, KindUnary};
 
     #[derive(Debug)]
     enum TestGateType {
-        Binary(GateTypeBinary),
-        Unary(GateTypeUnary),
+        Binary(KindBinary),
+        Unary(KindUnary),
         Constant(bool),
     }
 
@@ -83,7 +81,7 @@ mod tests {
                     }
                     TestGateType::Constant(value) => Circuit::new_test_circuit_constant(*value),
                 };
-                let garbled = garble(circ.circuit, circ.metadata, None).unwrap();
+                let garbled = garble(circ, None).unwrap();
 
                 let outputs = evaluate_full_chain(&garbled, &inputs).unwrap();
                 println!("outputs : {outputs:?} [{idx}]");
@@ -109,7 +107,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::OR));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::OR));
     }
 
     #[test]
@@ -124,7 +122,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::AND));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::AND));
     }
 
     #[test]
@@ -139,7 +137,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::XOR));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::XOR));
     }
 
     #[test]
@@ -154,7 +152,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::NAND));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::NAND));
     }
 
     #[test]
@@ -169,7 +167,7 @@ mod tests {
             (vec![true.into(), true.into()], false.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::NOR));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::NOR));
     }
 
     #[test]
@@ -184,7 +182,7 @@ mod tests {
             (vec![true.into(), true.into()], true.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Binary(GateTypeBinary::XNOR));
+        aux_test_basic_circuit(tests, TestGateType::Binary(KindBinary::XNOR));
     }
 
     #[test]
@@ -197,7 +195,7 @@ mod tests {
             (vec![true.into()], false.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Unary(GateTypeUnary::INV));
+        aux_test_basic_circuit(tests, TestGateType::Unary(KindUnary::INV));
     }
 
     #[test]
@@ -210,13 +208,12 @@ mod tests {
             (vec![true.into()], true.into()),
         ];
 
-        aux_test_basic_circuit(tests, TestGateType::Unary(GateTypeUnary::BUF));
+        aux_test_basic_circuit(tests, TestGateType::Unary(KindUnary::BUF));
     }
 
     #[test]
     // TODO(new-garbling-scheme)[opt-0-1] should probably apply the same "free-BUF" for constant 0/1
     //  right now the 0/1 gates are rewritten by skcd_parser so we can not build a circuit with them directy
-    #[ignore]
     fn test_basic_zero() {
         // inputs, expected_output
         let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
@@ -232,11 +229,10 @@ mod tests {
     #[test]
     // TODO(new-garbling-scheme)[opt-0-1] should probably apply the same "free-BUF" for constant 0/1
     //  right now the 0/1 gates are rewritten by skcd_parser so we can not build a circuit with them directy
-    #[ignore]
     fn test_basic_one() {
         // inputs, expected_output
         let tests: Vec<(Vec<wire_value::WireValue>, wire_value::WireValue)> = vec![
-            // Standard truth table for 0 Gate
+            // Standard truth table for 1 Gate
             // (input0, input1), output
             (vec![false.into()], true.into()),
             (vec![true.into()], true.into()),
@@ -247,9 +243,11 @@ mod tests {
 
     #[test]
     fn test_garble_adder() {
-        let circ =
-            Circuit::parse_skcd(include_bytes!("../../examples/data/adder.skcd.pb.bin")).unwrap();
+        let circ = circuit_types_rs::deserialize_from_buffer(include_bytes!(
+            "../../examples/data/result_abc_full_adder.postcard.bin"
+        ))
+        .unwrap();
 
-        garble(circ.circuit, circ.metadata, None).unwrap();
+        garble(circ, None).unwrap();
     }
 }

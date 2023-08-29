@@ -6,30 +6,20 @@
 ///   of being able to re-use the Swanky provided "serde1" feature.
 ///   WOULD also require to add a few getters to expose deltas/Block/etc
 ///   NOTE: works in `no_std/sgx` only when using pregenerated .rs
-use crate::EncodedGarblerInputs;
-use crate::GarbledCircuit;
 use alloc::vec::Vec;
+
 use postcard::{from_bytes, to_allocvec};
 use serde::{Deserialize, Serialize};
-use snafu::prelude::*;
+
+use crate::EncodedGarblerInputs;
+use crate::GarbledCircuit;
+use crate::InterstellarError;
 
 /// That is the "package" sent to the client for evaluation
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct EvaluableGarbledCircuit {
     garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
-}
-
-#[derive(Debug, Snafu)]
-pub enum Error {
-    SerializerDeserializerInternalError {
-        err: postcard::Error,
-    },
-    /// "wrong encoded_garbler_inputs len!"
-    SerializeForEvaluatorWrongInputsLength {
-        inputs_len: usize,
-        expected_len: usize,
-    },
 }
 
 /// Serialize
@@ -42,11 +32,14 @@ pub enum Error {
 pub fn serialize_for_evaluator(
     garb: GarbledCircuit,
     encoded_garbler_inputs: EncodedGarblerInputs,
-) -> Result<Vec<u8>, Error> {
-    if garb.num_garbler_inputs() as usize != encoded_garbler_inputs.encoded.len() {
-        return Err(Error::SerializeForEvaluatorWrongInputsLength {
+) -> Result<Vec<u8>, InterstellarError> {
+    // If display circuits: we check against `num_garbler_inputs`
+    // else we check against `num_inputs`
+    let expected_inputs_len = garb.num_inputs();
+    if expected_inputs_len != encoded_garbler_inputs.encoded.len() {
+        return Err(InterstellarError::SerializeForEvaluatorWrongInputsLength {
             inputs_len: encoded_garbler_inputs.encoded.len(),
-            expected_len: garb.num_garbler_inputs() as usize,
+            expected_len: expected_inputs_len,
         });
     }
 
@@ -56,7 +49,7 @@ pub fn serialize_for_evaluator(
     };
 
     let buf: Vec<u8> = to_allocvec(&eval_garb)
-        .map_err(|err| Error::SerializerDeserializerInternalError { err })?;
+        .map_err(|err| InterstellarError::SerializerDeserializerInternalError { err })?;
 
     Ok(buf)
 }
@@ -70,8 +63,9 @@ pub fn serialize_for_evaluator(
 ///
 pub fn deserialize_for_evaluator(
     buf: &[u8],
-) -> Result<(GarbledCircuit, EncodedGarblerInputs), postcard::Error> {
-    let (garb, encoded_garbler_inputs): (GarbledCircuit, EncodedGarblerInputs) = from_bytes(buf)?;
+) -> Result<(GarbledCircuit, EncodedGarblerInputs), InterstellarError> {
+    let (garb, encoded_garbler_inputs): (GarbledCircuit, EncodedGarblerInputs) = from_bytes(buf)
+        .map_err(|err| InterstellarError::SerializerDeserializerInternalError { err })?;
 
     Ok((garb, encoded_garbler_inputs))
 }
@@ -86,14 +80,14 @@ mod tests {
     /// test that specific(=postcard) (de)serialization works
     #[test]
     fn test_serialize_deserialize_full_adder_2bits() {
-        let mut ref_garb =
-            garble_skcd(include_bytes!("../examples/data/adder.skcd.pb.bin")).unwrap();
-        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&[]);
+        let mut ref_garb = garble_skcd(include_bytes!(
+            "../examples/data/result_abc_full_adder.postcard.bin"
+        ))
+        .unwrap();
+        let encoded_garbler_inputs = ref_garb.encode_inputs(&[]);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
-
-        garbled_circuit_reset_gate_type(&mut ref_garb);
 
         assert_eq!(ref_garb, new_garb);
     }
@@ -104,29 +98,27 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_display_message_120x52_2digits() {
         let mut ref_garb = garble_skcd(include_bytes!(
-            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+            "../examples/data/result_display_message_120x52_2digits.postcard.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs() as usize];
-        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
+        let garbler_inputs = vec![0; ref_garb.num_inputs() as usize];
+        let encoded_garbler_inputs = ref_garb.encode_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
 
-        garbled_circuit_reset_gate_type(&mut ref_garb);
-
+        assert_eq!(ref_garb.get_display_config(), new_garb.get_display_config());
         assert_eq!(ref_garb, new_garb);
         assert_eq!(
             ref_garb.num_evaluator_inputs(),
             new_garb.num_evaluator_inputs()
         );
-        assert_eq!(ref_garb.config, new_garb.config);
     }
 
     #[test]
     fn test_serialize_golden_display_message_120x52_2digits() {
         let ref_garb = garble_skcd_with_seed(
-            include_bytes!("../examples/data/display_message_120x52_2digits.skcd.pb.bin"),
+            include_bytes!("../examples/data/result_display_message_120x52_2digits.postcard.bin"),
             424242,
         )
         .unwrap();
@@ -153,36 +145,15 @@ mod tests {
     #[ignore]
     fn test_encoder_has_no_garbler_inputs_display_message_120x52_2digits() {
         let mut ref_garb = garble_skcd(include_bytes!(
-            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+            "../examples/data/result_display_message_120x52_2digits.postcard.bin"
         ))
         .unwrap();
-        let garbler_inputs = vec![0; ref_garb.num_garbler_inputs() as usize];
-        let encoded_garbler_inputs = ref_garb.encode_garbler_inputs(&garbler_inputs);
+        let garbler_inputs = vec![0; ref_garb.num_inputs() as usize];
+        let encoded_garbler_inputs = ref_garb.encode_inputs(&garbler_inputs);
 
         let buf = serialize_for_evaluator(ref_garb.clone(), encoded_garbler_inputs).unwrap();
         let (new_garb, _new_encoded_garbler_inputs) = deserialize_for_evaluator(&buf).unwrap();
 
-        garbled_circuit_reset_gate_type(&mut ref_garb);
-
-        assert_eq!(new_garb.num_garbler_inputs(), 0);
-    }
-
-    /// IMPORTANT: for security/privacy, we DO NOT serialize the `GateType`
-    /// so we must clean the Gate
-    fn garbled_circuit_reset_gate_type(garbled: &mut GarbledCircuit) {
-        for gate in &mut garbled.garbled.circuit.gates {
-            match &mut gate.internal {
-                crate::circuit::GateType::Binary {
-                    ref mut gate_type,
-                    input_a: _,
-                    input_b: _,
-                } => *gate_type = None,
-                crate::circuit::GateType::Unary {
-                    ref mut gate_type,
-                    input_a: _,
-                } => *gate_type = None,
-                crate::circuit::GateType::Constant { value: _ } => {}
-            }
-        }
+        assert_eq!(new_garb.num_inputs(), 0);
     }
 }

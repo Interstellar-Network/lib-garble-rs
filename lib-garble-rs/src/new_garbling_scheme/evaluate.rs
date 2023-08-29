@@ -2,14 +2,13 @@ use alloc::vec::Vec;
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    circuit::{CircuitInternal, CircuitMetadata, GateType, WireRef},
-    new_garbling_scheme::wire::WireLabel,
-    InterstellarEvaluatorError,
-};
+use circuit_types_rs::WireRef;
+
+use crate::{new_garbling_scheme::wire::WireLabel, InterstellarEvaluatorError};
 
 use super::{
     block::BlockL,
+    circuit_for_eval::{CircuitForEval, GateTypeForEval},
     garble::{DecodedInfo, GarbledCircuitFinal, InputEncodingSet, F},
     random_oracle::RandomOracle,
     wire_value::WireValue,
@@ -64,7 +63,7 @@ impl EncodedInfo {
 /// 2:  output Kjxj = ej [xj ]
 /// 3: end for
 fn encoding_internal<'a>(
-    circuit: &'a CircuitInternal,
+    circuit: &'a CircuitForEval,
     e: &'a InputEncodingSet,
     inputs: &'a [WireValue],
     encoded_info: &mut EncodedInfo,
@@ -81,7 +80,7 @@ fn encoding_internal<'a>(
     // NOTE: contrary to the papers, we added the concept of "Garbler inputs" vs "Evaluator inputs"
     // which means the loop is in a different order.
     // ie we loop of the "wire value"(given by the user/evaluator/garbler) instead of the `circuit.inputs`
-    for (input_wire, input_value) in circuit.inputs[inputs_start_index..inputs_end_index]
+    for (input_wire, input_value) in circuit.get_inputs()[inputs_start_index..inputs_end_index]
         .iter()
         .zip(inputs)
     {
@@ -160,10 +159,9 @@ impl Default for EvalCache {
 //  - different gate(unary vs binary) ends up with different buffer sizes so less efficient(?)
 #[allow(clippy::unnecessary_lazy_evaluations)]
 fn evaluate_internal(
-    circuit: &CircuitInternal,
+    circuit: &CircuitForEval,
     f: &F,
     encoded_info: &EncodedInfo,
-    circuit_metadata: &CircuitMetadata,
     output_labels: &mut OutputLabels,
     ro_buf: &mut BytesMut,
     wire_labels: &mut Vec<Option<WireLabel>>,
@@ -171,34 +169,37 @@ fn evaluate_internal(
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
         encoded_info.x.len(),
-        circuit.inputs.len(),
+        circuit.get_nb_inputs(),
         "encoding: `encoded_info` inputs len MUST match the Circuit's inputs len!"
     );
 
     output_labels
         .y
-        .resize_with(circuit.outputs.len(), Default::default);
+        .resize_with(circuit.get_nb_outputs(), Default::default);
 
     // same idea as `garble`:
     // As we are looping on the gates in order, this will be built step by step
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
-    wire_labels.resize_with(circuit.wires.len(), Default::default);
+    wire_labels.resize_with(circuit.get_nb_wires(), Default::default);
     for (idx, wire_label) in encoded_info.x.iter().enumerate() {
         wire_labels[idx] = Some(wire_label.clone());
     }
 
+    // [constant gate special case]
+    // we need a placeholder Wire for simplicity
+    let constant_block0 = BlockL::new_with([0, 0]);
+    let constant_block1 = BlockL::new_with([u64::MAX, u64::MAX]);
+
+    let circuit_metadata = circuit.get_metadata();
+
     // "for each gate g ∈ [q] in a topological order do"
-    for gate in &circuit.gates {
+    for gate in circuit.get_gates() {
         let wire_ref = WireRef { id: gate.get_id() };
 
         let l_g: BlockL = match gate.get_type() {
             // STANDARD CASE: cf `garble_internal`
-            GateType::Binary {
-                gate_type: _type,
-                input_a,
-                input_b,
-            } => {
+            GateTypeForEval::Binary { input_a, input_b } => {
                 // "LA, LB ← active labels associated with the input wires of gate g"
                 let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
@@ -227,20 +228,21 @@ fn evaluate_internal(
                 l_g
             }
             // SPECIAL CASE: cf `garble_internal`
-            GateType::Unary {
-                gate_type: _type,
-                input_a,
-            } => {
+            GateTypeForEval::Unary { input_a } => {
                 let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
                     InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
                 })?;
                 l_a.get_block().clone()
             }
             // [constant gate special case]
-            // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-            GateType::Constant { value: _ } => {
-                unimplemented!("evaluate_internal for Constant gates is a special case!")
-            }
+            // The `GateType::Constant` gates DO NOT need a garled representation.
+            // They are evaluated directly.
+            // That is b/c knowing is it is a TRUE/FALSE gate already leaks all there is to leak, so no point
+            // in garbling...
+            GateTypeForEval::Constant { value } => match value {
+                false => constant_block0.clone(),
+                true => constant_block1.clone(),
+            },
         };
 
         wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));
@@ -334,7 +336,7 @@ pub(crate) fn evaluate_full_chain(
         inputs,
         &mut encoded_info,
         0,
-        garbled.circuit.inputs.len(),
+        garbled.circuit.get_nb_inputs(),
     );
 
     let mut output_labels = OutputLabels { y: Vec::new() };
@@ -346,7 +348,6 @@ pub(crate) fn evaluate_full_chain(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         &encoded_info,
-        &garbled.circuit_metadata,
         &mut output_labels,
         &mut ro_buf,
         &mut wire_labels,
@@ -376,7 +377,6 @@ pub(crate) fn evaluate_with_encoded_info(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         encoded_info,
-        &garbled.circuit_metadata,
         &mut eval_cache.output_labels,
         &mut eval_cache.ro_buf,
         &mut eval_cache.wire_labels,
@@ -406,7 +406,7 @@ pub(crate) fn encode_garbler_inputs(
     inputs_end_index: usize,
 ) -> EncodedInfo {
     let mut encoded_info = EncodedInfo {
-        x: Vec::with_capacity(garbled.circuit.n()),
+        x: Vec::with_capacity(garbled.circuit.get_nb_inputs()),
     };
 
     encoding_internal(

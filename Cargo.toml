@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "lib-garble-rs",
-    "ipfs-client-http-req",
-]
+members = ["lib-garble-rs"]
 
 ################################################################################
 # [patch."https://github.com/Interstellar-Network/swanky.git"]
@@ -13,7 +10,13 @@ members = [
 # tests-utils = { path = "../pallets/tests_utils/" }
 
 # [patch."https://github.com/Interstellar-Network/rs-common.git"]
-# http-grpc-client = { path = "../rs-common/http-grpc-client/" }
+# # http-grpc-client = { path = "../rs-common/http-grpc-client/" }
+# ipfs-client-http-req = { path = "../rs-common/ipfs-client-http-req/" }
+# png-utils = { path = "../rs-common/png_utils" }
+
+# [patch."https://github.com/Interstellar-Network/lib_circuits.git"]
+# circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }
+
 ################################################################################
 
 [profile.dev]

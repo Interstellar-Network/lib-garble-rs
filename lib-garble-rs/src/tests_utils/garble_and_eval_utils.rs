@@ -32,7 +32,7 @@ pub fn eval_client(
     // randomize the "rnd" part of the inputs
     // cf "rndswitch.v" comment above; DO NOT touch the last!
     if should_randomize_evaluator_inputs {
-        for input in evaluator_inputs.iter_mut() {
+        for input in &mut *evaluator_inputs {
             *input = rand_0_1.sample(rng);
         }
     }
@@ -55,7 +55,7 @@ pub fn eval_client(
 pub fn garble_skcd_helper(skcd_bytes: &[u8]) -> (GarbledCircuit, usize, usize) {
     let garb = garble_skcd(skcd_bytes).unwrap();
 
-    let display_config = garb.config.display_config.unwrap();
+    let display_config = garb.get_display_config().unwrap();
     let width = display_config.width as usize;
     let height = display_config.height as usize;
 

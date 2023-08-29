@@ -13,14 +13,14 @@ use lib_garble_rs::{
     tests_utils::garble_and_eval_utils::eval_client,
     tests_utils::garble_and_eval_utils::garble_skcd_helper, EvalCache,
 };
-use png_tests_utils::png_utils::read_png_to_bytes;
+use png_utils::read_png_to_bytes;
 
 #[test]
 fn test_server_client_display_message_120x52_2digits_zeros() {
     let (mut garb, mut encoded_garbler_inputs) = {
         // [server 1]
         let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
-            "../examples/data/display_message_120x52_2digits.skcd.pb.bin"
+            "../examples/data/result_display_message_120x52_2digits.postcard.bin"
         ));
 
         // [server 2]
@@ -33,8 +33,8 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
 
     let eval_outputs = {
         // TODO [client 1]
-        let width = garb.config.display_config.unwrap().width as usize;
-        let height = garb.config.display_config.unwrap().height as usize;
+        let width = garb.get_display_config().unwrap().width as usize;
+        let height = garb.get_display_config().unwrap().height as usize;
 
         let mut rng = thread_rng();
         let rand_0_1 = Uniform::from(0..=1);

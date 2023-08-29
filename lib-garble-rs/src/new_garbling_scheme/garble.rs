@@ -6,10 +6,11 @@ use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
 
-use crate::circuit::{CircuitInternal, CircuitMetadata, Gate, GateType, GateTypeUnary, WireRef};
+use circuit_types_rs::{Circuit, Gate, GateType, KindUnary, WireRef};
 
 use super::{
-    block::BlockL, delta, random_oracle::RandomOracle, wire::Wire, wire_labels_set::WireLabelsSet,
+    block::BlockL, circuit_for_eval::CircuitForEval, delta, random_oracle::RandomOracle,
+    wire::Wire, wire_labels_set::WireLabelsSet,
 };
 
 #[derive(Debug, Snafu)]
@@ -66,55 +67,31 @@ pub(crate) enum GarblerError {
 fn f1_0_compress(
     encoded_wires: &[Option<Wire>],
     gate: &Gate,
+    input_a: &WireRef,
+    input_b: &WireRef,
     buf: &mut BytesMut,
 ) -> Result<WireLabelsSet, GarblerError> {
     let tweak = gate.get_id();
 
-    match gate.get_type() {
-        GateType::Binary {
-            gate_type: _type,
-            input_a,
-            input_b,
-        } => {
-            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().ok_or_else(|| {
-                GarblerError::GarbleMissingWire {
-                    wire: input_a.clone(),
-                }
+    let wire_a: &Wire =
+        encoded_wires[input_a.id]
+            .as_ref()
+            .ok_or_else(|| GarblerError::GarbleMissingWire {
+                wire: input_a.clone(),
             })?;
-            let wire_b: &Wire = encoded_wires[input_b.id].as_ref().ok_or_else(|| {
-                GarblerError::GarbleMissingWire {
-                    wire: input_b.clone(),
-                }
+    let wire_b: &Wire =
+        encoded_wires[input_b.id]
+            .as_ref()
+            .ok_or_else(|| GarblerError::GarbleMissingWire {
+                wire: input_b.clone(),
             })?;
 
-            Ok(WireLabelsSet::new_binary(
-                RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value0()), tweak, buf),
-                RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value1()), tweak, buf),
-                RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value0()), tweak, buf),
-                RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value1()), tweak, buf),
-            ))
-        }
-        GateType::Unary {
-            gate_type: _type,
-            input_a,
-        } => {
-            let wire_a: &Wire = encoded_wires[input_a.id].as_ref().ok_or_else(|| {
-                GarblerError::GarbleMissingWire {
-                    wire: input_a.clone(),
-                }
-            })?;
-
-            Ok(WireLabelsSet::new_unary(
-                RandomOracle::random_oracle_g(wire_a.value0(), None, tweak, buf),
-                RandomOracle::random_oracle_g(wire_a.value1(), None, tweak, buf),
-            ))
-        }
-        // [constant gate special case]
-        // They SHOULD have be "rewritten" to AUX(eg XNOR) gates by the `skcd_parser`
-        GateType::Constant { value: _ } => {
-            unimplemented!("f1_0_compress for Constant gates is a special case!")
-        }
-    }
+    Ok(WireLabelsSet::new_binary(
+        RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value0()), tweak, buf),
+        RandomOracle::random_oracle_g(wire_a.value0(), Some(wire_b.value1()), tweak, buf),
+        RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value0()), tweak, buf),
+        RandomOracle::random_oracle_g(wire_a.value1(), Some(wire_b.value1()), tweak, buf),
+    ))
 }
 
 /// "input encoding set e."
@@ -161,9 +138,10 @@ pub(super) struct InputEncodingSet {
 ///
 /// param `r`: [Supporting Free-XOR] this is the "delta" for Free-XOR; ie a random `BlockL`
 ///
-fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> InputEncodingSet {
-    let mut w = Vec::with_capacity(circuit.n());
-    for (idx, input_wire) in circuit.wires()[0..circuit.n()].iter().enumerate() {
+fn init_internal(circuit: &Circuit, rng: &mut ChaChaRng, r: &BlockL) -> InputEncodingSet {
+    let nb_inputs = circuit.get_nb_inputs();
+    let mut w = Vec::with_capacity(nb_inputs);
+    for (idx, input_wire) in circuit.get_wires()[0..nb_inputs].iter().enumerate() {
         // CHECK: the Wires MUST be iterated in topological order!
         assert_eq!(
             input_wire.id, idx,
@@ -172,9 +150,6 @@ fn init_internal(circuit: &CircuitInternal, rng: &mut ChaChaRng, r: &BlockL) -> 
 
         insert_new_wire_random_labels(rng, &mut w, r);
     }
-
-    assert_eq!(w.len(), circuit.inputs.len(), "wrong w length! [1]");
-    assert_eq!(w.len(), circuit.n(), "wrong w length! [2]");
 
     // w.extend((0..circuit.q()).iter(). )
 
@@ -219,45 +194,53 @@ fn insert_new_wire_random_labels(rng: &mut ChaChaRng, wires: &mut Vec<Wire>, _r:
 /// (3) DecodingInfo(D) → d
 ///
 fn garble_internal(
-    circuit: &CircuitInternal,
+    circuit: &Circuit,
     e: &InputEncodingSet,
-    circuit_metadata: &CircuitMetadata,
 ) -> Result<GarbledCircuitInternal, GarblerError> {
     // "6: initialize F = [], D = []"
     let mut f = Vec::new();
     // "+ 1" b/c get_max_gate_id is a valid ID to be processed!
-    f.resize_with(circuit_metadata.get_max_gate_id() + 1, Default::default);
+    f.resize_with(
+        circuit.get_metadata().get_max_gate_id() + 1,
+        Default::default,
+    );
     // also noted as: ∇g
     // TODO should this (semantically) be instead `HashMap<&WireRef, Wire>`(or `HashMap<&WireRef, &Wire>`)
-    let mut deltas = HashMap::with_capacity(circuit.outputs.len());
+    let mut deltas = HashMap::with_capacity(circuit.get_nb_outputs());
 
     // As we are looping on the gates in order, this will be built step by step
     // ie the first gates are inputs, and this will already contain them.
     // Then we built all the other gates in subsequent iterations of the loop.
     let mut encoded_wires: Vec<Option<Wire>> = Vec::new();
-    encoded_wires.resize_with(circuit.wires().len(), Default::default);
+    encoded_wires.resize_with(circuit.get_nb_wires(), Default::default);
     for (idx, input_wire) in e.e.iter().enumerate() {
         encoded_wires[idx] = Some(input_wire.clone());
     }
+
+    // [constant gate special case]
+    // We need a placeholder Wire for simplicity; these are NOT used during `evaluate_internal` etc
+    let constant_block0 = BlockL::new_with([0, 0]);
+    let constant_block1 = BlockL::new_with([u64::MAX, u64::MAX]);
 
     // DEBUG `InputEncodingSet`
     // let all_wires: Vec<usize> = Vec::from_iter(e.e.keys().map(|w| w.id));
     // let mut all_wires_sorted = all_wires.clone();
     // all_wires_sorted.sort();
 
-    let outputs_set: HashSet<&WireRef> = circuit.outputs.iter().collect();
+    let outputs_set: HashSet<&WireRef> = circuit.get_outputs().iter().collect();
     let mut buf = BytesMut::new();
 
-    for gate in &circuit.gates {
+    for gate in circuit.get_gates() {
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {
-                gate_type: _,
-                input_a: _,
-                input_b: _,
+                gate_type,
+                input_a,
+                input_b,
             } => {
-                let compressed_set = f1_0_compress(&encoded_wires, gate, &mut buf)?;
-                let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate.get_type())?;
+                let compressed_set =
+                    f1_0_compress(&encoded_wires, gate, input_a, input_b, &mut buf)?;
+                let (l0, l1, delta) = delta::Delta::new(&compressed_set, gate_type)?;
                 f[gate.get_id()] = Some(delta);
                 (l0.into(), l1.into())
             }
@@ -274,16 +257,13 @@ fn garble_internal(
                     // "We first note that NOT gates can be implemented “for free”
                     // by simply eliminating them and inverting the correspondence of the wires’ values
                     // and garblings."
-                    Some(GateTypeUnary::INV) => (wire_a.value1().clone(), wire_a.value0().clone()),
+                    KindUnary::INV => (wire_a.value1().clone(), wire_a.value0().clone()),
                     // We apply the same idea to BUF Gates: a simple "passthrough"
-                    Some(GateTypeUnary::BUF) => (wire_a.value0().clone(), wire_a.value1().clone()),
-                    // GateType::Unary is None only when deserializing
-                    None => unimplemented!("garble_internal for None[GateType::Unary]!"),
+                    KindUnary::BUF => (wire_a.value0().clone(), wire_a.value1().clone()),
                 }
             }
-            GateType::Constant { .. } => {
-                unimplemented!("garble_internal for None[GateType::Constant]!")
-            }
+            // [constant gate special case]
+            GateType::Constant { value: _ } => (constant_block0.clone(), constant_block1.clone()),
         };
 
         // TODO what index should we use?
@@ -336,11 +316,10 @@ pub(super) struct GarbledCircuitInternal {
 /// This is the EVALUABLE `GarbledCircuit`; ie the result of the whole garbling pipeline.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct GarbledCircuitFinal {
-    pub(crate) circuit: CircuitInternal,
+    pub(crate) circuit: CircuitForEval,
     pub(super) garbled_circuit: GarbledCircuitInternal,
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,
-    pub(super) circuit_metadata: CircuitMetadata,
     pub(crate) eval_metadata: EvalMetadata,
 }
 
@@ -362,8 +341,7 @@ pub(crate) struct EvalMetadata {
 ///
 // TODO? how to group the garble part vs eval vs decoding?
 pub(crate) fn garble(
-    circuit: CircuitInternal,
-    circuit_metadata: CircuitMetadata,
+    circuit: Circuit,
     rng_seed: Option<u64>,
 ) -> Result<GarbledCircuitFinal, GarblerError> {
     let mut rng = if let Some(rng_seed) = rng_seed {
@@ -377,20 +355,19 @@ pub(crate) fn garble(
 
     let e = init_internal(&circuit, &mut rng, &r);
 
-    let garbled_circuit = garble_internal(&circuit, &e, &circuit_metadata)?;
+    let garbled_circuit = garble_internal(&circuit, &e)?;
 
-    let d = decoding_info(&circuit.outputs, &garbled_circuit.d, &mut rng)?;
+    let d = decoding_info(circuit.get_outputs(), &garbled_circuit.d, &mut rng)?;
 
     let eval_metadata = EvalMetadata {
-        nb_outputs: circuit.outputs.len(),
+        nb_outputs: circuit.get_outputs().len(),
     };
 
     Ok(GarbledCircuitFinal {
-        circuit,
+        circuit: circuit.into(),
         garbled_circuit,
         d,
         e,
-        circuit_metadata,
         eval_metadata,
     })
 }

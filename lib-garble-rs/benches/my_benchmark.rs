@@ -10,7 +10,7 @@ use lib_garble_rs::EvalCache;
 
 pub fn bench_eval_display_message_640x360_2digits_42(c: &mut Criterion) {
     let (garb, width, height) = garble_skcd_helper(include_bytes!(
-        "../examples/data/display_message_640x360_2digits.skcd.pb.bin"
+        "../examples/data/display_message_640x360_2digits.skcd.postcard.bin"
     ));
 
     let encoded_garbler_inputs =

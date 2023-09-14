@@ -62,8 +62,6 @@ jobs:
           toolchain_toml_path: ./tests_sgx/samplecode/project_template/enclave/rust-toolchain.toml
           toolchain_components: ""
 
-      - uses: Interstellar-Network/gh-actions/install-protoc@v3-dev
-
       ##########################################################################
 
       - uses: Interstellar-Network/gh-actions/install-sgx-sdk@v3-dev
@@ -112,8 +110,6 @@ jobs:
       - uses: Interstellar-Network/gh-actions/prepare_rust@v3-dev
         with:
           toolchain_components: ""
-
-      - uses: Interstellar-Network/gh-actions/install-protoc@v3-dev
 
       ##########################################################################
       # cf https://github.com/android-actions/setup-android

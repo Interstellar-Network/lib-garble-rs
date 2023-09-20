@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub(crate) struct CircuitForEval {
     inputs: Vec<WireRef>,
-    gates: Vec<GateForEval>,
+    gates: Vec<Vec<GateForEval>>,
     nb_wires: usize,
     nb_outputs: usize,
     display_config: Option<DisplayConfig>,
@@ -47,7 +47,7 @@ impl CircuitForEval {
         self.nb_outputs
     }
 
-    pub(crate) fn get_gates(&self) -> &Vec<GateForEval> {
+    pub(crate) fn get_gates(&self) -> &Vec<Vec<GateForEval>> {
         &self.gates
     }
 }
@@ -98,12 +98,19 @@ impl GateForEval {
 
 impl From<Circuit> for CircuitForEval {
     fn from(circuit: Circuit) -> Self {
+        // convert Vec<Vec<Gate>> -> Vec<Vec<GateForEval>>
+        let mut gates_copy = vec![];
+        for gate_layer in circuit.get_gates() {
+            let mut gate_layer_copy: Vec<GateForEval> = vec![];
+            for gate in gate_layer {
+                gate_layer_copy.push(gate.into());
+            }
+
+            gates_copy.push(gate_layer_copy);
+        }
+
         Self {
-            gates: circuit
-                .get_gates()
-                .iter()
-                .map(core::convert::Into::into)
-                .collect(),
+            gates: gates_copy,
             nb_wires: circuit.get_nb_wires(),
             inputs: circuit.get_inputs().to_vec(),
             nb_outputs: circuit.get_nb_outputs(),

@@ -194,65 +194,103 @@ fn evaluate_internal(
     let circuit_metadata = circuit.get_metadata();
 
     // "for each gate g ∈ [q] in a topological order do"
-    for gate in circuit.get_gates() {
-        let wire_ref = WireRef { id: gate.get_id() };
+    for gate_layer in circuit.get_gates() {
+        // NOTE: b/c rayon (rightfully) prevents us to write `wire_labels` in parallel
+        // - first we parallelize gate_layer -> and produce a temp Vec<BlockL>
+        // - then we copy this "temp Vec<BlockL>" into the parameter `wire_labels`
+        let temp_gate_layer_labels: Vec<Result<BlockL, InterstellarEvaluatorError>> = gate_layer
+            .par_iter()
+            .enumerate()
+            .map(|(gate_idx, gate)| {
+                let mut ro_buf = BytesMut::new();
+                let wire_ref = WireRef { id: gate.get_id() };
 
-        let l_g: BlockL = match gate.get_type() {
-            // STANDARD CASE: cf `garble_internal`
-            GateTypeForEval::Binary { input_a, input_b } => {
-                // "LA, LB ← active labels associated with the input wires of gate g"
-                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
-                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
-                })?;
-                let l_b = wire_labels[input_b.id].as_ref().ok_or_else(|| {
-                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_b.id }
-                })?;
+                let l_g: BlockL = match gate.get_type() {
+                    // STANDARD CASE: cf `garble_internal`
+                    GateTypeForEval::Binary { input_a, input_b } => {
+                        // "LA, LB ← active labels associated with the input wires of gate g"
+                        let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                            InterstellarEvaluatorError::EvaluateErrorMissingLabel {
+                                idx: input_a.id,
+                            }
+                        })?;
+                        let l_b = wire_labels[input_b.id].as_ref().ok_or_else(|| {
+                            InterstellarEvaluatorError::EvaluateErrorMissingLabel {
+                                idx: input_b.id,
+                            }
+                        })?;
 
-                // "extract ∇g ← F [g]"
-                let delta_g_blockl = f.f[wire_ref.id]
+                        // "extract ∇g ← F [g]"
+                        let delta_g_blockl = f.f[wire_ref.id]
+                            .as_ref()
+                            .ok_or_else(|| InterstellarEvaluatorError::EvaluateErrorMissingDelta {
+                                idx: wire_ref.id,
+                            })?
+                            .get_block();
+
+                        // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
+                        let r = RandomOracle::random_oracle_g_truncated(
+                            l_a.get_block(),
+                            Some(l_b.get_block()),
+                            gate.get_id(),
+                            &mut ro_buf,
+                        );
+                        let l_g: BlockL = BlockL::new_projection(&r, delta_g_blockl);
+
+                        l_g
+                    }
+                    // SPECIAL CASE: cf `garble_internal`
+                    GateTypeForEval::Unary { input_a } => {
+                        let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
+                            InterstellarEvaluatorError::EvaluateErrorMissingLabel {
+                                idx: input_a.id,
+                            }
+                        })?;
+                        l_a.get_block().clone()
+                    }
+                    // [constant gate special case]
+                    // The `GateType::Constant` gates DO NOT need a garled representation.
+                    // They are evaluated directly.
+                    // That is b/c knowing is it is a TRUE/FALSE gate already leaks all there is to leak, so no point
+                    // in garbling...
+                    GateTypeForEval::Constant { value } => match value {
+                        false => constant_block0.clone(),
+                        true => constant_block1.clone(),
+                    },
+                };
+
+                Ok(l_g)
+            })
+            .collect();
+
+        assert_eq!(temp_gate_layer_labels.len(), gate_layer.len());
+
+        // TODO wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));
+        // for (wire_label, temp_wire_label) in
+        //     wire_labels.iter_mut().zip(temp_gate_layer_labels.iter())
+        // {
+        //     *wire_label = temp_gate_layer_labels;
+        // }
+        for (gate_idx, gate) in gate_layer.iter().enumerate() {
+            let wire_ref = WireRef { id: gate.get_id() };
+            wire_labels[wire_ref.id] = Some(WireLabel::new(
+                &temp_gate_layer_labels[gate_idx]
                     .as_ref()
-                    .ok_or_else(|| InterstellarEvaluatorError::EvaluateErrorMissingDelta {
-                        idx: wire_ref.id,
-                    })?
-                    .get_block();
+                    .expect("temp_gate_layer_labels missing idx"),
+            ));
 
-                // "compute Lg ← RO(g, LA, LB ) ◦ ∇g"
-                let r = RandomOracle::random_oracle_g_truncated(
-                    l_a.get_block(),
-                    Some(l_b.get_block()),
-                    gate.get_id(),
-                    ro_buf,
-                );
-                let l_g: BlockL = BlockL::new_projection(&r, delta_g_blockl);
-
-                l_g
+            // "if g is a circuit output wire then"
+            // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)
+            if circuit_metadata.gate_idx_is_output(wire_ref.id) {
+                // "Y [g] ← Lg"
+                output_labels.y[circuit_metadata.convert_gate_id_to_outputs_index(wire_ref.id)] =
+                    Some(
+                        temp_gate_layer_labels[gate_idx]
+                            .as_ref()
+                            .expect("temp_gate_layer_labels missing idx")
+                            .clone(),
+                    );
             }
-            // SPECIAL CASE: cf `garble_internal`
-            GateTypeForEval::Unary { input_a } => {
-                let l_a = wire_labels[input_a.id].as_ref().ok_or_else(|| {
-                    InterstellarEvaluatorError::EvaluateErrorMissingLabel { idx: input_a.id }
-                })?;
-                l_a.get_block().clone()
-            }
-            // [constant gate special case]
-            // The `GateType::Constant` gates DO NOT need a garled representation.
-            // They are evaluated directly.
-            // That is b/c knowing is it is a TRUE/FALSE gate already leaks all there is to leak, so no point
-            // in garbling...
-            GateTypeForEval::Constant { value } => match value {
-                false => constant_block0.clone(),
-                true => constant_block1.clone(),
-            },
-        };
-
-        wire_labels[wire_ref.id] = Some(WireLabel::new(&l_g));
-
-        // "if g is a circuit output wire then"
-        // TODO move the previous lines under the if; or better: iter only on output gates? (filter? or circuit.outputs?)
-        if circuit_metadata.gate_idx_is_output(wire_ref.id) {
-            // "Y [g] ← Lg"
-            output_labels.y[circuit_metadata.convert_gate_id_to_outputs_index(wire_ref.id)] =
-                Some(l_g);
         }
     }
 

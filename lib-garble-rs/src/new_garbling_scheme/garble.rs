@@ -230,7 +230,7 @@ fn garble_internal(
     let outputs_set: HashSet<&WireRef> = circuit.get_outputs().iter().collect();
     let mut buf = BytesMut::new();
 
-    for gate in circuit.get_gates() {
+    for gate in circuit.get_gates().iter().flatten() {
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {

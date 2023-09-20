@@ -123,7 +123,6 @@ pub struct EvalCache {
     /// one per "output" (ie len() == circuit.outputs.len())
     /// This is used to avoid alloc in `decoding_internal` during eval
     outputs_bufs: Vec<BytesMut>,
-    ro_buf: BytesMut,
     wire_labels: Vec<Option<WireLabel>>,
 }
 
@@ -133,7 +132,6 @@ impl EvalCache {
         Self {
             output_labels: OutputLabels::new(),
             outputs_bufs: Vec::new(),
-            ro_buf: BytesMut::new(),
             wire_labels: Vec::new(),
         }
     }
@@ -154,16 +152,12 @@ impl Default for EvalCache {
 ///
 /// "Ev(F, X) := Y : returns the output labels Y by evaluating F on X."
 ///
-// TODO(opt) `ro_buf` SHOULD instead be a Vec<BytesMut>(one per Gate) b/c
-//  - would allow parallel iteration on gates
-//  - different gate(unary vs binary) ends up with different buffer sizes so less efficient(?)
 #[allow(clippy::unnecessary_lazy_evaluations)]
 fn evaluate_internal(
     circuit: &CircuitForEval,
     f: &F,
     encoded_info: &EncodedInfo,
     output_labels: &mut OutputLabels,
-    ro_buf: &mut BytesMut,
     wire_labels: &mut Vec<Option<WireLabel>>,
 ) -> Result<(), InterstellarEvaluatorError> {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
@@ -201,8 +195,7 @@ fn evaluate_internal(
         let temp_gate_layer_labels: Vec<Result<BlockL, InterstellarEvaluatorError>> = gate_layer
             .par_iter()
             .enumerate()
-            .map(|(gate_idx, gate)| {
-                let mut ro_buf = BytesMut::new();
+            .map_with(BytesMut::new(), |ro_buf, (gate_idx, gate)| {
                 let wire_ref = WireRef { id: gate.get_id() };
 
                 let l_g: BlockL = match gate.get_type() {
@@ -233,7 +226,7 @@ fn evaluate_internal(
                             l_a.get_block(),
                             Some(l_b.get_block()),
                             gate.get_id(),
-                            &mut ro_buf,
+                            ro_buf,
                         );
                         let l_g: BlockL = BlockL::new_projection(&r, delta_g_blockl);
 
@@ -387,7 +380,6 @@ pub(crate) fn evaluate_full_chain(
         &garbled.garbled_circuit.f,
         &encoded_info,
         &mut output_labels,
-        &mut ro_buf,
         &mut wire_labels,
     )?;
 
@@ -416,7 +408,6 @@ pub(crate) fn evaluate_with_encoded_info(
         &garbled.garbled_circuit.f,
         encoded_info,
         &mut eval_cache.output_labels,
-        &mut eval_cache.ro_buf,
         &mut eval_cache.wire_labels,
     )?;
 

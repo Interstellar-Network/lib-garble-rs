@@ -283,7 +283,7 @@ mod tests {
         let encoded_garbler_inputs = garb.encode_inputs(&[]);
 
         let mut outputs = vec![0u8; FULL_ADDER_2BITS_ALL_EXPECTED_OUTPUTS[0].len()];
-        let mut eval_cache = EvalCache::new();
+        let mut eval_cache = EvalCache::new(&garb, &encoded_garbler_inputs);
 
         for test_idx in 0..10 {
             for (i, inputs) in FULL_ADDER_2BITS_ALL_INPUTS.iter().enumerate() {

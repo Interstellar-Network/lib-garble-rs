@@ -33,7 +33,7 @@ pub(super) const KAPPA_NB_ELEMENTS: usize = KAPPA / BitsInternal::BITS as usize;
 /// serialization-related functions so we just ignore the warning.
 // TODO is using `clippy::unsafe_derive_deserialize` dangerous?
 #[allow(clippy::unsafe_derive_deserialize)]
-#[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub(super) struct BlockL {
     bits_words: MyBitArrayL,
 }

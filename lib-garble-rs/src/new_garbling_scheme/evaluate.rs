@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use circuit_types_rs::WireRef;
 
-use crate::{new_garbling_scheme::wire::WireLabel, InterstellarEvaluatorError};
+use crate::{
+    new_garbling_scheme::wire::WireLabel, EncodedGarblerInputs, GarbledCircuit,
+    InterstellarEvaluatorError,
+};
 
 use super::{
     block::BlockL,
@@ -123,26 +126,63 @@ pub struct EvalCache {
     /// one per "output" (ie len() == circuit.outputs.len())
     /// This is used to avoid alloc in `decoding_internal` during eval
     outputs_bufs: Vec<BytesMut>,
-    // TODO Vec<Vec<>> probably
-    // wire_labels: Vec<Vec<WireLabel>>,
-    wire_labels: Vec<WireLabel>,
+    // For the main "gate loop": we read on one, and write on the other `Vec<WireLabel>`
+    // for a given layer; and for the next one it switches
+    wire_labels_tuple: (Vec<WireLabel>, Vec<WireLabel>),
+    // That is is the reference init with eg `encoded_garbler_inputs.encoded.x`
+    // it is cloned into `wire_labels_tuple` at the start of each layer processing
+    // It avoid a loop; and SHOULD(hopefully) be compiled into a simple memcopy
+    wire_labels_base: Vec<WireLabel>,
 }
 
 impl EvalCache {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(garbled: &GarbledCircuit, encoded_garbler_inputs: &EncodedGarblerInputs) -> Self {
+        // TODO TOREMOVE wire_labels.resize_with(circuit.get_gates().len(), Default::default);
+        // TODO move out! This is duplicating init code for each layer...
+        // same idea as `garble`:
+        // As we are looping on the gates in order, this will be built step by step
+        // ie the first gates are inputs, and this will already contain them.
+        // Then we built all the other gates in subsequent iterations of the loop.
+        let mut wire_labels_base: Vec<WireLabel> = vec![];
+
+        init_wire_labels_base(
+            &mut wire_labels_base,
+            &garbled.garbled.circuit,
+            &encoded_garbler_inputs.encoded,
+        );
+
         Self {
             output_labels: OutputLabels::new(),
             outputs_bufs: Vec::new(),
-            wire_labels: Vec::new(),
+            wire_labels_tuple: (
+                vec![WireLabel::default(); garbled.garbled.circuit.get_nb_wires()],
+                vec![WireLabel::default(); garbled.garbled.circuit.get_nb_wires()],
+            ),
+            wire_labels_base,
         }
     }
 }
 
-impl Default for EvalCache {
-    fn default() -> Self {
-        Self::new()
+/// Called twice AT MOST:
+/// - once from `EvalCache::new`; but `encoded_garbler_inputs` CAN be empty so it may do nothing
+/// - directly from `evaluate_internal` to "init if needed"
+fn init_wire_labels_base(
+    wire_labels_base: &mut Vec<WireLabel>,
+    circuit: &CircuitForEval,
+    encoded_info: &EncodedInfo,
+) {
+    wire_labels_base.resize_with(circuit.get_nb_wires(), Default::default);
+
+    if wire_labels_base[0..encoded_info.x.len()] == encoded_info.x {
+        return;
     }
+
+    for (idx, wire_label) in encoded_info.x.iter().enumerate() {
+        wire_labels_base[idx] = wire_label.clone();
+    }
+
+    assert_eq!(&wire_labels_base[0..encoded_info.x.len()], &encoded_info.x);
 }
 
 ///
@@ -160,8 +200,8 @@ fn evaluate_internal(
     f: &F,
     encoded_info: &EncodedInfo,
     output_labels: &mut OutputLabels,
-    wire_labels: &mut Vec<WireLabel>,
-    // wire_labels_for_layer: &mut Vec<Vec<WireLabel>>,
+    wire_labels_tuple: &mut (Vec<WireLabel>, Vec<WireLabel>),
+    wire_labels_base: &mut Vec<WireLabel>,
 ) -> Result<(), InterstellarEvaluatorError> {
     // CHECK: we SHOULD have one "user input" for each Circuit's input(ie == `circuit.n`)
     assert_eq!(
@@ -174,36 +214,43 @@ fn evaluate_internal(
         .y
         .resize_with(circuit.get_nb_outputs(), Default::default);
 
-    // TODO TOREMOVE wire_labels.resize_with(circuit.get_gates().len(), Default::default);
-    // TODO move out! This is duplicating init code for each layer...
-    // same idea as `garble`:
-    // As we are looping on the gates in order, this will be built step by step
-    // ie the first gates are inputs, and this will already contain them.
-    // Then we built all the other gates in subsequent iterations of the loop.
-    wire_labels.resize_with(circuit.get_nb_wires(), Default::default);
-    for (idx, wire_label) in encoded_info.x.iter().enumerate() {
-        wire_labels[idx] = wire_label.clone();
-    }
-
     // [constant gate special case]
     // we need a placeholder Wire for simplicity
+    // TODO move into EvalCache
     let constant_block0 = BlockL::new_with([0, 0]);
     let constant_block1 = BlockL::new_with([u64::MAX, u64::MAX]);
 
+    let mut ro_buf = BytesMut::new();
     let circuit_metadata = circuit.get_metadata();
+
+    // TODO TOREMOVE
+    // let mut wire_labels = &mut wire_labels_per_layer[0];
+    let nb_layers = circuit.get_gates().len();
 
     // "for each gate g ∈ [q] in a topological order do"
     for (layer_idx, gates) in circuit.get_gates().iter().enumerate() {
-        // let mut wire_labels = &mut wire_labels_for_layer[layer_idx];
-        // // TODO move out! This is duplicating init code for each layer...
-        // // same idea as `garble`:
-        // // As we are looping on the gates in order, this will be built step by step
-        // // ie the first gates are inputs, and this will already contain them.
-        // // Then we built all the other gates in subsequent iterations of the loop.
-        // wire_labels.resize_with(circuit.get_nb_wires(), Default::default);
-        // for (idx, wire_label) in encoded_info.x.iter().enumerate() {
-        //     wire_labels[idx] = wire_label.clone();
-        // }
+        // // : (&mut Vec<WireLabel>, &mut Vec<WireLabel>)
+        // let split_idx = (layer_idx + 1).min(nb_layers - 1);
+        // let splitted = wire_labels_per_layer.split_at_mut(split_idx);
+        // let (read_wire_labels, write_wire_labels) = (splitted.0.last().unwrap(), splitted.1);
+        // let mut write_wire_labels = &mut wire_labels_per_layer[(layer_idx + 1).max(nb_layers - 1)];
+        // let mut read_wire_labels = &wire_labels_per_layer[layer_idx];
+
+        // TODO move out! This is duplicating init code for each layer...
+        // same idea as `garble`:
+        // As we are looping on the gates in order, this will be built step by step
+        // ie the first gates are inputs, and this will already contain them.
+        // Then we built all the other gates in subsequent iterations of the loop.
+
+        // TODO WTF; cleanup? swap???
+        wire_labels_tuple.1 = wire_labels_tuple.0.clone();
+        wire_labels_tuple.0[0..encoded_info.x.len()].copy_from_slice(&encoded_info.x);
+        // wire_labels_tuple.1[0..encoded_info.x.len()].copy_from_slice(&encoded_info.x);
+
+        assert_eq!(
+            &wire_labels_tuple.0[0..encoded_info.x.len()],
+            &encoded_info.x
+        );
 
         // NOTE: b/c rayon (rightfully) prevents us to write `wire_labels` in parallel
         // - first we parallelize gate_layer -> and produce a temp Vec<BlockL>
@@ -215,7 +262,6 @@ fn evaluate_internal(
         //     |ro_buf, (gate_idx, gate)| {
         // END rayon
         // START single thread
-        let mut ro_buf = BytesMut::new();
         gates.iter().enumerate().try_for_each(|(gate_idx, gate)| {
             // END single thread
             let wire_ref = WireRef { id: gate.get_id() };
@@ -224,8 +270,8 @@ fn evaluate_internal(
                 // STANDARD CASE: cf `garble_internal`
                 GateTypeForEval::Binary { input_a, input_b } => {
                     // "LA, LB ← active labels associated with the input wires of gate g"
-                    let l_a = &wire_labels[input_a.id];
-                    let l_b = &wire_labels[input_b.id];
+                    let l_a = &wire_labels_tuple.0[input_a.id];
+                    let l_b = &wire_labels_tuple.0[input_b.id];
 
                     // "extract ∇g ← F [g]"
                     let delta_g_blockl = f.f[wire_ref.id]
@@ -248,7 +294,7 @@ fn evaluate_internal(
                 }
                 // SPECIAL CASE: cf `garble_internal`
                 GateTypeForEval::Unary { input_a } => {
-                    let l_a = &wire_labels[input_a.id];
+                    let l_a = &wire_labels_tuple.0[input_a.id];
                     l_a.get_block().clone()
                 }
                 // [constant gate special case]
@@ -262,10 +308,16 @@ fn evaluate_internal(
                 },
             };
 
-            wire_labels[wire_ref.id] = WireLabel::new(&l_g);
+            wire_labels_tuple.1[wire_ref.id] = WireLabel::new(&l_g);
+            // TODO? IMPORTANT: we MUST write into ALL the "next layers"
+            // for wire_labels in &mut *write_wire_labels {
+            //     wire_labels[wire_ref.id] = WireLabel::new(&l_g);
+            // }
 
             Ok::<(), InterstellarEvaluatorError>(())
         })?;
+
+        core::mem::swap(&mut wire_labels_tuple.0, &mut wire_labels_tuple.1);
 
         // TODO TOREMOVE assert_eq!(temp_gate_layer_labels.len(), gates.len());
 
@@ -315,12 +367,17 @@ fn evaluate_internal(
     //     let output_label_idx = circuit_metadata.convert_gate_id_to_outputs_index(wire_ref_id);
     //     output_labels.y[output_label_idx] = Some(wire_labels[wire_ref_id].get_block().clone());
     // } // OK
+    // TODO .last().unwrap()
+    // let last_wire_labels = wire_labels_per_layer.last().unwrap();
+    // core::mem::swap(&mut wire_labels_tuple.0, &mut wire_labels_tuple.1);
+    // IMPORTANT: the swap is at the end of the "main gate loop"; so read from `.0`!
+    let last_wire_labels = &wire_labels_tuple.0;
     output_labels
         .y
         .par_iter_mut()
         .enumerate()
         .for_each(|(output_label_idx, output_label)| {
-            *output_label = wire_labels
+            *output_label = last_wire_labels
                 [output_label_idx + circuit_metadata.get_outputs_start_index()]
             .get_block()
             .clone();
@@ -410,14 +467,22 @@ pub(crate) fn evaluate_full_chain(
     let mut output_labels = OutputLabels { y: Vec::new() };
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
     let mut ro_buf = BytesMut::new();
-    let mut wire_labels = Vec::new();
+    let mut eval_cache = EvalCache::new(
+        &GarbledCircuit {
+            garbled: garbled.clone(),
+        },
+        &EncodedGarblerInputs {
+            encoded: encoded_info.clone(),
+        },
+    );
 
     evaluate_internal(
         &garbled.circuit,
         &garbled.garbled_circuit.f,
         &encoded_info,
         &mut output_labels,
-        &mut wire_labels,
+        &mut eval_cache.wire_labels_tuple,
+        &mut eval_cache.wire_labels_base,
     )?;
 
     // TODO(opt) pass from param? (NOT that critical b/c only used for tests)
@@ -445,7 +510,8 @@ pub(crate) fn evaluate_with_encoded_info(
         &garbled.garbled_circuit.f,
         encoded_info,
         &mut eval_cache.output_labels,
-        &mut eval_cache.wire_labels,
+        &mut eval_cache.wire_labels_tuple,
+        &mut eval_cache.wire_labels_base,
     )?;
 
     // The correct size MUST be set!

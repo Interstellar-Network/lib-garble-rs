@@ -40,7 +40,7 @@ fn test_server_client_display_message_120x52_2digits_zeros() {
         let rand_0_1 = Uniform::from(0..=1);
 
         let mut outputs = vec![0u8; width * height];
-        let mut eval_cache = EvalCache::new();
+        let mut eval_cache = EvalCache::new(&garb, &encoded_garbler_inputs);
 
         // [client 2]
         let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();

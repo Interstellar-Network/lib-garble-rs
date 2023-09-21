@@ -20,12 +20,12 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let mut temp_outputs = vec![0u8; width * height];
-    let mut eval_cache = EvalCache::new();
-
     let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
+
+    let mut temp_outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new(&garb, &encoded_garbler_inputs);
 
     for _ in 0..NB_EVALS {
         eval_client(

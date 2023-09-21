@@ -33,15 +33,15 @@ fn main() {
 
     let mut merged_outputs = vec![0u8; width * height];
     let mut temp_outputs = vec![0u8; width * height];
-    let mut eval_cache = EvalCache::new();
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
     let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, &[0, 1, 2, 9, 8, 7, 6, 5, 4, 3], "")
             .unwrap();
-
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
+
+    let mut eval_cache = EvalCache::new(&garb, &encoded_garbler_inputs);
 
     for _ in 0..NB_EVALS {
         // randomize the "rnd" part of the inputs

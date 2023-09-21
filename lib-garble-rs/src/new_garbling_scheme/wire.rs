@@ -8,7 +8,7 @@ use super::block::{BlockL, BlockP};
 /// the `value` SHOULD match either a `Wire.value0` OR a `Wire.value1`
 ///
 // TODO do this ^^^^ -> `value` SHOULD be ref
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, Copy)]
 #[allow(clippy::module_name_repetitions)]
 pub struct WireLabel {
     label: BlockL,

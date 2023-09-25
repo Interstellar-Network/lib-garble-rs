@@ -19,12 +19,11 @@ use clap::Parser;
 use lib_garble_rs::garble_skcd;
 use lib_garble_rs::garble_skcd_with_seed;
 
-/// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// The tx message; will be written as "watermark"
-    #[clap(long, default_value = "test message")]
+    #[clap(long, default_value = "test message\n0123456789")]
     tx_msg_str: String,
 
     /// The digits; ie the OTP or pinpad

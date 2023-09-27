@@ -55,13 +55,13 @@ fn my_draw_text_mut(image: &mut GrayImage, text: &str) -> Result<(), FontTtfErr>
 
     // TODO(interstellar) adjust pos and size; ideally measure the final text then center it as best as we can
     // eg use "text_size" etc
-    let height = 40.4;
+    let font_size = 40.;
     let scale = Scale {
-        x: height * 2.0,
-        y: height,
+        x: font_size,
+        y: font_size,
     };
-    let text_pos_x = image.width() as i32 / 4;
-    let text_pos_y = image.height() as i32 / 2;
+    let text_pos_x = 0;
+    let text_pos_y = 0;
 
     my_draw_text_mut_with_newline(
         image,

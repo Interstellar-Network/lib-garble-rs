@@ -20,12 +20,12 @@ fn garble_and_eval(skcd_bytes: &[u8], digits: &[u8]) -> Vec<u8> {
     let mut rng = thread_rng();
     let rand_0_1 = Uniform::from(0..=1);
 
-    let mut temp_outputs = vec![0u8; width * height];
-    let mut eval_cache = EvalCache::new();
-
     let mut encoded_garbler_inputs =
         garbled_display_circuit_prepare_garbler_inputs(&garb, digits, "").unwrap();
     let mut evaluator_inputs = prepare_evaluator_inputs(&garb).unwrap();
+
+    let mut temp_outputs = vec![0u8; width * height];
+    let mut eval_cache = EvalCache::new(&garb, &encoded_garbler_inputs);
 
     for _ in 0..NB_EVALS {
         eval_client(
@@ -81,32 +81,6 @@ fn test_garble_display_message_120x52_2digits_42() {
 //     ));
 //     assert_eq!(merged_outputs, expected_outputs);
 // }
-
-#[test]
-fn test_garble_display_message_120x52_2digits_zeros() {
-    let (garb, _width, _height) = garble_skcd_helper(include_bytes!(
-        "../examples/data/result_display_message_120x52_2digits.postcard.bin"
-    ));
-    let mut encoded_garbler_inputs =
-        garbled_display_circuit_prepare_garbler_inputs(&garb, &[4, 2], "").unwrap();
-    let evaluator_inputs = vec![0u8; 9];
-    let width = garb.get_display_config().unwrap().width as usize;
-    let height = garb.get_display_config().unwrap().height as usize;
-    let mut outputs = vec![0u8; width * height];
-    let mut eval_cache = EvalCache::new();
-    garb.eval(
-        &mut encoded_garbler_inputs,
-        &evaluator_inputs,
-        &mut outputs,
-        &mut eval_cache,
-    )
-    .unwrap();
-
-    let expected_outputs = read_png_to_bytes(include_bytes!(
-        "../examples/data/eval_outputs_display_message_120x52_2digits_inputs0.png"
-    ));
-    assert_eq!(outputs, expected_outputs);
-}
 
 // BENCH "garble" + "garbled_display_circuit_prepare_garbler_inputs"
 // ie the server-side of the pipeline

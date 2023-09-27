@@ -3,17 +3,14 @@ resolver = "2"
 members = ["lib-garble-rs"]
 
 ################################################################################
-# [patch."https://github.com/Interstellar-Network/swanky.git"]
-# fancy-garbling = { path = "../swanky/fancy-garbling/" }
-
 # [patch."https://github.com/Interstellar-Network/rs-common.git"]
 # interstellar-http-client = { path = "../rs-common/http-client/" }
 # interstellar-ipfs-client = { path = "../rs-common/ipfs-client-http-req/" }
 # png-utils = { path = "../rs-common/png_utils" }
 # tests-utils = { path = "../pallets/tests_utils/" }
 
-# [patch."https://github.com/Interstellar-Network/lib_circuits.git"]
-# circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }
+[patch."https://github.com/Interstellar-Network/lib_circuits.git"]
+circuit-types-rs = { path = "../lib_circuits/circuit-types-rs/" }
 
 ################################################################################
 

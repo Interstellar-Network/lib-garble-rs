@@ -11,14 +11,29 @@ use alloc::vec::Vec;
 
 /// This is a "cloned" of `lib_circuit_types`'s `Circuit`, but keeping
 /// only the fields which are needed for EVALUATION.
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub(crate) struct CircuitForEval {
     inputs: Vec<WireRef>,
-    gates: Vec<GateForEval>,
+    gates: Vec<Vec<GateForEval>>,
     nb_wires: usize,
     nb_outputs: usize,
     display_config: Option<DisplayConfig>,
     metadata: Metadata,
+}
+
+impl core::fmt::Debug for CircuitForEval {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let gates_layers_len: Vec<usize> = self.gates.iter().map(|gates| gates.len()).collect();
+        f.debug_struct("CircuitForEval")
+            // NOTE: inputs,gates: we just display the length
+            .field("nb_inputs", &self.inputs.len())
+            .field("gates_layers_len", &gates_layers_len)
+            .field("nb_wires", &self.nb_wires)
+            .field("nb_outputs", &self.nb_outputs)
+            .field("display_config", &self.display_config)
+            .field("metadata", &self.metadata)
+            .finish()
+    }
 }
 
 /// Basically `impl Circuit`, but without `get_outputs` and `get_wires`
@@ -47,14 +62,14 @@ impl CircuitForEval {
         self.nb_outputs
     }
 
-    pub(crate) fn get_gates(&self) -> &Vec<GateForEval> {
+    pub(crate) fn get_gates(&self) -> &Vec<Vec<GateForEval>> {
         &self.gates
     }
 }
 
 /// Same principle as `CircuitBase` but for `Gate`
 /// Reminder: we DO NOT want to send the Gate's type to the client!
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub(crate) struct GateForEval {
     pub(crate) internal: GateTypeForEval,
     /// Gate's output is in practice a Gate's ID or idx
@@ -98,12 +113,19 @@ impl GateForEval {
 
 impl From<Circuit> for CircuitForEval {
     fn from(circuit: Circuit) -> Self {
+        // convert Vec<Vec<Gate>> -> Vec<Vec<GateForEval>>
+        let mut gates_copy = vec![];
+        for gate_layer in circuit.get_gates() {
+            let mut gate_layer_copy: Vec<GateForEval> = vec![];
+            for gate in gate_layer {
+                gate_layer_copy.push(gate.into());
+            }
+
+            gates_copy.push(gate_layer_copy);
+        }
+
         Self {
-            gates: circuit
-                .get_gates()
-                .iter()
-                .map(core::convert::Into::into)
-                .collect(),
+            gates: gates_copy,
             nb_wires: circuit.get_nb_wires(),
             inputs: circuit.get_inputs().to_vec(),
             nb_outputs: circuit.get_nb_outputs(),

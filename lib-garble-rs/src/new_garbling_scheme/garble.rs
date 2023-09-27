@@ -230,7 +230,7 @@ fn garble_internal(
     let outputs_set: HashSet<&WireRef> = circuit.get_outputs().iter().collect();
     let mut buf = BytesMut::new();
 
-    for gate in circuit.get_gates() {
+    for gate in circuit.get_gates().iter().flatten() {
         let (l0, l1): (BlockL, BlockL) = match gate.get_type() {
             // STANDARD CASE: Binary Gates or using Delta etc
             GateType::Binary {
@@ -314,13 +314,25 @@ pub(super) struct GarbledCircuitInternal {
 }
 
 /// This is the EVALUABLE `GarbledCircuit`; ie the result of the whole garbling pipeline.
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub(crate) struct GarbledCircuitFinal {
     pub(crate) circuit: CircuitForEval,
     pub(super) garbled_circuit: GarbledCircuitInternal,
     pub(super) d: DecodedInfo,
     pub(super) e: InputEncodingSet,
     pub(crate) eval_metadata: EvalMetadata,
+}
+
+impl core::fmt::Debug for GarbledCircuitFinal {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("GarbledCircuitFinal")
+            .field("circuit", &self.circuit)
+            // ignored: garbled_circuit
+            // ignored: d
+            // ignored: e
+            .field("eval_metadata", &self.eval_metadata)
+            .finish()
+    }
 }
 
 /// Similar to `CircuitMetadata` but only what is needed during evaluation(instead of during garbling)
